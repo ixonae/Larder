@@ -237,6 +237,28 @@ describe("CategoriesPage", () => {
     expect(requests[0]?.body).not.toHaveProperty("in_stock");
   });
 
+  it("uploads a picture after saving, and shows it as a thumbnail", async () => {
+    server.use(
+      http.put(`${url}/:id/image`, ({ params }) => {
+        requests.push({ method: "PUT", id: params.id as string });
+        store = store.map((c) => (c.id === params.id ? { ...c, image_id: c.id } : c));
+        return HttpResponse.json({ id: params.id });
+      }),
+    );
+    const { user } = await openPage();
+    await user.click(screen.getByRole("button", { name: "Edit Juice" }));
+    const sheet = screen.getByRole("dialog", { name: "Edit Juice" });
+    const file = new File(["png"], "lime.png", { type: "image/png" });
+    await user.upload(within(sheet).getByLabelText("Picture"), file);
+    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Category saved")).toBeInTheDocument();
+    const juice = byName("Juice");
+    expect(requests.at(-1)).toEqual({ method: "PUT", id: juice.id });
+    await waitFor(() =>
+      expect(tree().querySelector(`img[src="/api/images/${juice.id}/thumb"]`)).not.toBeNull(),
+    );
+  });
+
   it("edits a category, without offering itself or its children as parent", async () => {
     const { user } = await openPage();
     await user.click(screen.getByRole("button", { name: "Edit Spirit" }));

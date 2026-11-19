@@ -170,6 +170,23 @@ describe("UtensilSheet", () => {
     await waitFor(() => expect(rows("Glasses")).toContain("Highball350 ml"));
   });
 
+  it("removes a utensil's picture when saved", async () => {
+    byName("Rocks").image_id = byName("Rocks").id;
+    server.use(
+      http.delete(`${url}/:id/image`, () => {
+        requests.push({ method: "DELETE image" });
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await open();
+    await user.click(screen.getByRole("button", { name: "Edit Rocks" }));
+    const sheet = await screen.findByRole("dialog", { name: "Edit Rocks" });
+    await user.click(within(sheet).getByRole("button", { name: "Remove" }));
+    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Utensil saved")).toBeInTheDocument();
+    expect(requests.map((r) => r.method)).toEqual(["PATCH", "DELETE image"]);
+  });
+
   it("drops the capacity when a glass is turned into a tool", async () => {
     const { user } = await open();
     await user.click(screen.getByRole("button", { name: "Edit Coupe" }));

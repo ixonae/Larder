@@ -10,6 +10,7 @@ import {
 } from "@larder/shared";
 import { useMemo } from "react";
 import { useCategoryMutations } from "@/api/categories.ts";
+import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
 import { NativeSelect } from "@/components/native-select.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -79,6 +80,7 @@ function CategoryForm({
   onDone: () => void;
 }) {
   const { create, update } = useCategoryMutations(barId);
+  const picture = useImageField(barId, "categories");
   const all = useMemo(() => flattenTree(tree), [tree]);
   // A category cannot move under itself or one of its sub-categories.
   const parentOptions = useMemo(() => {
@@ -112,9 +114,10 @@ function CategoryForm({
     }
     const json = { ...values, ...(showInStock && { in_stock }) };
     try {
-      if (editing) await update.mutateAsync({ id: editing.id, json });
-      else await create.mutateAsync(json);
-      toast(editing ? "Category saved" : "Category created");
+      const saved = editing
+        ? await update.mutateAsync({ id: editing.id, json })
+        : await create.mutateAsync(json);
+      await picture.apply(saved.id, editing ? "Category saved" : "Category created");
       onDone();
     } catch (err) {
       if (applyServerErrors(form, err)) return;
@@ -179,6 +182,12 @@ function CategoryForm({
       <FormField form={form} name="description" label="Description">
         {(control) => <Textarea rows={3} {...control} {...form.register("description")} />}
       </FormField>
+
+      <ImageUpload
+        imageId={editing?.image_id ?? null}
+        value={picture.change}
+        onChange={picture.setChange}
+      />
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" className="size-4" {...form.register("always_available")} />

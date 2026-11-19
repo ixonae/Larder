@@ -10,6 +10,7 @@ import { useMemo } from "react";
 import { z } from "zod";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { useProductMutations } from "@/api/products.ts";
+import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
 import { NativeSelect } from "@/components/native-select.tsx";
 import { ErrorState, LoadingState } from "@/components/states.tsx";
 import { toast } from "@/components/toaster.tsx";
@@ -75,6 +76,7 @@ function ProductFormLoader(props: FormProps) {
 
 function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: CategoryTreeNode[] }) {
   const { create, update } = useProductMutations(barId);
+  const picture = useImageField(barId, "products");
   const categories = useMemo(() => flattenTree(tree), [tree]);
 
   const form = useZodForm(formSchema, {
@@ -94,9 +96,10 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
 
   const submit = form.handleSubmit(async (json) => {
     try {
-      if (editing) await update.mutateAsync({ id: editing.id, json });
-      else await create.mutateAsync(json);
-      toast(editing ? "Bottle saved" : "Bottle added");
+      const saved = editing
+        ? await update.mutateAsync({ id: editing.id, json })
+        : await create.mutateAsync(json);
+      await picture.apply(saved.id, editing ? "Bottle saved" : "Bottle added");
       onDone();
     } catch (err) {
       if (applyServerErrors(form, err)) return;
@@ -151,6 +154,12 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
       <FormField form={form} name="description" label="Description">
         {(control) => <Textarea rows={3} {...control} {...form.register("description")} />}
       </FormField>
+
+      <ImageUpload
+        imageId={editing?.image_id ?? null}
+        value={picture.change}
+        onChange={picture.setChange}
+      />
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" className="size-4" {...form.register("in_bar")} />

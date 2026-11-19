@@ -9,6 +9,7 @@ import { productListQuery } from "@/api/products.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { NativeSelect } from "@/components/native-select.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
+import { Thumbnail } from "@/components/thumbnail.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { CategoryOptions } from "@/features/categories/category-options.tsx";
@@ -125,6 +126,7 @@ function BottlesView({ bar }: { bar: BarSummary }) {
           <ul aria-label="Bottles" className="flex flex-col divide-y rounded-lg border">
             {items.map((product) => (
               <li key={product.id} className="flex items-center gap-3 p-3">
+                <Thumbnail imageId={product.image_id} />
                 <div className="min-w-0 flex-1">
                   <Link
                     to="/bottles/$productId"

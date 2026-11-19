@@ -1,4 +1,4 @@
-import { type BarSummary, hasRole, type Product } from "@larder/shared";
+import { type BarSummary, hasRole, imageUrl, type Product } from "@larder/shared";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
@@ -97,6 +97,14 @@ function BottleDetails({ bar, product }: { bar: BarSummary; product: Product }) 
           </>
         )}
       </div>
+
+      {product.image_id && (
+        <img
+          src={imageUrl(product.image_id)}
+          alt={product.name}
+          className="max-h-80 w-full rounded-lg object-cover sm:w-auto sm:self-start"
+        />
+      )}
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-lg border p-4 text-sm">
         {facts

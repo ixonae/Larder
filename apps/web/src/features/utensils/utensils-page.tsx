@@ -12,6 +12,7 @@ import { useUtensilMutations, utensilListQuery } from "@/api/utensils.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
+import { Thumbnail } from "@/components/thumbnail.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { UtensilSheet, type UtensilTarget } from "./utensil-sheet.tsx";
@@ -60,6 +61,7 @@ function UtensilsView({ bar }: { bar: BarSummary }) {
                 <ul aria-labelledby={heading} className="flex flex-col divide-y rounded-lg border">
                   {group.map((utensil) => (
                     <li key={utensil.id} className="flex items-center gap-2 p-3">
+                      <Thumbnail imageId={utensil.image_id} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{utensil.name}</p>
                         {(utensil.capacity_ml !== null || utensil.description) && (

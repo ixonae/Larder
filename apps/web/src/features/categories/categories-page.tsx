@@ -6,6 +6,7 @@ import { categoryTreeQuery, useCategoryMutations } from "@/api/categories.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
+import { Thumbnail } from "@/components/thumbnail.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { CategorySheet, type SheetTarget } from "./category-sheet.tsx";
@@ -152,6 +153,7 @@ function TreeRow({
         ) : (
           <span className="size-9 shrink-0" />
         )}
+        <Thumbnail imageId={node.image_id} className="size-7" />
         <span className="min-w-0 flex-1 truncate">{node.name}</span>
         <span className="hidden text-muted-foreground text-xs sm:inline">
           {CATEGORY_KIND_LABEL[node.kind]}

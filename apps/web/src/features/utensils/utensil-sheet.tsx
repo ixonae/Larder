@@ -5,6 +5,7 @@ import {
   type Utensil,
 } from "@larder/shared";
 import { useUtensilMutations } from "@/api/utensils.ts";
+import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
 import { NativeSelect } from "@/components/native-select.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -57,6 +58,7 @@ function UtensilForm({
   onDone: () => void;
 }) {
   const { create, update } = useUtensilMutations(barId);
+  const picture = useImageField(barId, "utensils");
   const form = useZodForm(createUtensilSchema, {
     defaultValues: {
       name: editing?.name ?? "",
@@ -71,9 +73,10 @@ function UtensilForm({
     // The capacity field is hidden for tools: whatever it held is not sent.
     const json = { ...values, capacity_ml: values.kind === "glass" ? values.capacity_ml : null };
     try {
-      if (editing) await update.mutateAsync({ id: editing.id, json });
-      else await create.mutateAsync(json);
-      toast(editing ? "Utensil saved" : "Utensil added");
+      const saved = editing
+        ? await update.mutateAsync({ id: editing.id, json })
+        : await create.mutateAsync(json);
+      await picture.apply(saved.id, editing ? "Utensil saved" : "Utensil added");
       onDone();
     } catch (err) {
       if (applyServerErrors(form, err)) return;
@@ -123,6 +126,12 @@ function UtensilForm({
       <FormField form={form} name="description" label="Description">
         {(control) => <Textarea rows={3} {...control} {...form.register("description")} />}
       </FormField>
+
+      <ImageUpload
+        imageId={editing?.image_id ?? null}
+        value={picture.change}
+        onChange={picture.setChange}
+      />
 
       <SheetFooter className="px-0">
         <Button type="submit" disabled={form.formState.isSubmitting}>
