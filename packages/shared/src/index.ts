@@ -3,6 +3,7 @@ export * from "./errors.ts";
 export * from "./id.ts";
 export * from "./images.ts";
 export * from "./pagination.ts";
+export * from "./pantry.ts";
 export * from "./products.ts";
 export * from "./tenancy.ts";
 export * from "./text.ts";

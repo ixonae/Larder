@@ -209,6 +209,14 @@ describe("POST /categories", () => {
     expect(count()).toBe(before);
   });
 
+  it("reports an unknown parent on the parent field", async () => {
+    const { send } = setup();
+    const res = await send("POST", "", { name: "X", parent_id: UNKNOWN });
+    expect((await errorOf(res)).details).toEqual([
+      { path: ["parent_id"], message: "Parent category not found" },
+    ]);
+  });
+
   it("refuses an invalid body", async () => {
     const { send } = setup();
     expect((await send("POST", "", { name: "" })).status).toBe(400);

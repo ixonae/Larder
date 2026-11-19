@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button.tsx";
 const TYPE_LABEL: Record<UsedBy["used_by"][number]["type"], string> = {
   category: "Category",
   product: "Bottle",
+  pantry_ingredient: "Ingredient",
   cocktail: "Cocktail",
   utensil: "Utensil",
 };

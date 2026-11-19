@@ -99,7 +99,12 @@ describe("POST /products", () => {
     const t = setup();
     const res = await t.send("POST", "", { name: "X", category_id: t.cat("Gin", t.bob.barId) });
     expect(res.status).toBe(400);
-    expect(await errorOf(res)).toMatchObject({ message: "Category not found" });
+    // Reported on the field, so the bottle form can show it under Category.
+    expect(await errorOf(res)).toEqual({
+      code: "VALIDATION",
+      message: "Category not found",
+      details: [{ path: ["category_id"], message: "Category not found" }],
+    });
   });
 
   it("refuses a viewer", async () => {

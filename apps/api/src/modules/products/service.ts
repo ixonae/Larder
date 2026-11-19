@@ -9,9 +9,10 @@ import {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, invalid, notFound, parseId } from "../../errors.ts";
+import { conflict, notFound, parseId } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
-import { findCategory, listAllCategories } from "../categories/repo.ts";
+import { listAllCategories } from "../categories/repo.ts";
+import { requireCategoryRef } from "../categories/service.ts";
 import { deleteWithImage } from "../images/service.ts";
 import * as repo from "./repo.ts";
 
@@ -37,12 +38,6 @@ function requireProduct(db: Executor, barId: string, id: string | undefined): Pr
   return product;
 }
 
-function requireCategory(db: Executor, barId: string, categoryId: string): void {
-  if (!findCategory(db, barId, categoryId)) {
-    throw invalid("Category not found", { category_id: categoryId });
-  }
-}
-
 /** The duplicate is reported on the `name` field, so forms can show it there. */
 const duplicateName = (name: string, vintage: number | null) => () => {
   const message =
@@ -58,7 +53,7 @@ export function getProduct(ctx: Ctx, id: string | undefined): Product {
 
 export function createProduct(ctx: Ctx, input: CreateProduct): Product {
   return ctx.db.transaction((tx) => {
-    requireCategory(tx, ctx.barId, input.category_id);
+    requireCategoryRef(tx, ctx.barId, input.category_id);
     // Fields left out take the column defaults (null, or false for in_bar).
     const id = onUniqueViolation(
       () => repo.insertProduct(tx, { ...input, bar_id: ctx.barId, created_by: ctx.userId }),
@@ -72,7 +67,7 @@ export function updateProduct(ctx: Ctx, id: string | undefined, patch: UpdatePro
   return ctx.db.transaction((tx) => {
     const existing = requireProduct(tx, ctx.barId, id);
     if (patch.category_id && patch.category_id !== existing.category_id) {
-      requireCategory(tx, ctx.barId, patch.category_id);
+      requireCategoryRef(tx, ctx.barId, patch.category_id);
     }
     const name = patch.name ?? existing.name;
     const vintage = patch.vintage === undefined ? existing.vintage : patch.vintage;

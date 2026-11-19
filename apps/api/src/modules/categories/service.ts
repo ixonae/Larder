@@ -7,14 +7,14 @@ import {
   type Page,
   subtreeIds,
   type UpdateCategory,
-  type UsedBy,
 } from "@larder/shared";
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, invalid, notFound, parseId } from "../../errors.ts";
+import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { deleteWithImage } from "../images/service.ts";
+import { listPantryIngredientsInCategory } from "../pantry/repo.ts";
 import { listProductsInCategory } from "../products/repo.ts";
 import * as repo from "./repo.ts";
 
@@ -41,9 +41,23 @@ function requireCategory(db: Executor, barId: string, id: string | undefined): C
   return category;
 }
 
+/**
+ * For items filed under a category (bottles, pantry ingredients): the category must exist in the bar.
+ * Reported on the `category_id` field, so forms can show it there.
+ */
+export function requireCategoryRef(db: Executor, barId: string, categoryId: string): void {
+  if (!repo.findCategory(db, barId, categoryId)) {
+    throw invalid("Category not found", [{ path: ["category_id"], message: "Category not found" }]);
+  }
+}
+
 function requireParent(db: Executor, barId: string, parentId: string): Category {
   const parent = repo.findCategory(db, barId, parentId);
-  if (!parent) throw invalid("Parent category not found", { parent_id: parentId });
+  if (!parent) {
+    throw invalid("Parent category not found", [
+      { path: ["parent_id"], message: "Parent category not found" },
+    ]);
+  }
   return parent;
 }
 
@@ -99,24 +113,29 @@ export function updateCategory(ctx: Ctx, id: string | undefined, patch: UpdateCa
 }
 
 /**
- * Deletes the category and its picture. Refused with `CONFLICT` while sub-categories or bottles use it
- * (cocktail lines in S17).
+ * Deletes the category and its picture. Refused with `CONFLICT` while sub-categories, bottles or
+ * pantry ingredients use it (cocktail lines in S17).
  */
 export async function deleteCategory(ctx: Ctx, id: string | undefined): Promise<void> {
   await deleteWithImage(ctx, (tx) => {
     const existing = requireCategory(tx, ctx.barId, id);
-    const children = repo.listChildren(tx, ctx.barId, existing.id);
-    const bottles = listProductsInCategory(tx, ctx.barId, existing.id);
-    if (children.length > 0 || bottles.length > 0) {
-      const details: UsedBy = {
-        used_by: [
-          ...children.map((c) => ({ type: "category" as const, id: c.id, name: c.name })),
-          ...bottles.map((p) => ({ type: "product" as const, id: p.id, name: p.name })),
-        ],
-      };
-      const what = [children.length > 0 && "sub-categories", bottles.length > 0 && "bottles"];
-      throw conflict(`"${existing.name}" still has ${what.filter(Boolean).join(" and ")}`, details);
-    }
+    refuseDeleteIfUsed(existing.name, [
+      {
+        type: "category",
+        label: "sub-categories",
+        rows: repo.listChildren(tx, ctx.barId, existing.id),
+      },
+      {
+        type: "product",
+        label: "bottles",
+        rows: listProductsInCategory(tx, ctx.barId, existing.id),
+      },
+      {
+        type: "pantry_ingredient",
+        label: "pantry ingredients",
+        rows: listPantryIngredientsInCategory(tx, ctx.barId, existing.id),
+      },
+    ]);
     repo.deleteCategory(tx, ctx.barId, existing.id);
     return existing.image_id;
   });

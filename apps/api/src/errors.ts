@@ -1,4 +1,4 @@
-import { type ErrorCode, idSchema } from "@larder/shared";
+import { type ErrorCode, idSchema, type UsageType, type UsedBy } from "@larder/shared";
 
 /** A domain error; the central error handler turns it into the shared JSON error shape. */
 export class AppError extends Error {
@@ -27,3 +27,26 @@ export function parseId(id: string | undefined, what: string): string {
 
 export const invalid = (message: string, details?: unknown) =>
   new AppError("VALIDATION", message, details);
+
+/** One kind of thing that can stop a delete: its `used_by` type, a plural label, and the rows. */
+export interface Usage {
+  type: UsageType;
+  label: string;
+  rows: { id: string; name: string }[];
+}
+
+/**
+ * Refuses deleting `name` with `CONFLICT` while anything in `usages` still uses it. The message names
+ * each kind ("still has sub-categories and bottles") and `details.used_by` lists every row.
+ */
+export function refuseDeleteIfUsed(name: string, usages: Usage[]): void {
+  const used = usages.filter((u) => u.rows.length > 0);
+  if (used.length === 0) return;
+  const labels = used.map((u) => u.label);
+  const list =
+    labels.length > 1 ? `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}` : labels[0];
+  const details: UsedBy = {
+    used_by: used.flatMap(({ type, rows }) => rows.map(({ id, name }) => ({ type, id, name }))),
+  };
+  throw conflict(`"${name}" still has ${list}`, details);
+}

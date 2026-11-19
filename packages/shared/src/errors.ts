@@ -34,7 +34,15 @@ export const errorBodySchema = z.object({
 });
 export type ErrorBody = z.infer<typeof errorBodySchema>;
 
-export const USAGE_TYPES = ["category", "product", "cocktail", "utensil"] as const;
+export const USAGE_TYPES = [
+  "category",
+  "product",
+  "pantry_ingredient",
+  "cocktail",
+  "utensil",
+] as const;
+
+export type UsageType = (typeof USAGE_TYPES)[number];
 
 /** `details` of a `CONFLICT` refusing a delete: what still uses the item. */
 export const usedBySchema = z.object({
