@@ -11,6 +11,7 @@ import { NotFoundPage, SectionPage } from "@/components/section-page.tsx";
 import { BottleDetailPage } from "@/features/bottles/bottle-detail-page.tsx";
 import { BottlesPage, bottlesSearchSchema } from "@/features/bottles/bottles-page.tsx";
 import { CategoriesPage } from "@/features/categories/categories-page.tsx";
+import { UtensilsPage } from "@/features/utensils/utensils-page.tsx";
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -51,7 +52,7 @@ export const routeTree = rootRoute.addChildren([
     component: BottleDetailPage,
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/categories", component: CategoriesPage }),
-  section("/utensils", "Utensils", "Your glasses and tools will show up here."),
+  createRoute({ getParentRoute: () => rootRoute, path: "/utensils", component: UtensilsPage }),
 ]);
 
 export function createAppRouter(context: RouterContext, history?: RouterHistory) {

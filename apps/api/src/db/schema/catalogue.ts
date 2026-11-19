@@ -1,4 +1,4 @@
-import { CATEGORY_KINDS, IN_STOCK_KINDS } from "@larder/shared";
+import { CATEGORY_KINDS, IN_STOCK_KINDS, UTENSIL_KINDS } from "@larder/shared";
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -104,5 +104,33 @@ export const products = sqliteTable(
       .where(sql`${t.vintage} IS NULL`),
     check("products_abv_check", sql`${t.abv} IS NULL OR ${t.abv} BETWEEN 0 AND 100`),
     check("products_age_years_check", sql`${t.age_years} IS NULL OR ${t.age_years} >= 0`),
+  ],
+);
+
+export const utensils = sqliteTable(
+  "utensils",
+  {
+    id: id(),
+    bar_id: text("bar_id")
+      .notNull()
+      .references(() => bars.id, { onDelete: "cascade" }),
+    name: nocaseText("name").notNull(),
+    kind: text("kind", { enum: UTENSIL_KINDS }).notNull(),
+    capacity_ml: real("capacity_ml"),
+    description: text("description"),
+    created_by: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    ...timestamps(),
+  },
+  (t) => [
+    // Target for cocktail glasses and tools (S16, S17); also serves every `bar_id` lookup.
+    uniqueIndex("utensils_bar_id_id_unique").on(t.bar_id, t.id),
+    uniqueIndex("utensils_name_unique").on(t.bar_id, sql`larder_name_key(${t.name})`),
+    check("utensils_kind_check", sql`${t.kind} IN (${sqlList(UTENSIL_KINDS)})`),
+    check(
+      "utensils_capacity_check",
+      sql`${t.capacity_ml} IS NULL OR (${t.kind} = 'glass' AND ${t.capacity_ml} > 0)`,
+    ),
   ],
 );

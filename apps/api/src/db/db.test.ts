@@ -3,7 +3,7 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { openDb } from "./client.ts";
 import { runMigrations } from "./migrate.ts";
-import { barMembers, bars, categories, products, users } from "./schema/index.ts";
+import { barMembers, bars, categories, products, users, utensils } from "./schema/index.ts";
 import { DEFAULT_BAR_NAME, DEFAULT_USER, seed, seedUser } from "./seed.ts";
 
 function freshDb() {
@@ -172,6 +172,18 @@ describe("products table", () => {
   });
 });
 
+describe("utensils table", () => {
+  it.each([
+    ["a capacity on a tool", { kind: "tool" as const, capacity_ml: 100 }],
+    ["a zero capacity", { kind: "glass" as const, capacity_ml: 0 }],
+  ])("refuses %s", (_, values) => {
+    const db = freshDb();
+    const { userId, barId } = seed(db);
+    const row = { bar_id: barId, created_by: userId, name: "X", ...values };
+    expect(() => db.insert(utensils).values(row).run()).toThrow(/CHECK/);
+  });
+});
+
 describe("schema", () => {
   it.each([
     [bars, [["owner_id", "users"]]],
@@ -196,6 +208,13 @@ describe("schema", () => {
         ["bar_id", "bars"],
         ["created_by", "users"],
         ["bar_id", "categories"],
+      ],
+    ],
+    [
+      utensils,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
       ],
     ],
   ] as const)("declares the foreign keys of %#", (table, expected) => {

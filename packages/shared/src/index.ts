@@ -8,3 +8,4 @@ export * from "./text.ts";
 export * from "./time.ts";
 export * from "./tree.ts";
 export * from "./units.ts";
+export * from "./utensils.ts";
