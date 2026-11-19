@@ -11,6 +11,7 @@ import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
 import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
+import { listToolUsage } from "../cocktails/recipe-repo.ts";
 import { listCocktailReferences } from "../cocktails/repo.ts";
 import { deleteWithImage } from "../images/service.ts";
 import * as repo from "./repo.ts";
@@ -101,7 +102,10 @@ function requireUnusedUtensil(db: Executor, barId: string, utensil: Utensil) {
     {
       type: "cocktail",
       label: "cocktails",
-      rows: listCocktailReferences(db, barId, "glass_id", utensil.id),
+      rows:
+        utensil.kind === "glass"
+          ? listCocktailReferences(db, barId, "glass_id", utensil.id)
+          : listToolUsage(db, barId, utensil.id),
     },
   ]);
 }

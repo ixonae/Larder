@@ -57,6 +57,13 @@
       "when": 1795127383878,
       "tag": "0007_cocktail_ingredients",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1795127561871,
+      "tag": "0008_cocktail_steps_tools_tags",
+      "breakpoints": true
     }
   ]
 }

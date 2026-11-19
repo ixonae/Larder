@@ -1,9 +1,12 @@
 import type {
   Cocktail,
   CocktailDetail,
+  CocktailRecipeLists,
   CreateCocktail,
   ListCocktailsQuery,
+  ListTagsQuery,
   Page,
+  Tag,
   UpdateCocktail,
 } from "@larder/shared";
 import type { Executor } from "../../db/client.ts";
@@ -14,12 +17,21 @@ import type { Ctx } from "../../types.ts";
 import { deleteWithImage } from "../images/service.ts";
 import { findUtensil } from "../utensils/repo.ts";
 import { getIngredients, replaceIngredients } from "./ingredients.ts";
+import * as recipeRepo from "./recipe-repo.ts";
 import * as repo from "./repo.ts";
 
 export function listCocktails(ctx: Ctx, query: ListCocktailsQuery): Page<Cocktail> {
   const after = query.cursor === undefined ? undefined : decodeCursor(query.cursor);
   return toPage(
     repo.listCocktails(ctx.db, ctx.barId, { ...query, limit: query.limit + 1 }, after),
+    query.limit,
+  );
+}
+
+export function listTags(ctx: Ctx, query: ListTagsQuery): Page<Tag> {
+  const after = query.cursor === undefined ? undefined : decodeCursor(query.cursor);
+  return toPage(
+    recipeRepo.listTags(ctx.db, ctx.barId, { ...query, limit: query.limit + 1 }, after),
     query.limit,
   );
 }
@@ -52,16 +64,44 @@ const duplicateName = (name: string) => () => {
 };
 
 function detail(db: Executor, barId: string, cocktail: Cocktail): CocktailDetail {
-  return { ...cocktail, ingredients: getIngredients(db, barId, cocktail.id) };
+  return {
+    ...cocktail,
+    ingredients: getIngredients(db, barId, cocktail.id),
+    steps: recipeRepo.listSteps(db, barId, cocktail.id),
+    tools: recipeRepo.listTools(db, barId, cocktail.id),
+    tags: recipeRepo.listCocktailTags(db, barId, cocktail.id),
+  };
 }
 
 export function getCocktail(ctx: Ctx, id: string | undefined): CocktailDetail {
   return ctx.db.transaction((tx) => detail(tx, ctx.barId, requireCocktail(tx, ctx.barId, id)));
 }
 
+function replaceRecipeLists(
+  db: Executor,
+  barId: string,
+  userId: string,
+  id: string,
+  { ingredients, steps, tool_ids, tags }: CocktailRecipeLists,
+) {
+  const owner = { bar_id: barId, created_by: userId, cocktail_id: id };
+  if (ingredients !== undefined) replaceIngredients(db, barId, userId, id, ingredients);
+  if (steps !== undefined) recipeRepo.replaceSteps(db, owner, steps);
+  if (tool_ids !== undefined) {
+    for (const [index, toolId] of tool_ids.entries()) {
+      if (findUtensil(db, barId, toolId)?.kind !== "tool") {
+        const message = "Choose a tool from this bar";
+        throw invalid(message, [{ path: ["tool_ids", index], message }]);
+      }
+    }
+    recipeRepo.replaceTools(db, owner, tool_ids);
+  }
+  if (tags !== undefined) recipeRepo.replaceTags(db, owner, tags);
+}
+
 export function createCocktail(
   { db, barId, userId }: Ctx,
-  { ingredients, ...input }: CreateCocktail,
+  { ingredients, steps, tool_ids, tags, ...input }: CreateCocktail,
 ): CocktailDetail {
   return db.transaction((tx) => {
     validateReferences(tx, barId, input);
@@ -69,7 +109,7 @@ export function createCocktail(
       () => repo.insertCocktail(tx, { ...input, bar_id: barId, created_by: userId }),
       duplicateName(input.name),
     );
-    if (ingredients !== undefined) replaceIngredients(tx, barId, userId, cocktail.id, ingredients);
+    replaceRecipeLists(tx, barId, userId, cocktail.id, { ingredients, steps, tool_ids, tags });
     return detail(tx, barId, cocktail);
   });
 }
@@ -77,7 +117,7 @@ export function createCocktail(
 export function updateCocktail(
   { db, barId, userId }: Ctx,
   id: string | undefined,
-  { ingredients, ...patch }: UpdateCocktail,
+  { ingredients, steps, tool_ids, tags, ...patch }: UpdateCocktail,
 ): CocktailDetail {
   return db.transaction((tx) => {
     const existing = requireCocktail(tx, barId, id);
@@ -86,7 +126,7 @@ export function updateCocktail(
       () => repo.updateCocktail(tx, barId, existing.id, patch),
       duplicateName(patch.name ?? existing.name),
     );
-    if (ingredients !== undefined) replaceIngredients(tx, barId, userId, cocktail.id, ingredients);
+    replaceRecipeLists(tx, barId, userId, cocktail.id, { ingredients, steps, tool_ids, tags });
     return detail(tx, barId, cocktail);
   });
 }

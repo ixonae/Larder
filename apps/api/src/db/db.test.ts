@@ -9,10 +9,14 @@ import {
   categories,
   cocktailIngredientAlternatives,
   cocktailIngredients,
+  cocktailSteps,
   cocktails,
+  cocktailTags,
+  cocktailUtensils,
   images,
   pantryIngredients,
   products,
+  tags,
   users,
   utensils,
 } from "./schema/index.ts";
@@ -227,6 +231,39 @@ describe("utensils table", () => {
 describe("schema", () => {
   it.each([
     [bars, [["owner_id", "users"]]],
+    [
+      tags,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+      ],
+    ],
+    [
+      cocktailSteps,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+        ["bar_id", "cocktails"],
+      ],
+    ],
+    [
+      cocktailTags,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+        ["bar_id", "cocktails"],
+        ["bar_id", "tags"],
+      ],
+    ],
+    [
+      cocktailUtensils,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+        ["bar_id", "cocktails"],
+        ["bar_id", "utensils"],
+      ],
+    ],
     [
       cocktailIngredients,
       [

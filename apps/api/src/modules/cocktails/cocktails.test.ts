@@ -126,10 +126,16 @@ test("deleting a referenced glass or base cocktail is refused and nothing is del
   expect(await (await app.request(`${path}/${base.id}`)).json()).toEqual({
     ...base,
     ingredients: [],
+    steps: [],
+    tools: [],
+    tags: [],
   });
   expect(await (await app.request(`${path}/${variant.id}`)).json()).toEqual({
     ...variant,
     ingredients: [],
+    steps: [],
+    tools: [],
+    tags: [],
   });
 });
 

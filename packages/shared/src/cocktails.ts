@@ -43,12 +43,39 @@ export const cocktailSchema = fields.extend({
 export type Cocktail = z.infer<typeof cocktailSchema>;
 export const cocktailPageSchema = pageSchema(cocktailSchema);
 
+const namedReferenceSchema = z.object({ id: idSchema, name: z.string() });
+const stepInputSchema = z.object({ text: z.string().trim().min(1).max(DESCRIPTION_MAX) });
+const stepSchema = stepInputSchema.extend({
+  id: idSchema,
+  position: z.number().int().nonnegative(),
+});
+
+export const tagSchema = namedReferenceSchema;
+export type Tag = z.infer<typeof tagSchema>;
+export const tagPageSchema = pageSchema(tagSchema);
+
+export const listTagsQuerySchema = paginationQuerySchema.extend({ q: nameSchema.optional() });
+export type ListTagsQuery = z.infer<typeof listTagsQuerySchema>;
+
 export const cocktailDetailSchema = cocktailSchema.extend({
   ingredients: cocktailIngredientSchema.array(),
+  steps: stepSchema.array(),
+  tools: namedReferenceSchema.array(),
+  tags: tagSchema.array(),
 });
 export type CocktailDetail = z.infer<typeof cocktailDetailSchema>;
 
-const recipeFields = fields.extend({ ingredients: cocktailIngredientInputSchema.array() });
+const recipeLists = z
+  .object({
+    ingredients: cocktailIngredientInputSchema.array(),
+    steps: stepInputSchema.array(),
+    tool_ids: idSchema.array(),
+    tags: nameSchema.array(),
+  })
+  .partial();
+export type CocktailRecipeLists = z.infer<typeof recipeLists>;
+
+const recipeFields = fields.extend(recipeLists.shape);
 export const createCocktailSchema = recipeFields.partial().required({ name: true, method: true });
 export type CreateCocktail = z.infer<typeof createCocktailSchema>;
 export const updateCocktailSchema = recipeFields

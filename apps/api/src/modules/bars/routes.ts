@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { barAccess } from "../../middleware/context.ts";
 import type { AppEnv } from "../../types.ts";
 import { categoryRoutes } from "../categories/routes.ts";
-import { cocktailRoutes } from "../cocktails/routes.ts";
+import { cocktailRoutes, tagRoutes } from "../cocktails/routes.ts";
 import { entityImageRoutes } from "../images/routes.ts";
 import { pantryRoutes } from "../pantry/routes.ts";
 import { productRoutes } from "../products/routes.ts";
@@ -21,4 +21,5 @@ export const barRoutes = new Hono<AppEnv>()
   .route("/utensils", utensilRoutes)
   .route("/utensils", entityImageRoutes("utensils"))
   .route("/cocktails", cocktailRoutes)
-  .route("/cocktails", entityImageRoutes("cocktails"));
+  .route("/cocktails", entityImageRoutes("cocktails"))
+  .route("/tags", tagRoutes);

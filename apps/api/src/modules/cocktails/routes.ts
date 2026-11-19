@@ -1,6 +1,7 @@
 import {
   createCocktailSchema,
   listCocktailsQuerySchema,
+  listTagsQuerySchema,
   updateCocktailSchema,
 } from "@larder/shared";
 import { Hono } from "hono";
@@ -12,6 +13,7 @@ import {
   deleteCocktail,
   getCocktail,
   listCocktails,
+  listTags,
   updateCocktail,
 } from "./service.ts";
 
@@ -31,3 +33,8 @@ export const cocktailRoutes = new Hono<AppEnv>()
     await deleteCocktail(c.var.ctx, c.req.param("id"));
     return c.body(null, 204);
   });
+
+/** `/api/bars/:barId/tags`. Tags are created through cocktail writes. */
+export const tagRoutes = new Hono<AppEnv>().get("/", validate("query", listTagsQuerySchema), (c) =>
+  c.json(listTags(c.var.ctx, c.req.valid("query"))),
+);
