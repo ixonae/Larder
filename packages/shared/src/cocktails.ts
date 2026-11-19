@@ -22,7 +22,8 @@ export type CocktailMethod = z.infer<typeof methodSchema>;
 
 const namedReferenceSchema = z.object({ id: idSchema, name: z.string() });
 const computedCocktailSchema = z.object({
-  volume_ml: z.number().nonnegative(),
+  /** Null when the measured volume exceeds the numeric range. */
+  volume_ml: z.number().nonnegative().nullable(),
   /** Estimated percent after dilution. */
   abv: z.number().min(0).max(100),
   spirits: namedReferenceSchema.array(),
@@ -97,7 +98,7 @@ export const listCocktailsQuerySchema = paginationQuerySchema.extend({
   q: nameSchema.optional(),
   method: methodSchema.optional(),
   glass_id: idSchema.optional(),
-  /** Spirit category ID, including its descendants. */
+  /** Category ID. Matches spirit ingredients in that category or its descendants. */
   spirit: idSchema.optional(),
   /** Tag ID from GET /tags. */
   tag: idSchema.optional(),

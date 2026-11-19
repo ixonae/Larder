@@ -1,4 +1,5 @@
 import { and, eq, exists, getTableColumns, inArray, or, sql } from "drizzle-orm";
+import type { SQLiteSelect } from "drizzle-orm/sqlite-core";
 import type { Executor } from "../../db/client.ts";
 import { byName } from "../../db/cursor.ts";
 import {
@@ -42,57 +43,61 @@ export function insertAlternative(db: Executor, input: NewAlternative) {
   db.insert(alternatives).values(input).run();
 }
 
-const sourceCategoryId = sql<string>`coalesce(${ingredients.category_id}, ${products.category_id}, ${pantryIngredients.category_id})`;
+type SourceTable = typeof ingredients | typeof alternatives;
 
-function preferredIngredients(db: Executor) {
-  return db
-    .select({
-      ...lineColumns,
-      cocktail_id: ingredients.cocktail_id,
-      source_category_id: sourceCategoryId,
-      name: sql<string>`coalesce(${categories.name}, ${products.name}, ${pantryIngredients.name})`,
-      product_abv: products.abv,
-    })
-    .from(ingredients)
+const sourceCategoryId = (source: SourceTable) =>
+  sql<string>`coalesce(${source.category_id}, ${products.category_id}, ${pantryIngredients.category_id})`;
+
+const sourceFields = (source: SourceTable) => ({
+  source_category_id: sourceCategoryId(source),
+  name: sql<string>`coalesce(${categories.name}, ${products.name}, ${pantryIngredients.name})`,
+  product_abv: products.abv,
+});
+
+function joinSources<T extends SQLiteSelect>(query: T, source: SourceTable) {
+  return query
     .leftJoin(
       categories,
-      and(eq(categories.bar_id, ingredients.bar_id), eq(categories.id, ingredients.category_id)),
+      and(eq(categories.bar_id, source.bar_id), eq(categories.id, source.category_id)),
     )
-    .leftJoin(
-      products,
-      and(eq(products.bar_id, ingredients.bar_id), eq(products.id, ingredients.product_id)),
-    )
+    .leftJoin(products, and(eq(products.bar_id, source.bar_id), eq(products.id, source.product_id)))
     .leftJoin(
       pantryIngredients,
       and(
-        eq(pantryIngredients.bar_id, ingredients.bar_id),
-        eq(pantryIngredients.id, ingredients.pantry_ingredient_id),
+        eq(pantryIngredients.bar_id, source.bar_id),
+        eq(pantryIngredients.id, source.pantry_ingredient_id),
       ),
     );
 }
 
 export function listIngredients(db: Executor, barId: string, cocktailIds: string[]) {
-  return preferredIngredients(db)
+  const rows = db
+    .select({ ...lineColumns, cocktail_id: ingredients.cocktail_id, ...sourceFields(ingredients) })
+    .from(ingredients)
+    .$dynamic();
+  return joinSources(rows, ingredients)
     .where(and(eq(ingredients.bar_id, barId), inArray(ingredients.cocktail_id, cocktailIds)))
     .orderBy(ingredients.position)
     .all();
 }
 
 export function usesSpiritCategories(db: Executor, barId: string, categoryIds: string[]) {
+  const lines = db.select({ id: ingredients.id }).from(ingredients).$dynamic();
   return exists(
-    preferredIngredients(db).where(
+    joinSources(lines, ingredients).where(
       and(
         eq(ingredients.bar_id, barId),
         eq(ingredients.cocktail_id, cocktails.id),
-        inArray(sourceCategoryId, categoryIds),
+        // One parameter keeps large subtrees within SQLite's bind limit.
+        sql`${sourceCategoryId(ingredients)} IN (SELECT value FROM json_each(${JSON.stringify(categoryIds)}))`,
       ),
     ),
   );
 }
 
 export function listAlternatives(db: Executor, barId: string, id: string) {
-  return db
-    .select(alternativeColumns)
+  const rows = db
+    .select({ ...alternativeColumns, ...sourceFields(alternatives) })
     .from(alternatives)
     .innerJoin(
       ingredients,
@@ -101,6 +106,8 @@ export function listAlternatives(db: Executor, barId: string, id: string) {
         eq(alternatives.ingredient_id, ingredients.id),
       ),
     )
+    .$dynamic();
+  return joinSources(rows, alternatives)
     .where(inCocktail(barId, id))
     .orderBy(alternatives.position)
     .all();

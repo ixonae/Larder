@@ -92,6 +92,58 @@ test("list and detail compute the preferred recipe, and scaling leaves saved ser
   }
 });
 
+test("returns a valid recipe when volume overflows and rejects an unrepresentable scaled quantity", async () => {
+  const { app, path, create, list, leaf } = await setup();
+  const recipe = await create("Large pour", {
+    ingredients: [{ category_id: leaf.id, amount: 1e308, unit: "oz" }],
+  });
+  expect(recipe.computed.volume_ml).toBeNull();
+  expect(recipe.computed.abv).toBeCloseTo(36);
+  const url = `${path}/${recipe.id}`;
+  expect(await (await app.request(url)).json()).toEqual(recipe);
+  expect((await list()).items[0]?.computed).toEqual(recipe.computed);
+  expect((await app.request(`${url}?servings=2`)).status).toBe(400);
+
+  const tiny = await create("Tiny pour", {
+    servings: 2,
+    ingredients: [{ category_id: leaf.id, amount: Number.MIN_VALUE, unit: "ml" }],
+  });
+  expect((await app.request(`${path}/${tiny.id}?servings=1`)).status).toBe(400);
+});
+
+test("scales small positive measures and retains at least one required count", async () => {
+  const { app, path, create, leaf } = await setup();
+  const recipe = await create("Big batch", {
+    servings: Number.MAX_SAFE_INTEGER,
+    ingredients: [
+      { category_id: leaf.id, amount: 30, unit: "ml" },
+      { category_id: leaf.id, amount: 1, unit: "wedge" },
+    ],
+  });
+  const response = await app.request(`${path}/${recipe.id}?servings=1`);
+  const scaled = cocktailDetailSchema.parse(await response.json());
+  expect(scaled.ingredients.map(({ amount }) => amount)).toEqual([
+    30 * (1 / Number.MAX_SAFE_INTEGER),
+    1,
+  ]);
+  expect(scaled.computed.volume_ml).toBeGreaterThan(0);
+});
+
+test("reports and filters by the direct spirit family in a mixed-kind category path", async () => {
+  const { post, create, list, spirit } = await setup();
+  const family = await readJson<Category>(
+    await post("categories", { name: "Mixed Agave", kind: "other", parent_id: spirit.id }),
+  );
+  const leaf = await readJson<Category>(
+    await post("categories", { name: "Mezcal", kind: "spirit", parent_id: family.id }),
+  );
+  const recipe = await create("Agave Neat", {
+    ingredients: [{ category_id: leaf.id, amount: 30, unit: "ml" }],
+  });
+  expect(recipe.computed.spirits).toEqual([{ id: family.id, name: family.name }]);
+  expect((await list(`spirit=${family.id}`)).items.map(({ id }) => id)).toEqual([recipe.id]);
+});
+
 test("combines descendant spirit and tag filters before paging and isolates other bars", async () => {
   const { app, db, bob, path, post, create, list, spirit, family, leaf, other, mixer, bottle } =
     await setup();

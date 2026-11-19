@@ -1,6 +1,6 @@
 import type { Category } from "./categories.ts";
 import type { CocktailMethod, ComputedCocktail } from "./cocktails.ts";
-import { scale, toMl, type Unit } from "./units.ts";
+import { scale, toMl, UNIT_INFO, type Unit } from "./units.ts";
 
 type Quantity = { amount: number | null; unit: Unit };
 type VolumeLine = Quantity & { optional: boolean };
@@ -15,13 +15,20 @@ const dilution: Record<CocktailMethod, number> = {
   other: 0,
 };
 
-function measuredVolume(line: VolumeLine, includeOptional: boolean): number {
-  return line.optional && !includeOptional ? 0 : (toMl(line.amount, line.unit) ?? 0);
+function includedAmount(line: VolumeLine, includeOptional: boolean): number {
+  return line.optional && !includeOptional ? 0 : (line.amount ?? 0);
 }
 
-/** Measured volume before dilution. */
-export function computeVolume(lines: readonly VolumeLine[], includeOptional = false): number {
-  return lines.reduce((total, line) => total + measuredVolume(line, includeOptional), 0);
+/** Measured volume before dilution, or null if the total overflows. */
+export function computeVolume(
+  lines: readonly VolumeLine[],
+  includeOptional = false,
+): number | null {
+  const total = lines.reduce(
+    (sum, line) => sum + (toMl(includedAmount(line, includeOptional), line.unit) ?? 0),
+    0,
+  );
+  return Number.isFinite(total) ? total : null;
 }
 
 /** ABV in percent. Each line carries its resolved ABV for the preferred source. */
@@ -30,22 +37,34 @@ export function computeAbv(
   method: CocktailMethod,
   includeOptional = false,
 ): number {
-  const volume = computeVolume(lines, includeOptional);
-  if (volume === 0) return 0;
-  const weighted = lines.reduce(
-    (total, line) => total + (measuredVolume(line, includeOptional) / volume) * line.abv,
+  // Normalize before converting to ml so very large or small quantities still yield an ABV.
+  const largest = lines.reduce(
+    (max, line) =>
+      UNIT_INFO[line.unit].type === "volume"
+        ? Math.max(max, includedAmount(line, includeOptional))
+        : max,
     0,
   );
-  return Math.min(100, weighted / (1 + dilution[method]));
+  if (largest === 0) return 0;
+
+  let volume = 0;
+  let weighted = 0;
+  for (const line of lines) {
+    const ml = toMl(includedAmount(line, includeOptional) / largest, line.unit) ?? 0;
+    volume += ml;
+    weighted += ml * line.abv;
+  }
+  return Math.min(100, weighted / volume / (1 + dilution[method]));
 }
 
 /** Distinct spirit families in preferred ingredient order. Paths run from root to leaf. */
 export function spiritsContained(lines: readonly SpiritLine[]): ComputedCocktail["spirits"] {
   const spirits = new Map<string, { id: string; name: string }>();
   for (const { category_path: path } of lines) {
-    const [root, family] = path.filter(({ kind }) => kind === "spirit");
-    if (!root || path.at(-1)?.kind !== "spirit") continue;
-    const { id, name } = family ?? root;
+    const leaf = path.at(-1);
+    if (leaf?.kind !== "spirit") continue;
+    const root = path.findIndex(({ kind }) => kind === "spirit");
+    const { id, name } = path[root + 1] ?? leaf;
     spirits.set(id, { id, name });
   }
   return [...spirits.values()];

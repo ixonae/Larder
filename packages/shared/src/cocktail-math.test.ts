@@ -43,11 +43,20 @@ test("returns zero ABV when there is no measured liquid", () => {
   expect(computeAbv([line(null, "top", 40), line(2, "leaf", 80)], "built")).toBe(0);
 });
 
+test("keeps ABV calculable when volume overflows or underflows", () => {
+  const large = [line(1e308, "oz", 40), line(1e308, "ml")];
+  expect(computeVolume(large)).toBeNull();
+  expect(computeVolume([line(1e308, "ml"), line(1e308, "ml")])).toBeNull();
+  expect(computeAbv(large, "other")).toBeCloseTo((40 * 29.5735) / 30.5735);
+  expect(computeAbv([line(Number.MIN_VALUE, "drop", 50)], "other")).toBe(50);
+});
+
 test("reports each preferred spirit family once, including a spirit used at its root", () => {
   const category = (name: string, kind: CategoryKind = "spirit") => ({ id: name, name, kind });
   const spirit = category("Spirit");
   const whisky = category("Whisky");
   const vodka = category("Vodka");
+  const agave = category("Agave", "other");
   expect(
     spiritsContained(
       [
@@ -56,10 +65,11 @@ test("reports each preferred spirit family once, including a spirit used at its 
         [category("Wine", "wine")],
         [spirit, category("Non-spirit", "other")],
         [spirit, vodka],
+        [spirit, agave, category("Mezcal")],
         [spirit],
       ].map((category_path) => ({ category_path })),
     ),
-  ).toEqual([whisky, vodka, spirit].map(({ id, name }) => ({ id, name })));
+  ).toEqual([whisky, vodka, agave, spirit].map(({ id, name }) => ({ id, name })));
 });
 
 test("scales the preferred quantity once, rounds counts up and leaves the input intact", () => {

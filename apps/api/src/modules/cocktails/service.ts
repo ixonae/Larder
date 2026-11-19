@@ -51,14 +51,13 @@ export function listCocktails({ db, barId }: Ctx, query: ListCocktailsQuery): Pa
   const after = query.cursor === undefined ? undefined : decodeCursor(query.cursor);
   return db.transaction((tx) => {
     const categories = listAllCategories(tx, barId);
-    const spirit = query.spirit;
-    const spirits = new Set(categories.filter(({ kind }) => kind === "spirit").map(({ id }) => id));
-    const spiritCategoryIds =
-      spirit === undefined
-        ? undefined
-        : spirits.has(spirit)
-          ? [...subtreeIds(categories, spirit)].filter((id) => spirits.has(id))
-          : [];
+    let spiritCategoryIds: string[] | undefined;
+    if (query.spirit !== undefined) {
+      const descendants = subtreeIds(categories, query.spirit);
+      spiritCategoryIds = categories
+        .filter(({ id, kind }) => kind === "spirit" && descendants.has(id))
+        .map(({ id }) => id);
+    }
     const page = toPage(
       repo.listCocktails(tx, barId, { ...query, limit: query.limit + 1 }, after, spiritCategoryIds),
       query.limit,
@@ -136,6 +135,13 @@ function detail(
   const lines = getPreferredIngredients(db, barId, [cocktail.id], resolve).get(cocktail.id) ?? [];
   const scaled =
     servings === cocktail.servings ? lines : scaleRecipe(lines, cocktail.servings, servings);
+  if (
+    scaled !== lines &&
+    scaled.some(({ amount }) => amount !== null && (!Number.isFinite(amount) || amount === 0))
+  ) {
+    const message = "Choose a serving count that keeps ingredient amounts in range";
+    throw invalid(message, [{ path: ["servings"], message }]);
+  }
   return {
     ...cocktail,
     servings,

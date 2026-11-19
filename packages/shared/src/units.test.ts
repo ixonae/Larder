@@ -87,14 +87,20 @@ describe("scale", () => {
     expect(scale(0.75, "oz", 3)).toBe(2.25);
   });
 
-  it("removes floating-point noise", () => {
-    expect(scale(0.1, "ml", 3)).toBe(0.3);
+  it("preserves small measured quantities", () => {
+    expect(scale(0.1, "ml", 3)).toBeCloseTo(0.3);
+    expect(scale(30, "ml", 1e-15)).toBeGreaterThan(0);
   });
 
   it("rounds count units up", () => {
     expect(scale(1, "wedge", 1.5)).toBe(2);
     expect(scale(3, "leaf", 0.5)).toBe(2);
     expect(scale(2, "slice", 1.1 / 1.1)).toBe(2);
+    expect(scale(0.28, "slice", 25)).toBe(7);
+    expect(scale(1, "slice", 1e-15)).toBe(1);
+    expect(scale(Number.MIN_VALUE, "slice", 0.1)).toBe(1);
+    expect(scale(0, "slice", 0.1)).toBe(0);
+    expect(scale(1, "slice", 0)).toBe(0);
   });
 
   it("keeps null amounts", () => {

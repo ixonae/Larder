@@ -1,10 +1,9 @@
 import {
-  ancestors,
+  ancestry,
   type Category,
   type CocktailIngredient,
   type CocktailIngredientInput,
   type IngredientSource,
-  ingredientSourceSchema,
 } from "@larder/shared";
 import type { Executor } from "../../db/client.ts";
 import { invalid } from "../../errors.ts";
@@ -14,10 +13,7 @@ import { findProduct } from "../products/repo.ts";
 import * as repo from "./ingredients-repo.ts";
 
 function findSource(db: Executor, barId: string, source: IngredientSource) {
-  if (source.category_id != null) {
-    const category = findCategory(db, barId, source.category_id);
-    return category && { name: category.name, category_id: category.id };
-  }
+  if (source.category_id != null) return findCategory(db, barId, source.category_id);
   if (source.product_id != null) return findProduct(db, barId, source.product_id);
   return findPantryIngredient(db, barId, source.pantry_ingredient_id);
 }
@@ -28,12 +24,10 @@ function requireSource(
   source: IngredientSource,
   path: (string | number)[],
 ) {
-  const entry = findSource(db, barId, source);
-  if (!entry) {
+  if (!findSource(db, barId, source)) {
     const message = "Choose an ingredient source from this bar";
     throw invalid(message, [{ path, message }]);
   }
-  return entry;
 }
 
 export function replaceIngredients(
@@ -61,27 +55,39 @@ export function replaceIngredients(
   }
 }
 
+type ResolvedCategory = {
+  category_path: Pick<Category, "id" | "name" | "kind">[];
+  abv: number;
+};
+
 export function ingredientResolver(categories: Category[]) {
-  const chains = new Map<string, Category[]>();
-  return (categoryId: string, productAbv: number | null) => {
-    let chain = chains.get(categoryId);
-    if (!chain) {
-      chain = [
-        ...categories.filter((category) => category.id === categoryId),
-        ...ancestors(categories, categoryId),
-      ];
-      chains.set(categoryId, chain);
-    }
-    return {
+  const byId = new Map(categories.map((category) => [category.id, category]));
+  const resolved = new Map<string, ResolvedCategory>();
+  return (categoryId: string) => {
+    const cached = resolved.get(categoryId);
+    if (cached) return cached;
+
+    const chain = ancestry(byId, categoryId);
+    const category = {
       category_path: chain.map(({ id, name, kind }) => ({ id, name, kind })).reverse(),
-      abv: productAbv ?? chain.find((item) => item.default_abv !== null)?.default_abv ?? 0,
+      abv: chain.find((item) => item.default_abv !== null)?.default_abv ?? 0,
     };
+    resolved.set(categoryId, category);
+    return category;
   };
 }
 
 type ResolveCategory = ReturnType<typeof ingredientResolver>;
 export type PreferredIngredient = Omit<CocktailIngredient, "category_path" | "alternatives"> &
-  ReturnType<ResolveCategory>;
+  ResolvedCategory;
+
+function resolveSource<T extends { source_category_id: string; product_abv: number | null }>(
+  { source_category_id, product_abv, ...row }: T,
+  resolve: ResolveCategory,
+) {
+  const { category_path, abv } = resolve(source_category_id);
+  return { ...row, category_path, abv: product_abv ?? abv };
+}
 
 export function getPreferredIngredients(
   db: Executor,
@@ -93,10 +99,7 @@ export function getPreferredIngredients(
   return new Map(
     [...Map.groupBy(rows, (row) => row.cocktail_id)].map(([id, lines]) => [
       id,
-      lines.map(({ cocktail_id: _cocktailId, source_category_id, product_abv, ...line }) => ({
-        ...line,
-        ...resolve(source_category_id, product_abv),
-      })),
+      lines.map(({ cocktail_id: _cocktailId, ...line }) => resolveSource(line, resolve)),
     ]),
   );
 }
@@ -119,12 +122,8 @@ export function addAlternatives(
     ...line,
     category_path: categoryPath(line.category_path),
     alternatives: (alternatives.get(line.id) ?? []).map(({ ingredient_id: _parent, ...alt }) => {
-      const source = requireSource(db, barId, ingredientSourceSchema.parse(alt), ["ingredients"]);
-      const { category_path, abv } = resolve(
-        source.category_id,
-        "abv" in source ? source.abv : null,
-      );
-      return { ...alt, name: source.name, category_path: categoryPath(category_path), abv };
+      const source = resolveSource(alt, resolve);
+      return { ...source, category_path: categoryPath(source.category_path) };
     }),
   }));
 }
