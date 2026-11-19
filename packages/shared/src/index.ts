@@ -1,5 +1,6 @@
 export * from "./categories.ts";
 export * from "./cocktail-ingredients.ts";
+export * from "./cocktail-math.ts";
 export * from "./cocktails.ts";
 export * from "./errors.ts";
 export * from "./id.ts";

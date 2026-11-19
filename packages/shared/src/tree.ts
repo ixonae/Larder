@@ -24,16 +24,20 @@ export function buildTree<T extends TreeItem>(items: readonly T[]): TreeNode<T>[
 
 /** The chain above `id`, nearest first (parent, grandparent… root). Stops at a missing parent or a cycle. */
 export function ancestors<T extends TreeItem>(items: readonly T[], id: string): T[] {
-  const byId = new Map(items.map((item) => [item.id, item]));
-  const seen = new Set([id]);
+  return ancestry(new Map(items.map((item) => [item.id, item])), id).slice(1);
+}
+
+/** The node and its ancestors, nearest first, from an index that can be reused across lookups. */
+export function ancestry<T extends TreeItem>(byId: ReadonlyMap<string, T>, id: string): T[] {
+  const seen = new Set<string>();
   const result: T[] = [];
-  let parentId = byId.get(id)?.parent_id ?? null;
-  while (parentId !== null && !seen.has(parentId)) {
-    const parent = byId.get(parentId);
-    if (!parent) break;
-    result.push(parent);
-    seen.add(parentId);
-    parentId = parent.parent_id;
+  let currentId: string | null = id;
+  while (currentId !== null && !seen.has(currentId)) {
+    const item = byId.get(currentId);
+    if (!item) break;
+    result.push(item);
+    seen.add(currentId);
+    currentId = item.parent_id;
   }
   return result;
 }

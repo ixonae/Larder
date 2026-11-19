@@ -1,4 +1,5 @@
 import {
+  cocktailDetailQuerySchema,
   createCocktailSchema,
   listCocktailsQuerySchema,
   listTagsQuerySchema,
@@ -22,7 +23,9 @@ export const cocktailRoutes = new Hono<AppEnv>()
   .get("/", validate("query", listCocktailsQuerySchema), (c) =>
     c.json(listCocktails(c.var.ctx, c.req.valid("query"))),
   )
-  .get("/:id", (c) => c.json(getCocktail(c.var.ctx, c.req.param("id"))))
+  .get("/:id", validate("query", cocktailDetailQuerySchema), (c) =>
+    c.json(getCocktail(c.var.ctx, c.req.param("id"), c.req.valid("query").servings)),
+  )
   .post("/", requireRole("editor"), validate("json", createCocktailSchema), (c) =>
     c.json(createCocktail(c.var.ctx, c.req.valid("json")), 201),
   )

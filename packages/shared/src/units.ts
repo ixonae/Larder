@@ -114,8 +114,13 @@ const clean = (n: number): number => Math.round(n * 1e9) / 1e9;
 /** Multiplies an amount by `factor`; count units are rounded up (you cannot use 1.5 wedges). */
 export function scale(amount: number | null, unit: Unit, factor: number): number | null {
   if (amount === null) return null;
-  const scaled = clean(amount * factor);
-  return UNIT_INFO[unit].type === "count" ? Math.ceil(scaled) : scaled;
+  const scaled = amount * factor;
+  if (UNIT_INFO[unit].type !== "count") return scaled;
+
+  const whole = Math.floor(scaled);
+  // Allow for multiplication noise just above a whole count without rounding small counts to zero.
+  if (whole >= 1 && scaled - whole <= scaled * Number.EPSILON) return whole;
+  return scaled === 0 && amount > 0 && factor > 0 ? 1 : Math.ceil(scaled);
 }
 
 const FRACTIONS = ["", "¼", "½", "¾"] as const;

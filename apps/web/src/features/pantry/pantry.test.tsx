@@ -336,9 +336,10 @@ describe("IngredientSheet", () => {
 
   it("waits for the categories, and offers a retry when they fail to load", async () => {
     let fail = true;
+    const { promise: loading, resolve: finishLoading } = Promise.withResolvers<void>();
     server.use(
       http.get(treeUrl, async () => {
-        await delay(20);
+        await loading;
         return fail
           ? HttpResponse.json({ error: { code: "INTERNAL", message: "No tree" } }, { status: 500 })
           : HttpResponse.json({ items: [{ ...pantry, children: [] }] });
@@ -347,7 +348,11 @@ describe("IngredientSheet", () => {
     const { user } = await open();
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
     const sheet = await screen.findByRole("dialog", { name: "New ingredient" });
-    expect(within(sheet).getByText("Loading categories…")).toBeInTheDocument();
+    try {
+      expect(within(sheet).getByText("Loading categories…")).toBeInTheDocument();
+    } finally {
+      finishLoading();
+    }
     expect(await within(sheet).findByText("No tree")).toBeInTheDocument();
     fail = false;
     await user.click(within(sheet).getByRole("button", { name: "Try again" }));

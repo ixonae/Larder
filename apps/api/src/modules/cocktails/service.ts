@@ -1,32 +1,81 @@
-import type {
-  Cocktail,
-  CocktailDetail,
-  CocktailRecipeLists,
-  CreateCocktail,
-  ListCocktailsQuery,
-  ListTagsQuery,
-  Page,
-  Tag,
-  UpdateCocktail,
-  UtensilKind,
+import {
+  type Cocktail,
+  type CocktailDetail,
+  type CocktailMethod,
+  type CocktailRecipeLists,
+  type ComputedCocktail,
+  type CreateCocktail,
+  computeAbv,
+  computeVolume,
+  type ListCocktailsQuery,
+  type ListTagsQuery,
+  type Page,
+  scaleRecipe,
+  spiritsContained,
+  subtreeIds,
+  type Tag,
+  type UpdateCocktail,
+  type UtensilKind,
 } from "@larder/shared";
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
 import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
+import { listAllCategories } from "../categories/repo.ts";
 import { deleteWithImage } from "../images/service.ts";
 import { findUtensil } from "../utensils/repo.ts";
-import { getIngredients, replaceIngredients } from "./ingredients.ts";
+import {
+  addAlternatives,
+  getPreferredIngredients,
+  ingredientResolver,
+  type PreferredIngredient,
+  replaceIngredients,
+} from "./ingredients.ts";
 import * as recipeRepo from "./recipe-repo.ts";
 import * as repo from "./repo.ts";
 
-export function listCocktails(ctx: Ctx, query: ListCocktailsQuery): Page<Cocktail> {
+function summarize(
+  lines: PreferredIngredient[],
+  method: CocktailMethod,
+  measuredLines = lines,
+): ComputedCocktail {
+  return {
+    volume_ml: computeVolume(measuredLines),
+    abv: computeAbv(lines, method),
+    spirits: spiritsContained(lines),
+  };
+}
+
+export function listCocktails({ db, barId }: Ctx, query: ListCocktailsQuery): Page<Cocktail> {
   const after = query.cursor === undefined ? undefined : decodeCursor(query.cursor);
-  return toPage(
-    repo.listCocktails(ctx.db, ctx.barId, { ...query, limit: query.limit + 1 }, after),
-    query.limit,
-  );
+  return db.transaction((tx) => {
+    const categories = listAllCategories(tx, barId);
+    let spiritCategoryIds: string[] | undefined;
+    if (query.spirit !== undefined) {
+      const descendants = subtreeIds(categories, query.spirit);
+      spiritCategoryIds = categories
+        .filter(({ id, kind }) => kind === "spirit" && descendants.has(id))
+        .map(({ id }) => id);
+    }
+    const page = toPage(
+      repo.listCocktails(tx, barId, { ...query, limit: query.limit + 1 }, after, spiritCategoryIds),
+      query.limit,
+    );
+    const preferred = getPreferredIngredients(
+      tx,
+      barId,
+      page.items.map(({ id }) => id),
+      ingredientResolver(categories),
+    );
+    return {
+      ...page,
+      items: page.items.map((cocktail) => ({
+        ...cocktail,
+        computed: summarize(preferred.get(cocktail.id) ?? [], cocktail.method),
+      })),
+    };
+  });
 }
 
 export function listTags(ctx: Ctx, query: ListTagsQuery): Page<Tag> {
@@ -37,7 +86,9 @@ export function listTags(ctx: Ctx, query: ListTagsQuery): Page<Tag> {
   );
 }
 
-function requireCocktail(db: Executor, barId: string, id: string | undefined): Cocktail {
+type CocktailRow = Omit<Cocktail, "computed">;
+
+function requireCocktail(db: Executor, barId: string, id: string | undefined): CocktailRow {
   const cocktail = repo.findCocktail(db, barId, parseId(id, "Cocktail"));
   if (!cocktail) throw notFound("Cocktail");
   return cocktail;
@@ -74,18 +125,42 @@ const duplicateName = (name: string) => () => {
   return conflict(message, [{ path: ["name"], message }]);
 };
 
-function detail(db: Executor, barId: string, cocktail: Cocktail): CocktailDetail {
+function detail(
+  db: Executor,
+  barId: string,
+  cocktail: CocktailRow,
+  servings = cocktail.servings,
+): CocktailDetail {
+  const resolve = ingredientResolver(listAllCategories(db, barId));
+  const lines = getPreferredIngredients(db, barId, [cocktail.id], resolve).get(cocktail.id) ?? [];
+  const scaled =
+    servings === cocktail.servings ? lines : scaleRecipe(lines, cocktail.servings, servings);
+  if (
+    scaled !== lines &&
+    scaled.some(({ amount }) => amount !== null && (!Number.isFinite(amount) || amount === 0))
+  ) {
+    const message = "Choose a serving count that keeps ingredient amounts in range";
+    throw invalid(message, [{ path: ["servings"], message }]);
+  }
   return {
     ...cocktail,
-    ingredients: getIngredients(db, barId, cocktail.id),
+    servings,
+    computed: summarize(lines, cocktail.method, scaled),
+    ingredients: addAlternatives(db, barId, cocktail.id, scaled, resolve),
     steps: recipeRepo.listSteps(db, barId, cocktail.id),
     tools: recipeRepo.listTools(db, barId, cocktail.id),
     tags: recipeRepo.listCocktailTags(db, barId, cocktail.id),
   };
 }
 
-export function getCocktail(ctx: Ctx, id: string | undefined): CocktailDetail {
-  return ctx.db.transaction((tx) => detail(tx, ctx.barId, requireCocktail(tx, ctx.barId, id)));
+export function getCocktail(
+  ctx: Ctx,
+  id: string | undefined,
+  servings: number | undefined,
+): CocktailDetail {
+  return ctx.db.transaction((tx) =>
+    detail(tx, ctx.barId, requireCocktail(tx, ctx.barId, id), servings),
+  );
 }
 
 function replaceRecipeLists(
