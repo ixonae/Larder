@@ -22,9 +22,10 @@ present, read it before starting a step; this file summarises the rules you must
 
 ## Conventions
 
-- TypeScript is strict ESM with `noUncheckedIndexedAccess`. Relative imports use the `.ts` extension
-  (Node runs the sources directly with type stripping; `tsc` rewrites them on build), and only
-  erasable syntax is allowed (no `enum`, no `namespace`, no parameter properties).
+- TypeScript is strict ESM with `noUncheckedIndexedAccess`. The API and `shared` have no build step:
+  Node 26 runs the `.ts` sources directly (type stripping), so relative imports use the `.ts`
+  extension and only erasable syntax is allowed (no `enum`, no `namespace`, no parameter properties).
+  `tsc` is only used for type checking.
 - Every request/response body is a Zod schema in `packages/shared`; the web app reuses them for forms
   and talks to the API through Hono's typed RPC client.
 - IDs are UUIDv7 strings generated in the app. Timestamps are ISO-8601 UTC text (`created_at`, `updated_at`).
