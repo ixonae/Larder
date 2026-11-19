@@ -9,6 +9,10 @@ describe("unwrap", () => {
     expect(await unwrap(response(200, { a: 1 }))).toEqual({ a: 1 });
   });
 
+  it("returns undefined for No Content", async () => {
+    expect(await unwrap(new Response(null, { status: 204 }))).toBeUndefined();
+  });
+
   it("throws an ApiError built from the error body", async () => {
     const err = await unwrap(
       response(409, { error: { code: "CONFLICT", message: "In use", details: ["Negroni"] } }),

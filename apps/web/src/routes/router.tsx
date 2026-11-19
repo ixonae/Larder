@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell.tsx";
 import { NotFoundPage, SectionPage } from "@/components/section-page.tsx";
+import { CategoriesPage } from "@/features/categories/categories-page.tsx";
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -37,7 +38,7 @@ export const routeTree = rootRoute.addChildren([
   indexRoute,
   section("/cocktails", "Cocktails", "Your recipes will show up here."),
   section("/bottles", "Bottles", "Your bottles will show up here."),
-  section("/categories", "Categories", "Ingredient categories will show up here."),
+  createRoute({ getParentRoute: () => rootRoute, path: "/categories", component: CategoriesPage }),
   section("/utensils", "Utensils", "Your glasses and tools will show up here."),
 ]);
 

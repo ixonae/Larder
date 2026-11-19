@@ -19,12 +19,16 @@ export class ApiError extends Error {
   }
 }
 
-/** Returns the JSON body of a successful response, or throws an `ApiError` built from the error body. */
+/**
+ * Returns the JSON body of a successful response (`undefined` for 204 No Content), or throws an
+ * `ApiError` built from the error body.
+ */
 export async function unwrap<T>(res: {
   ok: boolean;
   status: number;
   json(): Promise<T>;
 }): Promise<T> {
+  if (res.status === 204) return undefined as T;
   if (res.ok) return res.json();
   const body: unknown = await res.json().catch(() => null);
   const parsed = errorBodySchema.safeParse(body);
