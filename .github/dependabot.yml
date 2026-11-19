@@ -1,0 +1,35 @@
+version: 2
+updates:
+  # Workflows pin actions by commit SHA with the version in a trailing comment
+  # (`uses: owner/repo@<sha> # vX.Y.Z`). Dependabot bumps both the SHA and the comment.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Base image pinned as `node:<tag>@sha256:<digest>`: Dependabot updates the digest as well.
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+    ignore:
+      # Stay on the Node major in .nvmrc; majors are bumped by hand with it.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
+
+  # pnpm workspace: dependencies are pinned to exact versions and the lockfile is updated with them.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    versioning-strategy: increase
+    ignore:
+      # Node types follow the Node major in .nvmrc.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]

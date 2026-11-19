@@ -1,0 +1,19 @@
+# Larder. Settings come from the environment or a `.env` file next to this one (see README).
+services:
+  larder:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: larder:latest
+    restart: unless-stopped
+    # Run as the owner of the data directory so its files stay readable on the host.
+    user: "${LARDER_UID:-1000}:${LARDER_GID:-1000}"
+    ports:
+      # Localhost only by default. Expose it through an HTTPS reverse proxy, never plain HTTP.
+      - "${LARDER_BIND:-127.0.0.1}:${LARDER_PORT:-3000}:3000"
+    environment:
+      LARDER_PASSWORD_HASH: ${LARDER_PASSWORD_HASH:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-10}
+    volumes:
+      - ${LARDER_DATA_DIR:-./data}:/data

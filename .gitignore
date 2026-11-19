@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+/data/
+# `pnpm dev` runs the API from apps/api, so its default ./data lands there.
+apps/api/data/
+test-results/
+playwright-report/
+.DS_Store
+
+# Local planning notes, not committed
+docs/implementation-plan.md
