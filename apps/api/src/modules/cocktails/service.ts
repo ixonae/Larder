@@ -8,6 +8,7 @@ import type {
   Page,
   Tag,
   UpdateCocktail,
+  UtensilKind,
 } from "@larder/shared";
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
@@ -42,11 +43,21 @@ function requireCocktail(db: Executor, barId: string, id: string | undefined): C
   return cocktail;
 }
 
-function validateReferences(db: Executor, barId: string, input: UpdateCocktail, id?: string) {
-  if (input.glass_id && findUtensil(db, barId, input.glass_id)?.kind !== "glass") {
-    const message = "Choose a glass from this bar";
-    throw invalid(message, [{ path: ["glass_id"], message }]);
+function requireUtensilKind(
+  db: Executor,
+  barId: string,
+  id: string,
+  kind: UtensilKind,
+  path: (string | number)[],
+) {
+  if (findUtensil(db, barId, id)?.kind !== kind) {
+    const message = `Choose a ${kind} from this bar`;
+    throw invalid(message, [{ path, message }]);
   }
+}
+
+function validateReferences(db: Executor, barId: string, input: UpdateCocktail, id?: string) {
+  if (input.glass_id) requireUtensilKind(db, barId, input.glass_id, "glass", ["glass_id"]);
   let parentId = input.variant_of_id;
   while (parentId) {
     const parent = repo.findCocktail(db, barId, parentId);
@@ -89,10 +100,7 @@ function replaceRecipeLists(
   if (steps !== undefined) recipeRepo.replaceSteps(db, owner, steps);
   if (tool_ids !== undefined) {
     for (const [index, toolId] of tool_ids.entries()) {
-      if (findUtensil(db, barId, toolId)?.kind !== "tool") {
-        const message = "Choose a tool from this bar";
-        throw invalid(message, [{ path: ["tool_ids", index], message }]);
-      }
+      requireUtensilKind(db, barId, toolId, "tool", ["tool_ids", index]);
     }
     recipeRepo.replaceTools(db, owner, tool_ids);
   }

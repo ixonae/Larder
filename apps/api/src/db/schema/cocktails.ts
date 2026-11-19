@@ -10,23 +10,25 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { images, utensils } from "./catalogue.ts";
-import { id, nocaseText, timestamps } from "./columns.ts";
+import { id, nocaseText, sqlList, timestamps } from "./columns.ts";
 import { bars, users } from "./tenancy.ts";
 
-const sqlList = (values: readonly string[]) =>
-  sql.raw(values.map((value) => `'${value}'`).join(", "));
+/** The tenancy and audit columns every cocktail table carries. */
+export const auditColumns = () => ({
+  bar_id: text("bar_id")
+    .notNull()
+    .references(() => bars.id, { onDelete: "cascade" }),
+  created_by: text("created_by")
+    .notNull()
+    .references(() => users.id),
+  ...timestamps(),
+});
 
 export const cocktails = sqliteTable(
   "cocktails",
   {
     id: id(),
-    bar_id: text("bar_id")
-      .notNull()
-      .references(() => bars.id, { onDelete: "cascade" }),
-    created_by: text("created_by")
-      .notNull()
-      .references(() => users.id),
-    ...timestamps(),
+    ...auditColumns(),
     name: nocaseText("name").notNull(),
     description: text("description"),
     method: text("method", { enum: COCKTAIL_METHODS }).notNull(),

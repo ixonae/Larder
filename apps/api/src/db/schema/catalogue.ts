@@ -10,10 +10,8 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import { createdAt, id, nocaseText, timestamps } from "./columns.ts";
+import { createdAt, id, nocaseText, sqlList, timestamps } from "./columns.ts";
 import { bars, users } from "./tenancy.ts";
-
-const sqlList = (values: readonly string[]) => sql.raw(values.map((v) => `'${v}'`).join(", "));
 
 /** An uploaded picture, re-encoded to WebP, with its thumbnail. One per item: items hold `image_id`. */
 export const images = sqliteTable(

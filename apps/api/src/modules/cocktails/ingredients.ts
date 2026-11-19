@@ -15,7 +15,7 @@ import * as repo from "./ingredients-repo.ts";
 function findSource(db: Executor, barId: string, source: IngredientSource) {
   if (source.category_id != null) {
     const category = findCategory(db, barId, source.category_id);
-    return category && { name: category.name, category_id: category.id, abv: category.default_abv };
+    return category && { name: category.name, category_id: category.id };
   }
   if (source.product_id != null) return findProduct(db, barId, source.product_id);
   return findPantryIngredient(db, barId, source.pantry_ingredient_id);

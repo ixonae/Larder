@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "460c9e29-d496-46b8-ba6f-78861d3c7849",
+  "id": "efd90251-3c79-4047-85aa-f6a03bfde2da",
   "prevId": "c04d481e-4884-41dc-8c57-b2f5f3ebd4af",
   "tables": {
     "categories": {
@@ -785,6 +785,21 @@
           "name": "cocktail_ingredient_alternatives_position_unique",
           "columns": ["bar_id", "ingredient_id", "position"],
           "isUnique": true
+        },
+        "cocktail_ingredient_alternatives_bar_id_category_id_idx": {
+          "name": "cocktail_ingredient_alternatives_bar_id_category_id_idx",
+          "columns": ["bar_id", "category_id"],
+          "isUnique": false
+        },
+        "cocktail_ingredient_alternatives_bar_id_product_id_idx": {
+          "name": "cocktail_ingredient_alternatives_bar_id_product_id_idx",
+          "columns": ["bar_id", "product_id"],
+          "isUnique": false
+        },
+        "cocktail_ingredient_alternatives_bar_id_pantry_ingredient_id_idx": {
+          "name": "cocktail_ingredient_alternatives_bar_id_pantry_ingredient_id_idx",
+          "columns": ["bar_id", "pantry_ingredient_id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -965,6 +980,21 @@
           "name": "cocktail_ingredients_position_unique",
           "columns": ["bar_id", "cocktail_id", "position"],
           "isUnique": true
+        },
+        "cocktail_ingredients_bar_id_category_id_idx": {
+          "name": "cocktail_ingredients_bar_id_category_id_idx",
+          "columns": ["bar_id", "category_id"],
+          "isUnique": false
+        },
+        "cocktail_ingredients_bar_id_product_id_idx": {
+          "name": "cocktail_ingredients_bar_id_product_id_idx",
+          "columns": ["bar_id", "product_id"],
+          "isUnique": false
+        },
+        "cocktail_ingredients_bar_id_pantry_ingredient_id_idx": {
+          "name": "cocktail_ingredients_bar_id_pantry_ingredient_id_idx",
+          "columns": ["bar_id", "pantry_ingredient_id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -1190,6 +1220,11 @@
         "cocktail_tags_bar_id_cocktail_id_idx": {
           "name": "cocktail_tags_bar_id_cocktail_id_idx",
           "columns": ["bar_id", "cocktail_id"],
+          "isUnique": false
+        },
+        "cocktail_tags_bar_id_tag_id_idx": {
+          "name": "cocktail_tags_bar_id_tag_id_idx",
+          "columns": ["bar_id", "tag_id"],
           "isUnique": false
         }
       },

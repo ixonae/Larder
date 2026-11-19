@@ -10,6 +10,7 @@ import {
   tags,
   utensils,
 } from "../../db/schema/index.ts";
+import { nameKey } from "./repo.ts";
 
 const steps = cocktailSteps;
 const tools = cocktailUtensils;
@@ -104,7 +105,7 @@ export function listToolUsage(db: Executor, barId: string, toolId: string) {
       and(eq(cocktails.bar_id, tools.bar_id), eq(cocktails.id, tools.cocktail_id)),
     )
     .where(and(eq(tools.bar_id, barId), eq(tools.utensil_id, toolId)))
-    .orderBy(...byName(sql`larder_name_key(${cocktails.name})`, cocktails.id))
+    .orderBy(...byName(nameKey, cocktails.id))
     .all();
 }
 

@@ -9,19 +9,8 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { utensils } from "./catalogue.ts";
-import { cocktails } from "./cocktails.ts";
-import { id, nocaseText, timestamps } from "./columns.ts";
-import { bars, users } from "./tenancy.ts";
-
-const auditColumns = () => ({
-  bar_id: text("bar_id")
-    .notNull()
-    .references(() => bars.id, { onDelete: "cascade" }),
-  created_by: text("created_by")
-    .notNull()
-    .references(() => users.id),
-  ...timestamps(),
-});
+import { auditColumns, cocktails } from "./cocktails.ts";
+import { id, nocaseText } from "./columns.ts";
 
 export const cocktailSteps = sqliteTable(
   "cocktail_steps",
@@ -89,6 +78,7 @@ export const cocktailTags = sqliteTable(
   (t) => [
     primaryKey({ columns: [t.cocktail_id, t.tag_id] }),
     index("cocktail_tags_bar_id_cocktail_id_idx").on(t.bar_id, t.cocktail_id),
+    index("cocktail_tags_bar_id_tag_id_idx").on(t.bar_id, t.tag_id),
     foreignKey({
       name: "cocktail_tags_cocktail_fk",
       columns: [t.bar_id, t.cocktail_id],

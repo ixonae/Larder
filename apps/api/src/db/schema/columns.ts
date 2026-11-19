@@ -1,4 +1,5 @@
 import { newId, nowIso } from "@larder/shared";
+import { sql } from "drizzle-orm";
 import { customType, text } from "drizzle-orm/sqlite-core";
 
 /** UUIDv7 primary key generated in the app. */
@@ -24,3 +25,7 @@ export const timestamps = () => ({
 export const nocaseText = customType<{ data: string }>({
   dataType: () => "text COLLATE NOCASE",
 });
+
+/** Constant values as a SQL list for CHECK constraints: `'a', 'b'`. */
+export const sqlList = (values: readonly string[]) =>
+  sql.raw(values.map((value) => `'${value}'`).join(", "));

@@ -28,6 +28,7 @@ CREATE TABLE `cocktail_tags` (
 );
 --> statement-breakpoint
 CREATE INDEX `cocktail_tags_bar_id_cocktail_id_idx` ON `cocktail_tags` (`bar_id`,`cocktail_id`);--> statement-breakpoint
+CREATE INDEX `cocktail_tags_bar_id_tag_id_idx` ON `cocktail_tags` (`bar_id`,`tag_id`);--> statement-breakpoint
 CREATE TABLE `cocktail_utensils` (
 	`bar_id` text NOT NULL,
 	`created_by` text NOT NULL,
@@ -56,4 +57,10 @@ CREATE TABLE `tags` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `tags_bar_id_id_unique` ON `tags` (`bar_id`,`id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `tags_name_unique` ON `tags` (`bar_id`,larder_name_key("name"));
+CREATE UNIQUE INDEX `tags_name_unique` ON `tags` (`bar_id`,larder_name_key("name"));--> statement-breakpoint
+CREATE INDEX `cocktail_ingredient_alternatives_bar_id_category_id_idx` ON `cocktail_ingredient_alternatives` (`bar_id`,`category_id`);--> statement-breakpoint
+CREATE INDEX `cocktail_ingredient_alternatives_bar_id_product_id_idx` ON `cocktail_ingredient_alternatives` (`bar_id`,`product_id`);--> statement-breakpoint
+CREATE INDEX `cocktail_ingredient_alternatives_bar_id_pantry_ingredient_id_idx` ON `cocktail_ingredient_alternatives` (`bar_id`,`pantry_ingredient_id`);--> statement-breakpoint
+CREATE INDEX `cocktail_ingredients_bar_id_category_id_idx` ON `cocktail_ingredients` (`bar_id`,`category_id`);--> statement-breakpoint
+CREATE INDEX `cocktail_ingredients_bar_id_product_id_idx` ON `cocktail_ingredients` (`bar_id`,`product_id`);--> statement-breakpoint
+CREATE INDEX `cocktail_ingredients_bar_id_pantry_ingredient_id_idx` ON `cocktail_ingredients` (`bar_id`,`pantry_ingredient_id`);

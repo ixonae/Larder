@@ -1,4 +1,4 @@
-import { and, eq, exists, getTableColumns, or, sql } from "drizzle-orm";
+import { and, eq, exists, getTableColumns, or } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { byName } from "../../db/cursor.ts";
 import {
@@ -6,6 +6,7 @@ import {
   cocktails,
   cocktailIngredients as ingredients,
 } from "../../db/schema/index.ts";
+import { nameKey } from "./repo.ts";
 
 const {
   bar_id: _lineBar,
@@ -94,6 +95,6 @@ export function listIngredientUsage(
     .select({ id: cocktails.id, name: cocktails.name })
     .from(cocktails)
     .where(and(eq(cocktails.bar_id, barId), exists(lines)))
-    .orderBy(...byName(sql`larder_name_key(${cocktails.name})`, cocktails.id))
+    .orderBy(...byName(nameKey, cocktails.id))
     .all();
 }

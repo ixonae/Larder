@@ -1,9 +1,10 @@
-import { UNITS } from "@larder/shared";
+import { UNITS, unitNeedsAmount } from "@larder/shared";
 import { sql } from "drizzle-orm";
 import {
   type AnySQLiteColumn,
   check,
   foreignKey,
+  index,
   integer,
   real,
   sqliteTable,
@@ -11,19 +12,15 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { categories, pantryIngredients, products } from "./catalogue.ts";
-import { cocktails } from "./cocktails.ts";
-import { id, timestamps } from "./columns.ts";
-import { bars, users } from "./tenancy.ts";
+import { auditColumns, cocktails } from "./cocktails.ts";
+import { id, sqlList } from "./columns.ts";
+
+/** Units a line may leave without an amount, kept in sync with the shared schema. */
+const NO_AMOUNT_UNITS = UNITS.filter((unit) => !unitNeedsAmount(unit));
 
 const orderedSource = () => ({
   id: id(),
-  bar_id: text("bar_id")
-    .notNull()
-    .references(() => bars.id, { onDelete: "cascade" }),
-  created_by: text("created_by")
-    .notNull()
-    .references(() => users.id),
-  ...timestamps(),
+  ...auditColumns(),
   position: integer("position").notNull(),
   category_id: text("category_id"),
   product_id: text("product_id"),
@@ -38,6 +35,9 @@ type SourceColumns = Record<
 
 function sourceConstraints(table: string, t: SourceColumns) {
   return [
+    index(`${table}_bar_id_category_id_idx`).on(t.bar_id, t.category_id),
+    index(`${table}_bar_id_product_id_idx`).on(t.bar_id, t.product_id),
+    index(`${table}_bar_id_pantry_ingredient_id_idx`).on(t.bar_id, t.pantry_ingredient_id),
     foreignKey({
       name: `${table}_category_fk`,
       columns: [t.bar_id, t.category_id],
@@ -78,13 +78,10 @@ export const cocktailIngredients = sqliteTable(
       foreignColumns: [cocktails.bar_id, cocktails.id],
     }).onDelete("cascade"),
     ...sourceConstraints("cocktail_ingredients", t),
-    check(
-      "cocktail_ingredients_unit_check",
-      sql`${t.unit} IN (${sql.raw(UNITS.map((unit) => `'${unit}'`).join(", "))})`,
-    ),
+    check("cocktail_ingredients_unit_check", sql`${t.unit} IN (${sqlList(UNITS)})`),
     check(
       "cocktail_ingredients_amount_check",
-      sql`(${t.amount} IS NULL AND ${t.unit} IN ('top', 'to_taste')) OR (${t.amount} IS NOT NULL AND ${t.amount} > 0)`,
+      sql`(${t.amount} IS NULL AND ${t.unit} IN (${sqlList(NO_AMOUNT_UNITS)})) OR (${t.amount} IS NOT NULL AND ${t.amount} > 0)`,
     ),
   ],
 );

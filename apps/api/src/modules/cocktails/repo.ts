@@ -5,7 +5,8 @@ import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { cocktails } from "../../db/schema/index.ts";
 
 const { bar_id: _barId, created_by: _createdBy, ...columns } = getTableColumns(cocktails);
-const nameKey = sql<string>`larder_name_key(${cocktails.name})`;
+/** The cocktail sort key, shared by every list of cocktails. */
+export const nameKey = sql<string>`larder_name_key(${cocktails.name})`;
 export type NewCocktail = typeof cocktails.$inferInsert;
 
 const inBar = (barId: string, id: string) => and(eq(cocktails.bar_id, barId), eq(cocktails.id, id));
