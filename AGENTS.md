@@ -31,7 +31,10 @@ present, read it before starting a step; this file summarises the rules you must
 - IDs are UUIDv7 strings generated in the app. Timestamps are ISO-8601 UTC text (`created_at`, `updated_at`).
 - Multi-tenant from day one: every domain table has `bar_id` (indexed FK) and `created_by`; every repo
   query filters by `bar_id`; routes live under `/api/bars/:barId/...`.
-- User-facing names use `COLLATE NOCASE` (duplicates are case-insensitive).
+- Store user-facing names as entered with `COLLATE NOCASE`. Use the deterministic SQLite function
+  `larder_name_key(name)` for name ordering and scoped uniqueness indexes. It applies Unicode NFC
+  and locale-independent lowercase, preserving accents. For categories, use the key in both the
+  root and sibling partial unique indexes.
 - Errors use one shape: `{ error: { code, message, details? } }` with codes `VALIDATION`, `NOT_FOUND`,
   `CONFLICT`, `UNAUTHORIZED`, `FORBIDDEN`, `PAYLOAD_TOO_LARGE`, `INTERNAL`.
 - Deletes that would orphan data are refused with `CONFLICT`, listing what uses the item. No soft delete.

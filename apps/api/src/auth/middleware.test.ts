@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { createTestApp } from "../test/app.ts";
+import { MAX_CONCURRENT_CHECKS, MAX_WAITING_CHECKS } from "./middleware.ts";
 import { hashPassword } from "./password.ts";
 
 const PASSWORD = "correct horse battery";
@@ -44,6 +45,19 @@ describe("access control", () => {
       app.request("/api/me", { headers: basic("me", "wrong") }),
     );
     expect((await Promise.all(burst)).map((r) => r.status)).toEqual([401, 401, 401, 401, 401]);
+  });
+
+  it("returns a retryable error when the password queue fills and accepts logins after it drains", async () => {
+    const { app } = createTestApp({ passwordHash });
+    const requests = Array.from({ length: MAX_CONCURRENT_CHECKS + MAX_WAITING_CHECKS }, () =>
+      app.request("/api/me", { headers: basic("me", "wrong") }),
+    );
+    const busy = await app.request("/api/me", { headers: basic("me", PASSWORD) });
+    expect(busy.status).toBe(503);
+    expect(busy.headers.get("Retry-After")).toBe("1");
+    expect(await busy.json()).toMatchObject({ error: { code: "INTERNAL" } });
+    for (const response of await Promise.all(requests)) expect(response.status).toBe(401);
+    expect((await app.request("/api/me", { headers: basic("me", PASSWORD) })).status).toBe(200);
   });
 
   it("keeps /api/health open", async () => {

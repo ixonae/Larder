@@ -2,6 +2,7 @@ import { ERROR_STATUS, type ErrorCode, errorBody } from "@larder/shared";
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { ZodError } from "zod";
+import { QueueFullError } from "../auth/limit.ts";
 import { AppError } from "../errors.ts";
 import type { AppEnv } from "../types.ts";
 
@@ -20,6 +21,12 @@ function respond(c: Context<AppEnv>, code: ErrorCode, message: string, details?:
 
 /** Central error handler: every failure leaves the API as `{ error: { code, message, details? } }`. */
 export function handleError(err: Error, c: Context<AppEnv>) {
+  if (err instanceof QueueFullError) {
+    return c.json(errorBody("INTERNAL", err.message), 503, {
+      "Retry-After": "1",
+      "Cache-Control": "no-store",
+    });
+  }
   if (err instanceof AppError) return respond(c, err.code, err.message, err.details);
   if (err instanceof ZodError) return respond(c, "VALIDATION", "Invalid request", err.issues);
   if (err instanceof HTTPException) {

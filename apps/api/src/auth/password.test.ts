@@ -20,6 +20,9 @@ describe("password hashing", () => {
   });
 
   it.each([
+    ["an unsupported cost", `scrypt:1048576:8:1:${SALT}:${KEY}`],
+    ["noncanonical salt", `scrypt:32768:8:1:${SALT.slice(0, -1)}x:${KEY}`],
+    ["noncanonical key", `scrypt:32768:8:1:${SALT}:${KEY.slice(0, -1)}d`],
     ["a malformed hash", "not-a-hash"],
     ["a cost that is not a power of two", `scrypt:32767:8:1:${SALT}:${KEY}`],
     ["a zero r", `scrypt:32768:0:1:${SALT}:${KEY}`],
@@ -28,12 +31,6 @@ describe("password hashing", () => {
     ["a too short salt", `scrypt:32768:8:1:c2FsdA:${KEY}`],
   ])("never matches %s", async (_, hash) => {
     expect(isPasswordHash(hash)).toBe(false);
-    expect(await verifyPassword("anything", hash)).toBe(false);
-  });
-
-  it("never matches when scrypt refuses the cost (above the memory limit)", async () => {
-    const hash = `scrypt:1048576:8:1:${SALT}:${KEY}`;
-    expect(isPasswordHash(hash)).toBe(true);
     expect(await verifyPassword("anything", hash)).toBe(false);
   });
 });

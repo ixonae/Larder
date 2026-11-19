@@ -5,7 +5,7 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("concurrencyLimit", () => {
   it("never runs more than `max` tasks at once and runs the rest in order", async () => {
-    const limit = concurrencyLimit(2);
+    const limit = concurrencyLimit(2, 2);
     let running = 0;
     let peak = 0;
     const order: number[] = [];
@@ -32,7 +32,7 @@ describe("concurrencyLimit", () => {
   });
 
   it("frees the slot when a task fails", async () => {
-    const limit = concurrencyLimit(1);
+    const limit = concurrencyLimit(1, 0);
     await expect(limit(() => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
     expect(await limit(async () => "ok")).toBe("ok");
   });

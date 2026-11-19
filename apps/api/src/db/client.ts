@@ -7,6 +7,10 @@ export type Db = ReturnType<typeof openDb>;
 /** Opens the SQLite database (`:memory:` in tests) with the pragmas Larder relies on. */
 export function openDb(path: string) {
   const sqlite = new Database(path);
+  // Use the same accent-preserving key for list ordering and catalogue uniqueness indexes.
+  sqlite.function("larder_name_key", { deterministic: true }, (name: string) =>
+    name.normalize("NFC").toLowerCase().normalize("NFC"),
+  );
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
   sqlite.pragma("busy_timeout = 5000");

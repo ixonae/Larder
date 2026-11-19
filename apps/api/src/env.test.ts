@@ -45,6 +45,12 @@ describe("loadEnv", () => {
     );
   });
 
+  it("rejects unsupported scrypt costs at startup", () => {
+    expect(() => loadEnv({ LARDER_PASSWORD_HASH: HASH.replace("32768", "1048576") })).toThrow(
+      /LARDER_PASSWORD_HASH/,
+    );
+  });
+
   it("lists every invalid variable", () => {
     expect(() => loadEnv({ PORT: "abc", LOG_LEVEL: "loud" })).toThrow(/PORT[\s\S]*LOG_LEVEL/);
   });

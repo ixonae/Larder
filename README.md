@@ -42,9 +42,16 @@ Without Node on the host, run the same script from the image:
 docker compose run --rm --no-deps larder node apps/api/src/scripts/hash-password.ts
 ```
 
-Put the result in `.env` as `LARDER_PASSWORD_HASH=scrypt:...` and restart. Every page and API call
-then asks for the password with HTTP Basic auth (any username); only `/api/health` stays open.
-Larder logs a warning at startup when it listens beyond localhost without a password.
+Put the result in `.env` as `LARDER_PASSWORD_HASH=scrypt:...`. Recreate the container to apply the
+new environment, then check that a request without credentials returns HTTP `401`:
+
+```bash
+docker compose up -d --force-recreate --wait larder
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3000/api/me
+```
+
+Use the configured host port if you changed `LARDER_PORT`. Open Larder in your browser and sign in
+with any username and the password. The health check at `/api/health` stays public.
 
 ## Development
 

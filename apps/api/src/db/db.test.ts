@@ -47,6 +47,24 @@ describe("runMigrations", () => {
 });
 
 describe("collation", () => {
+  it("compares accented names in root and sibling uniqueness indexes", () => {
+    const db = freshDb();
+    const sqlite = db.$client;
+    sqlite.exec(`
+      CREATE TEMP TABLE names (bar TEXT NOT NULL, parent TEXT, name TEXT NOT NULL);
+      CREATE UNIQUE INDEX root_names ON names(bar, larder_name_key(name)) WHERE parent IS NULL;
+      CREATE UNIQUE INDEX child_names ON names(bar, parent, larder_name_key(name)) WHERE parent IS NOT NULL;
+    `);
+    const insert = sqlite.prepare("INSERT INTO names VALUES (?, ?, ?)");
+    for (const parent of [null, "liqueurs"]) {
+      insert.run("a", parent, "Crème");
+      expect(() => insert.run("a", parent, "CRÈME".normalize("NFD"))).toThrow(/UNIQUE/);
+      insert.run("a", parent, "Creme");
+      insert.run("b", parent, "CRÈME");
+    }
+    insert.run("a", "syrups", "Crème");
+  });
+
   it("treats emails that differ only in case as duplicates", () => {
     const db = freshDb();
     seed(db);

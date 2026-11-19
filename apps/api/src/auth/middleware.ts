@@ -11,6 +11,7 @@ const OPEN_PATHS = new Set(["/api/health"]);
  * password. Running at most this many at once keeps a burst of bad requests from exhausting the host.
  */
 export const MAX_CONCURRENT_CHECKS = 2;
+export const MAX_WAITING_CHECKS = 4;
 const sha256 = (s: string) => createHash("sha256").update(s).digest();
 
 /**
@@ -20,7 +21,7 @@ const sha256 = (s: string) => createHash("sha256").update(s).digest();
  */
 export function passwordAuth(passwordHash: string) {
   let accepted: Buffer | undefined;
-  const limit = concurrencyLimit(MAX_CONCURRENT_CHECKS);
+  const limit = concurrencyLimit(MAX_CONCURRENT_CHECKS, MAX_WAITING_CHECKS);
   const auth = basicAuth({
     realm: "Larder",
     verifyUser: async (_username, password) => {

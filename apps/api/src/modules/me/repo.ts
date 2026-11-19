@@ -1,5 +1,5 @@
 import type { BarSummary, User } from "@larder/shared";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import type { Db } from "../../db/client.ts";
 import { barMembers, bars, users } from "../../db/schema/index.ts";
 
@@ -17,6 +17,6 @@ export function listBarsForUser(db: Db, userId: string): BarSummary[] {
     .from(barMembers)
     .innerJoin(bars, eq(bars.id, barMembers.bar_id))
     .where(eq(barMembers.user_id, userId))
-    .orderBy(asc(bars.name), asc(bars.id))
+    .orderBy(asc(sql`larder_name_key(${bars.name})`), asc(bars.id))
     .all();
 }
