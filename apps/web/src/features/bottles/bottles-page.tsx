@@ -2,7 +2,7 @@ import { type BarSummary, flattenTree, hasRole, idSchema, PRODUCT_NAME_MAX } fro
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { Plus, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { productListQuery } from "@/api/products.ts";
@@ -13,6 +13,7 @@ import { Thumbnail } from "@/components/thumbnail.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { CategoryOptions } from "@/features/categories/category-options.tsx";
+import { useDebouncedSearch } from "@/lib/debounced-search.ts";
 import { InBarToggle } from "./in-bar-toggle.tsx";
 import { ProductSheet, type ProductTarget } from "./product-sheet.tsx";
 
@@ -25,7 +26,6 @@ export const bottlesSearchSchema = z.object({
 export type BottlesSearch = z.infer<typeof bottlesSearchSchema>;
 
 const route = getRouteApi("/bottles");
-const SEARCH_DELAY_MS = 250;
 
 export function BottlesPage() {
   return <BarGate title="Bottles">{(bar) => <BottlesView key={bar.id} bar={bar} />}</BarGate>;
@@ -38,18 +38,9 @@ function BottlesView({ bar }: { bar: BarSummary }) {
   const setSearch = (patch: Partial<BottlesSearch>) =>
     navigate({ search: { ...search, ...patch }, replace: true });
   const [target, setTarget] = useState<ProductTarget>(null);
-  // The box updates as you type; the URL, and so the request, follows once typing pauses.
-  const [q, setQ] = useState(search.q ?? "");
-  useEffect(() => {
-    if (q === (search.q ?? "")) return;
-    const timer = setTimeout(
-      () => navigate({ search: { ...search, q: q || undefined }, replace: true }),
-      SEARCH_DELAY_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [q, search, navigate]);
-  // A search changed elsewhere (the nav link, Back) replaces what is in the box.
-  useEffect(() => setQ(search.q ?? ""), [search.q]);
+  const [q, setQ] = useDebouncedSearch(search.q ?? "", (value) =>
+    setSearch({ q: value || undefined }),
+  );
 
   const tree = useQuery(categoryTreeQuery(bar.id));
   const list = useInfiniteQuery(

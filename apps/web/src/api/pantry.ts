@@ -17,13 +17,22 @@ const bar = api.api.bars[":barId"];
 
 export const pantryKey = (barId: string) => ["bars", barId, "pantry"] as const;
 
-/** Every pantry ingredient of the bar, sorted by name, in pages as large as the API allows. */
-export const pantryListQuery = (barId: string) =>
+/** Pantry ingredients sorted by name. The Pantry screen uses larger pages than the recipe picker. */
+export const pantryListQuery = (
+  barId: string,
+  filters?: { q?: string | undefined; limit?: number },
+) =>
   infiniteQueryOptions({
-    queryKey: [...pantryKey(barId), "list"],
-    queryFn: async ({ pageParam }) => {
-      const query = { limit: String(MAX_PAGE_LIMIT), ...(pageParam && { cursor: pageParam }) };
-      return unwrap(await bar["pantry-ingredients"].$get({ param: { barId }, query }));
+    queryKey: [...pantryKey(barId), "list", filters],
+    queryFn: async ({ pageParam, signal }) => {
+      const query = {
+        limit: String(filters?.limit ?? MAX_PAGE_LIMIT),
+        cursor: pageParam || undefined,
+        q: filters?.q,
+      };
+      return unwrap(
+        await bar["pantry-ingredients"].$get({ param: { barId }, query }, { init: { signal } }),
+      );
     },
     initialPageParam: "",
     getNextPageParam: (last) => last.next_cursor ?? undefined,

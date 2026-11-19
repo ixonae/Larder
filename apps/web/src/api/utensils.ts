@@ -1,8 +1,25 @@
-import { type CreateUtensil, MAX_PAGE_LIMIT, type UpdateUtensil } from "@larder/shared";
-import { infiniteQueryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  type CreateUtensil,
+  MAX_PAGE_LIMIT,
+  type UpdateUtensil,
+  type UtensilKind,
+} from "@larder/shared";
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { api, unwrap } from "./client.ts";
+import { collectPages } from "./pagination.ts";
 
 const bar = api.api.bars[":barId"];
+
+const fetchUtensilPage = (
+  barId: string,
+  query: { limit: string; cursor?: string | undefined; kind?: UtensilKind | undefined },
+  signal: AbortSignal,
+) => bar.utensils.$get({ param: { barId }, query }, { init: { signal } }).then(unwrap);
 
 export const utensilsKey = (barId: string) => ["bars", barId, "utensils"] as const;
 
@@ -10,12 +27,27 @@ export const utensilsKey = (barId: string) => ["bars", barId, "utensils"] as con
 export const utensilListQuery = (barId: string) =>
   infiniteQueryOptions({
     queryKey: [...utensilsKey(barId), "list"],
-    queryFn: async ({ pageParam }) => {
-      const query = { limit: String(MAX_PAGE_LIMIT), ...(pageParam && { cursor: pageParam }) };
-      return unwrap(await bar.utensils.$get({ param: { barId }, query }));
-    },
+    queryFn: ({ pageParam, signal }) =>
+      fetchUtensilPage(
+        barId,
+        { limit: String(MAX_PAGE_LIMIT), cursor: pageParam || undefined },
+        signal,
+      ),
     initialPageParam: "",
     getNextPageParam: (last) => last.next_cursor ?? undefined,
+  });
+
+export const utensilOptionsQuery = (barId: string, kind?: UtensilKind) =>
+  queryOptions({
+    queryKey: [...utensilsKey(barId), "options", kind],
+    queryFn: ({ signal }) =>
+      collectPages((query) => fetchUtensilPage(barId, { ...query, kind }, signal)),
+  });
+
+export const utensilQuery = (barId: string, id: string) =>
+  queryOptions({
+    queryKey: [...utensilsKey(barId), "detail", id],
+    queryFn: async () => unwrap(await bar.utensils[":id"].$get({ param: { barId, id } })),
   });
 
 /** Create, update and delete; each refreshes the bar's utensil queries. */

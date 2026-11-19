@@ -56,7 +56,8 @@ export function AppShell() {
         </header>
 
         <main className="flex-1 px-4 py-6 pb-24 md:pb-6">
-          {me.isError ? <ErrorState error={me.error} onRetry={() => me.refetch()} /> : <Outlet />}
+          {me.isError && <ErrorState error={me.error} onRetry={() => me.refetch()} />}
+          {!me.isLoadingError && <Outlet />}
         </main>
       </div>
 

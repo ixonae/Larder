@@ -18,20 +18,22 @@ export interface ProductFilters {
   q?: string | undefined;
   category_id?: string | undefined;
   in_bar?: boolean | undefined;
+  limit?: number | undefined;
 }
 
 /** The bar's bottles matching `filters`, sorted by name, one page at a time ("Load more"). */
 export const productListQuery = (barId: string, filters: ProductFilters) =>
   infiniteQueryOptions({
     queryKey: [...productsKey(barId), "list", filters],
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, signal }) => {
       const query = {
+        limit: filters.limit?.toString(),
         ...(filters.q && { q: filters.q }),
         ...(filters.category_id && { category_id: filters.category_id }),
         ...(filters.in_bar !== undefined && { in_bar: String(filters.in_bar) }),
         ...(pageParam && { cursor: pageParam }),
       };
-      return unwrap(await bar.products.$get({ param: { barId }, query }));
+      return unwrap(await bar.products.$get({ param: { barId }, query }, { init: { signal } }));
     },
     initialPageParam: "",
     getNextPageParam: (last) => last.next_cursor ?? undefined,

@@ -1,3 +1,4 @@
+import { listCocktailsQuerySchema } from "@larder/shared";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
@@ -6,11 +7,15 @@ import {
   type RouterHistory,
   redirect,
 } from "@tanstack/react-router";
+import { z } from "zod";
 import { AppShell } from "@/components/app-shell.tsx";
-import { NotFoundPage, SectionPage } from "@/components/section-page.tsx";
+import { NotFoundPage } from "@/components/section-page.tsx";
 import { BottleDetailPage } from "@/features/bottles/bottle-detail-page.tsx";
 import { BottlesPage, bottlesSearchSchema } from "@/features/bottles/bottles-page.tsx";
 import { CategoriesPage } from "@/features/categories/categories-page.tsx";
+import { CocktailDetailPage } from "@/features/cocktails/cocktail-detail-page.tsx";
+import { EditCocktailPage, NewCocktailPage } from "@/features/cocktails/cocktail-editor-page.tsx";
+import { CocktailsPage } from "@/features/cocktails/cocktails-page.tsx";
 import { PantryPage } from "@/features/pantry/pantry-page.tsx";
 import { UtensilsPage } from "@/features/utensils/utensils-page.tsx";
 
@@ -31,16 +36,41 @@ const indexRoute = createRoute({
   },
 });
 
-const section = <P extends string>(path: P, title: string, description: string) =>
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path,
-    component: () => <SectionPage title={title} description={description} />,
-  });
+const filters = listCocktailsQuerySchema.shape;
+const cocktailsSearchSchema = z.object({
+  q: z.string().max(100).optional().catch(undefined),
+  spirit: filters.spirit.catch(undefined),
+  glass_id: filters.glass_id.catch(undefined),
+  method: filters.method.catch(undefined),
+  tag: filters.tag.catch(undefined),
+});
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
-  section("/cocktails", "Cocktails", "Your recipes will show up here."),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/cocktails",
+    validateSearch: cocktailsSearchSchema,
+    component: CocktailsPage,
+  }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/cocktails/$cocktailId",
+    validateSearch: cocktailsSearchSchema,
+    component: CocktailDetailPage,
+  }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/cocktails/new",
+    validateSearch: cocktailsSearchSchema,
+    component: NewCocktailPage,
+  }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/cocktails/$cocktailId/edit",
+    validateSearch: cocktailsSearchSchema,
+    component: EditCocktailPage,
+  }),
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/bottles",
