@@ -55,5 +55,7 @@ jobs:
           LARDER_UID=$(id -u) LARDER_GID=$(id -g) docker compose up -d --wait
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+        env:
+          LARDER_URL: http://127.0.0.1:3000
       - if: failure()
         run: docker compose logs

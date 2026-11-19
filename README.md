@@ -62,5 +62,9 @@ nvm install && nvm use
 pnpm install
 pnpm dev                                           # API on :3000, web app on :5173
 pnpm lint && pnpm typecheck && pnpm test:coverage  # what CI runs
-pnpm test:e2e                                      # smoke test against a running instance
+pnpm test:e2e                                      # smoke test in a second terminal while pnpm dev runs
 ```
+
+Install the smoke test browser once with `pnpm exec playwright install chromium`.
+The tests use `http://localhost:5173` by default. To test a running Docker instance on the default
+port, run `LARDER_URL=http://127.0.0.1:3000 pnpm test:e2e`.

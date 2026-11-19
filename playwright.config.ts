@@ -7,7 +7,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: process.env.LARDER_URL ?? "http://127.0.0.1:3000",
+    baseURL: process.env.LARDER_URL ?? "http://localhost:5173",
     trace: "retain-on-failure",
   },
   projects: [

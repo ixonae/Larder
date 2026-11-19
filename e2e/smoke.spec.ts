@@ -7,7 +7,8 @@ test("health check answers ok", async ({ request }) => {
 });
 
 test("the app loads and navigates", async ({ page, isMobile }) => {
-  await page.goto("/");
+  const response = await page.goto("/");
+  expect(response?.status(), "The web app should serve / at the configured base URL").toBe(200);
   await expect(page).toHaveTitle("Larder");
   await expect(page.getByRole("heading", { name: "Cocktails" })).toBeVisible();
   await expect(page.getByTestId("bar-name")).toHaveText("My bar");
