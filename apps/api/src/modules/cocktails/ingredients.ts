@@ -1,5 +1,6 @@
 import {
   ancestors,
+  type Category,
   type CocktailIngredient,
   type CocktailIngredientInput,
   type IngredientSource,
@@ -7,7 +8,7 @@ import {
 } from "@larder/shared";
 import type { Executor } from "../../db/client.ts";
 import { invalid } from "../../errors.ts";
-import { findCategory, listAllCategories } from "../categories/repo.ts";
+import { findCategory } from "../categories/repo.ts";
 import { findPantryIngredient } from "../pantry/repo.ts";
 import { findProduct } from "../products/repo.ts";
 import * as repo from "./ingredients-repo.ts";
@@ -60,37 +61,70 @@ export function replaceIngredients(
   }
 }
 
-export function getIngredients(db: Executor, barId: string, id: string): CocktailIngredient[] {
-  const lines = repo.listIngredients(db, barId, id);
-  if (lines.length === 0) return [];
+export function ingredientResolver(categories: Category[]) {
+  const chains = new Map<string, Category[]>();
+  return (categoryId: string, productAbv: number | null) => {
+    let chain = chains.get(categoryId);
+    if (!chain) {
+      chain = [
+        ...categories.filter((category) => category.id === categoryId),
+        ...ancestors(categories, categoryId),
+      ];
+      chains.set(categoryId, chain);
+    }
+    return {
+      category_path: chain.map(({ id, name, kind }) => ({ id, name, kind })).reverse(),
+      abv: productAbv ?? chain.find((item) => item.default_abv !== null)?.default_abv ?? 0,
+    };
+  };
+}
 
-  const categories = listAllCategories(db, barId);
+type ResolveCategory = ReturnType<typeof ingredientResolver>;
+export type PreferredIngredient = Omit<CocktailIngredient, "category_path" | "alternatives"> &
+  ReturnType<ResolveCategory>;
+
+export function getPreferredIngredients(
+  db: Executor,
+  barId: string,
+  cocktailIds: string[],
+  resolve: ResolveCategory,
+): Map<string, PreferredIngredient[]> {
+  const rows = repo.listIngredients(db, barId, cocktailIds);
+  return new Map(
+    [...Map.groupBy(rows, (row) => row.cocktail_id)].map(([id, lines]) => [
+      id,
+      lines.map(({ cocktail_id: _cocktailId, source_category_id, product_abv, ...line }) => ({
+        ...line,
+        ...resolve(source_category_id, product_abv),
+      })),
+    ]),
+  );
+}
+
+const categoryPath = (path: PreferredIngredient["category_path"]) =>
+  path.map(({ id, name }) => ({ id, name }));
+
+export function addAlternatives(
+  db: Executor,
+  barId: string,
+  id: string,
+  lines: PreferredIngredient[],
+  resolve: ResolveCategory,
+): CocktailIngredient[] {
   const alternatives = Map.groupBy(
     repo.listAlternatives(db, barId, id),
     (alt) => alt.ingredient_id,
   );
-  function resolve(row: Omit<ReturnType<typeof repo.listAlternatives>[number], "ingredient_id">) {
-    const source = requireSource(db, barId, ingredientSourceSchema.parse(row), ["ingredients"]);
-    const chain = [
-      ...categories.filter((category) => category.id === source.category_id),
-      ...ancestors(categories, source.category_id),
-    ];
-    return {
-      ...row,
-      name: source.name,
-      category_path: chain.map((item) => ({ id: item.id, name: item.name })).reverse(),
-      abv:
-        ("abv" in source ? source.abv : null) ??
-        chain.find((item) => item.default_abv !== null)?.default_abv ??
-        0,
-    };
-  }
-
   return lines.map((line) => ({
     ...line,
-    ...resolve(line),
-    alternatives: (alternatives.get(line.id) ?? []).map(({ ingredient_id: _parent, ...alt }) =>
-      resolve(alt),
-    ),
+    category_path: categoryPath(line.category_path),
+    alternatives: (alternatives.get(line.id) ?? []).map(({ ingredient_id: _parent, ...alt }) => {
+      const source = requireSource(db, barId, ingredientSourceSchema.parse(alt), ["ingredients"]);
+      const { category_path, abv } = resolve(
+        source.category_id,
+        "abv" in source ? source.abv : null,
+      );
+      return { ...alt, name: source.name, category_path: categoryPath(category_path), abv };
+    }),
   }));
 }

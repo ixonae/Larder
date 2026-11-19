@@ -1,12 +1,14 @@
-import { and, eq, exists, getTableColumns, or } from "drizzle-orm";
+import { and, eq, exists, getTableColumns, inArray, or, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { byName } from "../../db/cursor.ts";
 import {
   cocktailIngredientAlternatives as alternatives,
+  categories,
   cocktails,
   cocktailIngredients as ingredients,
+  pantryIngredients,
+  products,
 } from "../../db/schema/index.ts";
-import { nameKey } from "./repo.ts";
 
 const {
   bar_id: _lineBar,
@@ -40,13 +42,52 @@ export function insertAlternative(db: Executor, input: NewAlternative) {
   db.insert(alternatives).values(input).run();
 }
 
-export function listIngredients(db: Executor, barId: string, id: string) {
+const sourceCategoryId = sql<string>`coalesce(${ingredients.category_id}, ${products.category_id}, ${pantryIngredients.category_id})`;
+
+function preferredIngredients(db: Executor) {
   return db
-    .select(lineColumns)
+    .select({
+      ...lineColumns,
+      cocktail_id: ingredients.cocktail_id,
+      source_category_id: sourceCategoryId,
+      name: sql<string>`coalesce(${categories.name}, ${products.name}, ${pantryIngredients.name})`,
+      product_abv: products.abv,
+    })
     .from(ingredients)
-    .where(inCocktail(barId, id))
+    .leftJoin(
+      categories,
+      and(eq(categories.bar_id, ingredients.bar_id), eq(categories.id, ingredients.category_id)),
+    )
+    .leftJoin(
+      products,
+      and(eq(products.bar_id, ingredients.bar_id), eq(products.id, ingredients.product_id)),
+    )
+    .leftJoin(
+      pantryIngredients,
+      and(
+        eq(pantryIngredients.bar_id, ingredients.bar_id),
+        eq(pantryIngredients.id, ingredients.pantry_ingredient_id),
+      ),
+    );
+}
+
+export function listIngredients(db: Executor, barId: string, cocktailIds: string[]) {
+  return preferredIngredients(db)
+    .where(and(eq(ingredients.bar_id, barId), inArray(ingredients.cocktail_id, cocktailIds)))
     .orderBy(ingredients.position)
     .all();
+}
+
+export function usesSpiritCategories(db: Executor, barId: string, categoryIds: string[]) {
+  return exists(
+    preferredIngredients(db).where(
+      and(
+        eq(ingredients.bar_id, barId),
+        eq(ingredients.cocktail_id, cocktails.id),
+        inArray(sourceCategoryId, categoryIds),
+      ),
+    ),
+  );
 }
 
 export function listAlternatives(db: Executor, barId: string, id: string) {
@@ -95,6 +136,6 @@ export function listIngredientUsage(
     .select({ id: cocktails.id, name: cocktails.name })
     .from(cocktails)
     .where(and(eq(cocktails.bar_id, barId), exists(lines)))
-    .orderBy(...byName(nameKey, cocktails.id))
+    .orderBy(...byName(sql`larder_name_key(${cocktails.name})`, cocktails.id))
     .all();
 }

@@ -1,8 +1,9 @@
 import { type ListCocktailsQuery, nowIso } from "@larder/shared";
-import { and, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, eq, exists, getTableColumns, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
-import { cocktails } from "../../db/schema/index.ts";
+import { cocktails, cocktailTags } from "../../db/schema/index.ts";
+import { usesSpiritCategories } from "./ingredients-repo.ts";
 
 const { bar_id: _barId, created_by: _createdBy, ...columns } = getTableColumns(cocktails);
 /** The cocktail sort key, shared by every list of cocktails. */
@@ -14,8 +15,9 @@ const inBar = (barId: string, id: string) => and(eq(cocktails.bar_id, barId), eq
 export function listCocktails(
   db: Executor,
   barId: string,
-  { q, method, glass_id, limit }: ListCocktailsQuery,
+  { q, method, glass_id, tag, limit }: ListCocktailsQuery,
   after: NameCursor | undefined,
+  spiritCategoryIds: string[] | undefined,
 ) {
   return db
     .select({ ...columns, key: nameKey })
@@ -26,6 +28,23 @@ export function listCocktails(
         q === undefined ? undefined : sql`instr(${nameKey}, larder_name_key(${q})) > 0`,
         method === undefined ? undefined : eq(cocktails.method, method),
         glass_id === undefined ? undefined : eq(cocktails.glass_id, glass_id),
+        tag === undefined
+          ? undefined
+          : exists(
+              db
+                .select({ id: cocktailTags.tag_id })
+                .from(cocktailTags)
+                .where(
+                  and(
+                    eq(cocktailTags.bar_id, barId),
+                    eq(cocktailTags.cocktail_id, cocktails.id),
+                    eq(cocktailTags.tag_id, tag),
+                  ),
+                ),
+            ),
+        spiritCategoryIds === undefined
+          ? undefined
+          : usesSpiritCategories(db, barId, spiritCategoryIds),
         afterName(nameKey, cocktails.id, after),
       ),
     )

@@ -18,6 +18,16 @@ const methodSchema = z.enum(COCKTAIL_METHODS);
 const iceSchema = z.enum(COCKTAIL_ICE);
 const nameSchema = z.string().trim().min(1).max(100);
 const servingsSchema = z.number().int().positive().safe();
+export type CocktailMethod = z.infer<typeof methodSchema>;
+
+const namedReferenceSchema = z.object({ id: idSchema, name: z.string() });
+const computedCocktailSchema = z.object({
+  volume_ml: z.number().nonnegative(),
+  /** Estimated percent after dilution. */
+  abv: z.number().min(0).max(100),
+  spirits: namedReferenceSchema.array(),
+});
+export type ComputedCocktail = z.infer<typeof computedCocktailSchema>;
 
 const fields = z.object({
   name: nameSchema,
@@ -39,11 +49,11 @@ export const cocktailSchema = fields.extend({
   image_id: idSchema.nullable(),
   created_at: z.string(),
   updated_at: z.string(),
+  computed: computedCocktailSchema,
 });
 export type Cocktail = z.infer<typeof cocktailSchema>;
 export const cocktailPageSchema = pageSchema(cocktailSchema);
 
-const namedReferenceSchema = z.object({ id: idSchema, name: z.string() });
 const stepInputSchema = z.object({ text: z.string().trim().min(1).max(DESCRIPTION_MAX) });
 const stepSchema = stepInputSchema.extend({
   id: idSchema,
@@ -87,5 +97,13 @@ export const listCocktailsQuerySchema = paginationQuerySchema.extend({
   q: nameSchema.optional(),
   method: methodSchema.optional(),
   glass_id: idSchema.optional(),
+  /** Spirit category ID, including its descendants. */
+  spirit: idSchema.optional(),
+  /** Tag ID from GET /tags. */
+  tag: idSchema.optional(),
 });
 export type ListCocktailsQuery = z.infer<typeof listCocktailsQuerySchema>;
+
+export const cocktailDetailQuerySchema = z.object({
+  servings: z.coerce.number<string>().pipe(servingsSchema).optional(),
+});
