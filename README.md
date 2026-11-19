@@ -55,9 +55,10 @@ with any username and the password. The health check at `/api/health` stays publ
 
 ## Development
 
-Requires Node 26 LTS (see `.nvmrc`) and pnpm 12.
+Requires Node 26.13.1 (see `.nvmrc`) and pnpm 12.
 
 ```bash
+nvm install && nvm use
 pnpm install
 pnpm dev                                           # API on :3000, web app on :5173
 pnpm lint && pnpm typecheck && pnpm test:coverage  # what CI runs

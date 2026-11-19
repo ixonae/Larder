@@ -16,9 +16,14 @@ updates:
     schedule:
       interval: weekly
     ignore:
-      # Stay on the Node major in .nvmrc; majors are bumped by hand with it.
+      # Update Node release tags together with .nvmrc and package.json.
       - dependency-name: node
-        update-types: ["version-update:semver-major"]
+        update-types:
+          [
+            "version-update:semver-major",
+            "version-update:semver-minor",
+            "version-update:semver-patch",
+          ]
 
   # pnpm workspace: dependencies are pinned to exact versions and the lockfile is updated with them.
   - package-ecosystem: npm
