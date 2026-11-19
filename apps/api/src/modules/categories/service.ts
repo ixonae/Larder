@@ -13,6 +13,7 @@ import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
 import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
+import { listIngredientUsage } from "../cocktails/ingredients-repo.ts";
 import { deleteWithImage } from "../images/service.ts";
 import { listPantryIngredientsInCategory } from "../pantry/repo.ts";
 import { listProductsInCategory } from "../products/repo.ts";
@@ -114,7 +115,7 @@ export function updateCategory(ctx: Ctx, id: string | undefined, patch: UpdateCa
 
 /**
  * Deletes the category and its picture. Refused with `CONFLICT` while sub-categories, bottles or
- * pantry ingredients use it (cocktail lines in S17).
+ * pantry ingredients or cocktails use it.
  */
 export async function deleteCategory(ctx: Ctx, id: string | undefined): Promise<void> {
   await deleteWithImage(ctx, (tx) => {
@@ -134,6 +135,11 @@ export async function deleteCategory(ctx: Ctx, id: string | undefined): Promise<
         type: "pantry_ingredient",
         label: "pantry ingredients",
         rows: listPantryIngredientsInCategory(tx, ctx.barId, existing.id),
+      },
+      {
+        type: "cocktail",
+        label: "cocktails",
+        rows: listIngredientUsage(tx, ctx.barId, "category_id", existing.id),
       },
     ]);
     repo.deleteCategory(tx, ctx.barId, existing.id);

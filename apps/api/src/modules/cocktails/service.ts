@@ -1,5 +1,6 @@
 import type {
   Cocktail,
+  CocktailDetail,
   CreateCocktail,
   ListCocktailsQuery,
   Page,
@@ -12,6 +13,7 @@ import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../
 import type { Ctx } from "../../types.ts";
 import { deleteWithImage } from "../images/service.ts";
 import { findUtensil } from "../utensils/repo.ts";
+import { getIngredients, replaceIngredients } from "./ingredients.ts";
 import * as repo from "./repo.ts";
 
 export function listCocktails(ctx: Ctx, query: ListCocktailsQuery): Page<Cocktail> {
@@ -49,32 +51,43 @@ const duplicateName = (name: string) => () => {
   return conflict(message, [{ path: ["name"], message }]);
 };
 
-export function getCocktail(ctx: Ctx, id: string | undefined): Cocktail {
-  return requireCocktail(ctx.db, ctx.barId, id);
+function detail(db: Executor, barId: string, cocktail: Cocktail): CocktailDetail {
+  return { ...cocktail, ingredients: getIngredients(db, barId, cocktail.id) };
 }
 
-export function createCocktail({ db, barId, userId }: Ctx, input: CreateCocktail): Cocktail {
+export function getCocktail(ctx: Ctx, id: string | undefined): CocktailDetail {
+  return ctx.db.transaction((tx) => detail(tx, ctx.barId, requireCocktail(tx, ctx.barId, id)));
+}
+
+export function createCocktail(
+  { db, barId, userId }: Ctx,
+  { ingredients, ...input }: CreateCocktail,
+): CocktailDetail {
   return db.transaction((tx) => {
     validateReferences(tx, barId, input);
-    return onUniqueViolation(
+    const cocktail = onUniqueViolation(
       () => repo.insertCocktail(tx, { ...input, bar_id: barId, created_by: userId }),
       duplicateName(input.name),
     );
+    if (ingredients !== undefined) replaceIngredients(tx, barId, userId, cocktail.id, ingredients);
+    return detail(tx, barId, cocktail);
   });
 }
 
 export function updateCocktail(
-  { db, barId }: Ctx,
+  { db, barId, userId }: Ctx,
   id: string | undefined,
-  patch: UpdateCocktail,
-): Cocktail {
+  { ingredients, ...patch }: UpdateCocktail,
+): CocktailDetail {
   return db.transaction((tx) => {
     const existing = requireCocktail(tx, barId, id);
     validateReferences(tx, barId, patch, existing.id);
-    return onUniqueViolation(
+    const cocktail = onUniqueViolation(
       () => repo.updateCocktail(tx, barId, existing.id, patch),
       duplicateName(patch.name ?? existing.name),
     );
+    if (ingredients !== undefined) replaceIngredients(tx, barId, userId, cocktail.id, ingredients);
+    return detail(tx, barId, cocktail);
   });
 }
 

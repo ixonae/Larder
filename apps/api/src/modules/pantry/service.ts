@@ -9,10 +9,11 @@ import {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, notFound, parseId } from "../../errors.ts";
+import { conflict, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { listAllCategories } from "../categories/repo.ts";
 import { requireCategoryRef } from "../categories/service.ts";
+import { listIngredientUsage } from "../cocktails/ingredients-repo.ts";
 import * as repo from "./repo.ts";
 
 /** `GET /pantry-ingredients`: a page sorted by name. A category filter includes its sub-categories. */
@@ -81,10 +82,17 @@ export function updatePantryIngredient(
   });
 }
 
-/** Deletes the ingredient. The cocktail line check is added in S17. */
+/** Deletes the ingredient if no cocktail uses it. */
 export function deletePantryIngredient(ctx: Ctx, id: string | undefined): void {
   ctx.db.transaction((tx) => {
     const existing = requireIngredient(tx, ctx.barId, id);
+    refuseDeleteIfUsed(existing.name, [
+      {
+        type: "cocktail",
+        label: "cocktails",
+        rows: listIngredientUsage(tx, ctx.barId, "pantry_ingredient_id", existing.id),
+      },
+    ]);
     repo.deletePantryIngredient(tx, ctx.barId, existing.id);
   });
 }

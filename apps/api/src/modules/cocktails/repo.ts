@@ -1,4 +1,4 @@
-import type { ListCocktailsQuery } from "@larder/shared";
+import { type ListCocktailsQuery, nowIso } from "@larder/shared";
 import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
@@ -47,7 +47,12 @@ export function updateCocktail(
   id: string,
   patch: Partial<NewCocktail>,
 ) {
-  return db.update(cocktails).set(patch).where(inBar(barId, id)).returning(columns).get();
+  return db
+    .update(cocktails)
+    .set({ ...patch, updated_at: nowIso() })
+    .where(inBar(barId, id))
+    .returning(columns)
+    .get();
 }
 
 export function deleteCocktail(db: Executor, barId: string, id: string) {

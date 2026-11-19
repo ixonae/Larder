@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DESCRIPTION_MAX } from "./categories.ts";
+import { cocktailIngredientInputSchema, cocktailIngredientSchema } from "./cocktail-ingredients.ts";
 import { idSchema } from "./id.ts";
 import { pageSchema, paginationQuerySchema } from "./pagination.ts";
 import { optionalText } from "./text.ts";
@@ -42,9 +43,15 @@ export const cocktailSchema = fields.extend({
 export type Cocktail = z.infer<typeof cocktailSchema>;
 export const cocktailPageSchema = pageSchema(cocktailSchema);
 
-export const createCocktailSchema = fields.partial().required({ name: true, method: true });
+export const cocktailDetailSchema = cocktailSchema.extend({
+  ingredients: cocktailIngredientSchema.array(),
+});
+export type CocktailDetail = z.infer<typeof cocktailDetailSchema>;
+
+const recipeFields = fields.extend({ ingredients: cocktailIngredientInputSchema.array() });
+export const createCocktailSchema = recipeFields.partial().required({ name: true, method: true });
 export type CreateCocktail = z.infer<typeof createCocktailSchema>;
-export const updateCocktailSchema = fields
+export const updateCocktailSchema = recipeFields
   .partial()
   .refine((patch) => Object.keys(patch).length > 0, "Send at least one field to change");
 export type UpdateCocktail = z.infer<typeof updateCocktailSchema>;

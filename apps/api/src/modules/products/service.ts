@@ -9,10 +9,11 @@ import {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, notFound, parseId } from "../../errors.ts";
+import { conflict, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { listAllCategories } from "../categories/repo.ts";
 import { requireCategoryRef } from "../categories/service.ts";
+import { listIngredientUsage } from "../cocktails/ingredients-repo.ts";
 import { deleteWithImage } from "../images/service.ts";
 import * as repo from "./repo.ts";
 
@@ -79,10 +80,17 @@ export function updateProduct(ctx: Ctx, id: string | undefined, patch: UpdatePro
   });
 }
 
-/** Deletes the bottle and its picture. The cocktail line check is added in S17. */
+/** Deletes the bottle if no cocktail uses it. */
 export async function deleteProduct(ctx: Ctx, id: string | undefined): Promise<void> {
   await deleteWithImage(ctx, (tx) => {
     const existing = requireProduct(tx, ctx.barId, id);
+    refuseDeleteIfUsed(existing.name, [
+      {
+        type: "cocktail",
+        label: "cocktails",
+        rows: listIngredientUsage(tx, ctx.barId, "product_id", existing.id),
+      },
+    ]);
     repo.deleteProduct(tx, ctx.barId, existing.id);
     return existing.image_id;
   });

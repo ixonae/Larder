@@ -123,8 +123,14 @@ test("deleting a referenced glass or base cocktail is refused and nothing is del
   );
   expect(cycle.status).toBe(400);
   expect(await (await app.request(glassPath)).json()).toEqual(glass);
-  expect(await (await app.request(`${path}/${base.id}`)).json()).toEqual(base);
-  expect(await (await app.request(`${path}/${variant.id}`)).json()).toEqual(variant);
+  expect(await (await app.request(`${path}/${base.id}`)).json()).toEqual({
+    ...base,
+    ingredients: [],
+  });
+  expect(await (await app.request(`${path}/${variant.id}`)).json()).toEqual({
+    ...variant,
+    ingredients: [],
+  });
 });
 
 test("another bar's cocktail and glass cannot be read, changed, or linked", async () => {
