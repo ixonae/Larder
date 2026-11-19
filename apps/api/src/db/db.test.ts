@@ -7,6 +7,7 @@ import {
   barMembers,
   bars,
   categories,
+  cocktails,
   images,
   pantryIngredients,
   products,
@@ -224,6 +225,16 @@ describe("utensils table", () => {
 describe("schema", () => {
   it.each([
     [bars, [["owner_id", "users"]]],
+    [
+      cocktails,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+        ["image_id", "images"],
+        ["bar_id", "utensils"],
+        ["bar_id", "cocktails"],
+      ],
+    ],
     [
       images,
       [

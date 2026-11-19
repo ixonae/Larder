@@ -43,6 +43,13 @@
       "when": 1795126885746,
       "tag": "0005_pantry_ingredients",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1795127185278,
+      "tag": "0006_cocktails",
+      "breakpoints": true
     }
   ]
 }

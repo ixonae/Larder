@@ -9,8 +9,9 @@ import type {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, invalid, notFound, parseId } from "../../errors.ts";
+import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
+import { listCocktailReferences } from "../cocktails/repo.ts";
 import { deleteWithImage } from "../images/service.ts";
 import * as repo from "./repo.ts";
 
@@ -81,6 +82,7 @@ export function updateUtensil(ctx: Ctx, id: string | undefined, patch: UpdateUte
   return ctx.db.transaction((tx) => {
     const existing = requireUtensil(tx, ctx.barId, id);
     const kind = patch.kind ?? existing.kind;
+    if (kind !== existing.kind) requireUnusedUtensil(tx, ctx.barId, existing);
     const name = patch.name ?? existing.name;
     onUniqueViolation(
       () =>
@@ -94,13 +96,21 @@ export function updateUtensil(ctx: Ctx, id: string | undefined, patch: UpdateUte
   });
 }
 
-/**
- * Deletes the utensil and its picture. Nothing references utensils yet; the cocktail glass (S16) and
- * tool (S17) checks come later.
- */
+function requireUnusedUtensil(db: Executor, barId: string, utensil: Utensil) {
+  refuseDeleteIfUsed(utensil.name, [
+    {
+      type: "cocktail",
+      label: "cocktails",
+      rows: listCocktailReferences(db, barId, "glass_id", utensil.id),
+    },
+  ]);
+}
+
+/** Deletes the utensil and its picture if no cocktail uses it. */
 export async function deleteUtensil(ctx: Ctx, id: string | undefined): Promise<void> {
   await deleteWithImage(ctx, (tx) => {
     const existing = requireUtensil(tx, ctx.barId, id);
+    requireUnusedUtensil(tx, ctx.barId, existing);
     repo.deleteUtensil(tx, ctx.barId, existing.id);
     return existing.image_id;
   });
