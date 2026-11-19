@@ -2,20 +2,13 @@ import type { ErrorBody } from "@larder/shared";
 import { HTTPException } from "hono/http-exception";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createApp } from "./app.ts";
 import { AppError, conflict, forbidden, notFound } from "./errors.ts";
-import { createLogger } from "./logger.ts";
 import { validate } from "./middleware/validate.ts";
+import { createTestApp } from "./test/app.ts";
 
 const errorOf = async (res: Response) => ((await res.json()) as ErrorBody).error;
 
-function setup() {
-  const lines: string[] = [];
-  const logger = createLogger("debug", (l) => lines.push(l));
-  const app = createApp({ logger });
-  const logs = () => lines.map((l) => JSON.parse(l));
-  return { app, logs };
-}
+const setup = createTestApp;
 
 describe("GET /api/health", () => {
   it("returns ok", async () => {

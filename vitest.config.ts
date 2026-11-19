@@ -11,7 +11,6 @@ export default defineConfig({
       exclude: [
         "**/*.test.{ts,tsx}",
         "**/*.d.ts",
-        "**/test/**",
         "apps/web/src/components/ui/**",
         "apps/api/src/db/migrations/**",
         "apps/api/src/server.ts",
