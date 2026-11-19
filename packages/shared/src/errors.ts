@@ -34,6 +34,14 @@ export const errorBodySchema = z.object({
 });
 export type ErrorBody = z.infer<typeof errorBodySchema>;
 
+export const USAGE_TYPES = ["category", "product", "cocktail", "utensil"] as const;
+
+/** `details` of a `CONFLICT` refusing a delete: what still uses the item. */
+export const usedBySchema = z.object({
+  used_by: z.array(z.object({ type: z.enum(USAGE_TYPES), id: z.string(), name: z.string() })),
+});
+export type UsedBy = z.infer<typeof usedBySchema>;
+
 export function errorBody(code: ErrorCode, message: string, details?: unknown): ErrorBody {
   return details === undefined
     ? { error: { code, message } }

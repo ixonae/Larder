@@ -17,3 +17,8 @@ export function openDb(path: string) {
   sqlite.pragma("synchronous = NORMAL");
   return drizzle({ client: sqlite, schema });
 }
+
+/** A transaction handle, as passed to the `db.transaction()` callback. */
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+/** Repo functions accept either the database or a transaction. */
+export type Executor = Db | Tx;

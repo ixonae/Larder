@@ -1,3 +1,4 @@
+import type { ErrorBody } from "@larder/shared";
 import { createApp } from "../app.ts";
 import { openDb } from "../db/client.ts";
 import { runMigrations } from "../db/migrate.ts";
@@ -39,3 +40,15 @@ export function createTestApp({
   const logs = () => lines.map((l) => JSON.parse(l) as Record<string, unknown>);
   return { app, db, alice, bob, logs };
 }
+
+export const readJson = async <T>(res: Response) => (await res.json()) as T;
+export const errorOf = async (res: Response) => (await readJson<ErrorBody>(res)).error;
+
+/** `RequestInit` for `app.request()`: the method, plus a JSON body when one is given. */
+export const jsonRequest = (method: string, body?: unknown): RequestInit => ({
+  method,
+  ...(body !== undefined && {
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  }),
+});

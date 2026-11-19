@@ -3,7 +3,7 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { openDb } from "./client.ts";
 import { runMigrations } from "./migrate.ts";
-import { barMembers, bars, users } from "./schema/index.ts";
+import { barMembers, bars, categories, users } from "./schema/index.ts";
 import { DEFAULT_BAR_NAME, DEFAULT_USER, seed, seedUser } from "./seed.ts";
 
 function freshDb() {
@@ -117,6 +117,39 @@ describe("seed", () => {
   });
 });
 
+describe("categories table", () => {
+  it("refuses a parent from another bar and an in_stock value on other kinds", () => {
+    const db = freshDb();
+    const alice = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
+    const bob = seedUser(db, { email: "b@x.y", display_name: "B" }, "B");
+    const [bobsRoot] = db.select().from(categories).where(eq(categories.bar_id, bob.barId)).all();
+    const row = {
+      bar_id: alice.barId,
+      created_by: alice.userId,
+      name: "X",
+      kind: "other" as const,
+    };
+    expect(() =>
+      db
+        .insert(categories)
+        .values({ ...row, parent_id: bobsRoot?.id })
+        .run(),
+    ).toThrow(/FOREIGN KEY/);
+    expect(() =>
+      db
+        .insert(categories)
+        .values({ ...row, in_stock: true })
+        .run(),
+    ).toThrow(/CHECK/);
+    expect(() =>
+      db
+        .insert(categories)
+        .values({ ...row, default_abv: 101 })
+        .run(),
+    ).toThrow(/CHECK/);
+  });
+});
+
 describe("schema", () => {
   it.each([
     [bars, [["owner_id", "users"]]],
@@ -125,6 +158,14 @@ describe("schema", () => {
       [
         ["bar_id", "bars"],
         ["user_id", "users"],
+      ],
+    ],
+    [
+      categories,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+        ["bar_id", "categories"],
       ],
     ],
   ] as const)("declares the foreign keys of %#", (table, expected) => {

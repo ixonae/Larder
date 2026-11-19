@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
+import { createBar } from "../modules/bars/service.ts";
 import type { Db } from "./client.ts";
-import { barMembers, bars, users } from "./schema/index.ts";
+import { bars, users } from "./schema/index.ts";
 
 export const DEFAULT_USER = { email: "owner@larder.local", display_name: "Owner" } as const;
 export const DEFAULT_BAR_NAME = "My bar";
@@ -30,13 +31,7 @@ export function seedUser(
       .get();
     if (owned) return { userId, barId: owned.id };
 
-    const { id: barId } = tx
-      .insert(bars)
-      .values({ name: barName, owner_id: userId })
-      .returning({ id: bars.id })
-      .get();
-    tx.insert(barMembers).values({ bar_id: barId, user_id: userId, role: "owner" }).run();
-    return { userId, barId };
+    return { userId, barId: createBar(tx, { name: barName, ownerId: userId }) };
   });
 }
 

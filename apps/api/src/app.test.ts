@@ -1,12 +1,9 @@
-import type { ErrorBody } from "@larder/shared";
 import { HTTPException } from "hono/http-exception";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { AppError, conflict, forbidden, notFound } from "./errors.ts";
 import { validate } from "./middleware/validate.ts";
-import { createTestApp } from "./test/app.ts";
-
-const errorOf = async (res: Response) => ((await res.json()) as ErrorBody).error;
+import { createTestApp, errorOf, jsonRequest } from "./test/app.ts";
 
 const setup = createTestApp;
 
@@ -92,22 +89,14 @@ describe("errors", () => {
     app.post("/test", validate("json", z.object({ name: z.string().min(1) })), (c) =>
       c.json(c.req.valid("json")),
     );
-    const res = await app.request("/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "" }),
-    });
+    const res = await app.request("/test", jsonRequest("POST", { name: "" }));
     expect(res.status).toBe(400);
     const error = await errorOf(res);
     expect(error.code).toBe("VALIDATION");
     expect(error.message).toBe("Invalid json");
     expect(error.details).toEqual([expect.objectContaining({ path: ["name"] })]);
 
-    const ok = await app.request("/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Gin" }),
-    });
+    const ok = await app.request("/test", jsonRequest("POST", { name: "Gin" }));
     expect(await ok.json()).toEqual({ name: "Gin" });
   });
 
