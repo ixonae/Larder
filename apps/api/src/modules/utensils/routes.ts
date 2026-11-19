@@ -23,7 +23,7 @@ export const utensilRoutes = new Hono<AppEnv>()
   .patch("/:id", requireRole("editor"), validate("json", updateUtensilSchema), (c) =>
     c.json(updateUtensil(c.var.ctx, c.req.param("id"), c.req.valid("json"))),
   )
-  .delete("/:id", requireRole("editor"), (c) => {
-    deleteUtensil(c.var.ctx, c.req.param("id"));
+  .delete("/:id", requireRole("editor"), async (c) => {
+    await deleteUtensil(c.var.ctx, c.req.param("id"));
     return c.body(null, 204);
   });

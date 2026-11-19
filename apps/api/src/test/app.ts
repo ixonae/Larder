@@ -1,9 +1,13 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ErrorBody } from "@larder/shared";
 import { createApp } from "../app.ts";
 import { openDb } from "../db/client.ts";
 import { runMigrations } from "../db/migrate.ts";
 import { DEFAULT_USER, seedUser } from "../db/seed.ts";
 import { createLogger } from "../logger.ts";
+import { createDiskStorage } from "../storage/storage.ts";
 
 export const ALICE = DEFAULT_USER;
 export const BOB = { email: "bob@larder.local", display_name: "Bob" } as const;
@@ -29,16 +33,20 @@ export function createTestApp({
   const bob = seedUser(db, BOB, "Bob's bar");
   const lines: string[] = [];
   const logger = createLogger("debug", (l) => lines.push(l));
+  // Uploads go to a fresh temporary directory per app.
+  const uploads = mkdtempSync(join(tmpdir(), "larder-uploads-"));
+  const storage = createDiskStorage(uploads);
   const app = createApp({
     logger,
     db,
+    storage,
     userEmail: as,
     passwordHash,
     webDir,
     ...(maxBodyBytes !== undefined && { maxBodyBytes }),
   });
   const logs = () => lines.map((l) => JSON.parse(l) as Record<string, unknown>);
-  return { app, db, alice, bob, logs };
+  return { app, db, storage, uploads, alice, bob, logs };
 }
 
 export const readJson = async <T>(res: Response) => (await res.json()) as T;

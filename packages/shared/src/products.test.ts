@@ -95,6 +95,7 @@ describe("productSchema", () => {
       vintage: null,
       age_years: 10,
       description: null,
+      image_id: null,
       in_bar: true,
       created_at: "2026-01-01T00:00:00.000Z",
       updated_at: "2026-01-01T00:00:00.000Z",

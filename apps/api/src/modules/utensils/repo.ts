@@ -10,6 +10,7 @@ const columns = {
   kind: utensils.kind,
   capacity_ml: utensils.capacity_ml,
   description: utensils.description,
+  image_id: utensils.image_id,
   created_at: utensils.created_at,
   updated_at: utensils.updated_at,
 };

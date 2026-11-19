@@ -10,10 +10,35 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import { id, nocaseText, timestamps } from "./columns.ts";
+import { createdAt, id, nocaseText, timestamps } from "./columns.ts";
 import { bars, users } from "./tenancy.ts";
 
 const sqlList = (values: readonly string[]) => sql.raw(values.map((v) => `'${v}'`).join(", "));
+
+/** An uploaded picture, re-encoded to WebP, with its thumbnail. One per item: items hold `image_id`. */
+export const images = sqliteTable(
+  "images",
+  {
+    id: id(),
+    bar_id: text("bar_id")
+      .notNull()
+      .references(() => bars.id, { onDelete: "cascade" }),
+    storage_key: text("storage_key").notNull(),
+    thumb_key: text("thumb_key").notNull(),
+    mime: text("mime").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    size_bytes: integer("size_bytes").notNull(),
+    created_by: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    created_at: createdAt(),
+  },
+  (t) => [index("images_bar_id_idx").on(t.bar_id)],
+);
+
+/** The item's picture. Images are only ever created by the server for the item's own bar. */
+const imageId = () => text("image_id").references(() => images.id);
 
 export const categories = sqliteTable(
   "categories",
@@ -27,6 +52,7 @@ export const categories = sqliteTable(
     kind: text("kind", { enum: CATEGORY_KINDS }).notNull(),
     default_abv: real("default_abv"),
     description: text("description"),
+    image_id: imageId(),
     always_available: integer("always_available", { mode: "boolean" }).notNull().default(false),
     in_stock: integer("in_stock", { mode: "boolean" }),
     created_by: text("created_by")
@@ -78,6 +104,7 @@ export const products = sqliteTable(
     vintage: integer("vintage"),
     age_years: integer("age_years"),
     description: text("description"),
+    image_id: imageId(),
     in_bar: integer("in_bar", { mode: "boolean" }).notNull().default(false),
     created_by: text("created_by")
       .notNull()
@@ -118,6 +145,7 @@ export const utensils = sqliteTable(
     kind: text("kind", { enum: UTENSIL_KINDS }).notNull(),
     capacity_ml: real("capacity_ml"),
     description: text("description"),
+    image_id: imageId(),
     created_by: text("created_by")
       .notNull()
       .references(() => users.id),

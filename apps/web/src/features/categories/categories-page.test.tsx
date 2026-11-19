@@ -15,6 +15,7 @@ const cat = (name: string, kind: CategoryKind, parent: Category | null = null, e
   kind,
   default_abv: kind === "spirit" ? 40 : null,
   description: null,
+  image_id: null,
   always_available: false,
   in_stock: hasInStock(kind) ? false : null,
   created_at: "2026-01-01T00:00:00.000Z",

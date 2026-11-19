@@ -11,6 +11,7 @@ const columns = {
   kind: categories.kind,
   default_abv: categories.default_abv,
   description: categories.description,
+  image_id: categories.image_id,
   always_available: categories.always_available,
   in_stock: categories.in_stock,
   created_at: categories.created_at,

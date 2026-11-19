@@ -32,7 +32,7 @@ export const productRoutes = new Hono<AppEnv>()
     // The one-tap toggle: an update of that single field.
     c.json(updateProduct(c.var.ctx, c.req.param("id"), c.req.valid("json"))),
   )
-  .delete("/:id", requireRole("editor"), (c) => {
-    deleteProduct(c.var.ctx, c.req.param("id"));
+  .delete("/:id", requireRole("editor"), async (c) => {
+    await deleteProduct(c.var.ctx, c.req.param("id"));
     return c.body(null, 204);
   });

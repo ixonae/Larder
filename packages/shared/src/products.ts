@@ -25,6 +25,8 @@ export const productSchema = z.object({
   vintage: z.number().int().nullable(),
   age_years: z.number().int().nullable(),
   description: z.string().nullable(),
+  /** The picture (`imageUrl(image_id)`), set through `PUT /:id/image`. */
+  image_id: idSchema.nullable(),
   /** The bottle is in the bar right now. */
   in_bar: z.boolean(),
   created_at: z.string(),

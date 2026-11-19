@@ -11,6 +11,7 @@ import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
 import { conflict, invalid, notFound, parseId } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
+import { deleteWithImage } from "../images/service.ts";
 import * as repo from "./repo.ts";
 
 /** `GET /utensils`: a page sorted by name. */
@@ -93,10 +94,14 @@ export function updateUtensil(ctx: Ctx, id: string | undefined, patch: UpdateUte
   });
 }
 
-/** Nothing references utensils yet; the cocktail glass (S16) and tool (S17) checks come later. */
-export function deleteUtensil(ctx: Ctx, id: string | undefined): void {
-  ctx.db.transaction((tx) => {
+/**
+ * Deletes the utensil and its picture. Nothing references utensils yet; the cocktail glass (S16) and
+ * tool (S17) checks come later.
+ */
+export async function deleteUtensil(ctx: Ctx, id: string | undefined): Promise<void> {
+  await deleteWithImage(ctx, (tx) => {
     const existing = requireUtensil(tx, ctx.barId, id);
     repo.deleteUtensil(tx, ctx.barId, existing.id);
+    return existing.image_id;
   });
 }

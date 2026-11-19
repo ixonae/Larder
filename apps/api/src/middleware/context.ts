@@ -17,10 +17,10 @@ export const currentUser = (email: string) =>
 
 /** Loads `:barId`, checks the current user is a member, and sets `c.var.bar` and `c.var.ctx`. */
 export const barAccess = createMiddleware<AppEnv>(async (c, next) => {
-  const { db, user } = c.var;
+  const { db, storage, user } = c.var;
   const bar = resolveBarAccess(db, c.req.param("barId"), user.id);
   c.set("bar", bar);
-  c.set("ctx", { db, userId: user.id, barId: bar.id, role: bar.role });
+  c.set("ctx", { db, storage, userId: user.id, barId: bar.id, role: bar.role });
   await next();
 });
 

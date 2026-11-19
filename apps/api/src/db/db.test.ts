@@ -3,7 +3,7 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { openDb } from "./client.ts";
 import { runMigrations } from "./migrate.ts";
-import { barMembers, bars, categories, products, users, utensils } from "./schema/index.ts";
+import { barMembers, bars, categories, images, products, users, utensils } from "./schema/index.ts";
 import { DEFAULT_BAR_NAME, DEFAULT_USER, seed, seedUser } from "./seed.ts";
 
 function freshDb() {
@@ -188,6 +188,13 @@ describe("schema", () => {
   it.each([
     [bars, [["owner_id", "users"]]],
     [
+      images,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+      ],
+    ],
+    [
       barMembers,
       [
         ["bar_id", "bars"],
@@ -198,6 +205,7 @@ describe("schema", () => {
       categories,
       [
         ["bar_id", "bars"],
+        ["image_id", "images"],
         ["created_by", "users"],
         ["bar_id", "categories"],
       ],
@@ -206,6 +214,7 @@ describe("schema", () => {
       products,
       [
         ["bar_id", "bars"],
+        ["image_id", "images"],
         ["created_by", "users"],
         ["bar_id", "categories"],
       ],
@@ -214,6 +223,7 @@ describe("schema", () => {
       utensils,
       [
         ["bar_id", "bars"],
+        ["image_id", "images"],
         ["created_by", "users"],
       ],
     ],

@@ -23,6 +23,8 @@ export const utensilSchema = z.object({
   /** Glasses only; `null` for tools. */
   capacity_ml: z.number().nullable(),
   description: z.string().nullable(),
+  /** The picture (`imageUrl(image_id)`), set through `PUT /:id/image`. */
+  image_id: idSchema.nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });

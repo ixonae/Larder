@@ -30,7 +30,7 @@ export const categoryRoutes = new Hono<AppEnv>()
   .patch("/:id", requireRole("editor"), validate("json", updateCategorySchema), (c) =>
     c.json(updateCategory(c.var.ctx, c.req.param("id"), c.req.valid("json"))),
   )
-  .delete("/:id", requireRole("editor"), (c) => {
-    deleteCategory(c.var.ctx, c.req.param("id"));
+  .delete("/:id", requireRole("editor"), async (c) => {
+    await deleteCategory(c.var.ctx, c.req.param("id"));
     return c.body(null, 204);
   });

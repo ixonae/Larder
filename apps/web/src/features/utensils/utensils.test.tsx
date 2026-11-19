@@ -14,6 +14,7 @@ const utensil = (name: string, extra: Partial<Utensil> = {}): Utensil => ({
   kind: "glass",
   capacity_ml: null,
   description: null,
+  image_id: null,
   created_at: stamp,
   updated_at: stamp,
   ...extra,

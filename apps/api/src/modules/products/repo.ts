@@ -17,6 +17,7 @@ const columns = {
   vintage: products.vintage,
   age_years: products.age_years,
   description: products.description,
+  image_id: products.image_id,
   in_bar: products.in_bar,
   created_at: products.created_at,
   updated_at: products.updated_at,

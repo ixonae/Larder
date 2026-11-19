@@ -55,6 +55,8 @@ export const categorySchema = z.object({
   /** Percent, 0–100. */
   default_abv: z.number().nullable(),
   description: z.string().nullable(),
+  /** The picture (`imageUrl(image_id)`), set through `PUT /:id/image`. */
+  image_id: idSchema.nullable(),
   /** Pantry staples (water, sugar, ice) that are always there. */
   always_available: z.boolean(),
   /** Present/absent toggle; `null` for kinds outside `IN_STOCK_KINDS`. */

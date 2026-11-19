@@ -17,6 +17,7 @@ import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
 import { conflict, invalid, notFound, parseId } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
+import { deleteWithImage } from "../images/service.ts";
 import { listProductsInCategory } from "../products/repo.ts";
 import * as repo from "./repo.ts";
 
@@ -125,9 +126,12 @@ export function updateCategory(ctx: Ctx, id: string | undefined, patch: UpdateCa
   });
 }
 
-/** Refused with `CONFLICT` while sub-categories or bottles use it (cocktail lines in S17). */
-export function deleteCategory(ctx: Ctx, id: string | undefined): void {
-  ctx.db.transaction((tx) => {
+/**
+ * Deletes the category and its picture. Refused with `CONFLICT` while sub-categories or bottles use it
+ * (cocktail lines in S17).
+ */
+export async function deleteCategory(ctx: Ctx, id: string | undefined): Promise<void> {
+  await deleteWithImage(ctx, (tx) => {
     const existing = requireCategory(tx, ctx.barId, id);
     const children = repo.listChildren(tx, ctx.barId, existing.id);
     const bottles = listProductsInCategory(tx, ctx.barId, existing.id);
@@ -142,5 +146,6 @@ export function deleteCategory(ctx: Ctx, id: string | undefined): void {
       throw conflict(`"${existing.name}" still has ${what.filter(Boolean).join(" and ")}`, details);
     }
     repo.deleteCategory(tx, ctx.barId, existing.id);
+    return existing.image_id;
   });
 }

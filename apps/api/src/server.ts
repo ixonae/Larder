@@ -7,6 +7,7 @@ import { runMigrations } from "./db/migrate.ts";
 import { seed } from "./db/seed.ts";
 import { loadEnv, securityWarnings } from "./env.ts";
 import { createLogger } from "./logger.ts";
+import { createDiskStorage } from "./storage/storage.ts";
 
 const env = loadEnv();
 const logger = createLogger(env.LOG_LEVEL);
@@ -20,6 +21,7 @@ seed(db);
 const app = createApp({
   logger,
   db,
+  storage: createDiskStorage(join(env.DATA_DIR, "uploads")),
   passwordHash: env.LARDER_PASSWORD_HASH,
   webDir: env.WEB_DIR,
   maxBodyBytes: env.MAX_UPLOAD_MB * 1024 * 1024,

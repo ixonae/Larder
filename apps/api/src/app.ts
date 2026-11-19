@@ -10,13 +10,17 @@ import type { Logger } from "./logger.ts";
 import { currentUser } from "./middleware/context.ts";
 import { handleError, handleNotFound } from "./middleware/errors.ts";
 import { barRoutes } from "./modules/bars/routes.ts";
+import { imageRoutes } from "./modules/images/routes.ts";
 import { meRoutes } from "./modules/me/routes.ts";
 import { webApp } from "./static.ts";
+import type { ImageStorage } from "./storage/storage.ts";
 import type { AppEnv } from "./types.ts";
 
 export interface AppDeps {
   logger: Logger;
   db: Db;
+  /** Where uploaded pictures are kept. */
+  storage: ImageStorage;
   /** Email of the user every request acts as, until real auth lands (phase 6). */
   userEmail?: string;
   /** When set, every route except `/api/health` requires HTTP Basic auth with this password. */
@@ -49,6 +53,7 @@ const CONTENT_SECURITY_POLICY = {
 export function createApp({
   logger,
   db,
+  storage,
   userEmail = DEFAULT_USER.email,
   passwordHash,
   webDir,
@@ -60,6 +65,7 @@ export function createApp({
   app.use(async (c, next) => {
     c.set("logger", logger);
     c.set("db", db);
+    c.set("storage", storage);
     const start = performance.now();
     await next();
     logger.info("request", {
@@ -94,11 +100,13 @@ export function createApp({
   const withUser = currentUser(userEmail);
   app.use("/api/me", withUser);
   app.use("/api/bars/*", withUser);
+  app.use("/api/images/*", withUser);
 
   const routes = app
     .get("/api/health", (c) => c.json({ status: "ok" as const }))
     .route("/api/me", meRoutes)
-    .route("/api/bars/:barId", barRoutes);
+    .route("/api/bars/:barId", barRoutes)
+    .route("/api/images", imageRoutes);
 
   if (webDir) app.get("*", webApp(webDir));
 

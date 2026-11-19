@@ -12,6 +12,7 @@ import { onUniqueViolation } from "../../db/errors.ts";
 import { conflict, invalid, notFound, parseId } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { findCategory, listAllCategories } from "../categories/repo.ts";
+import { deleteWithImage } from "../images/service.ts";
 import * as repo from "./repo.ts";
 
 /** `GET /products`: a page sorted by name. A category filter includes its sub-categories. */
@@ -83,10 +84,11 @@ export function updateProduct(ctx: Ctx, id: string | undefined, patch: UpdatePro
   });
 }
 
-/** Nothing references products yet; the cocktail line check is added in S17. */
-export function deleteProduct(ctx: Ctx, id: string | undefined): void {
-  ctx.db.transaction((tx) => {
+/** Deletes the bottle and its picture. The cocktail line check is added in S17. */
+export async function deleteProduct(ctx: Ctx, id: string | undefined): Promise<void> {
+  await deleteWithImage(ctx, (tx) => {
     const existing = requireProduct(tx, ctx.barId, id);
     repo.deleteProduct(tx, ctx.barId, existing.id);
+    return existing.image_id;
   });
 }
