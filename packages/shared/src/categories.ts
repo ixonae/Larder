@@ -32,17 +32,8 @@ export const CATEGORY_KIND_LABEL: Record<CategoryKind, string> = {
   other: "Other",
 };
 
-/** Kinds with a quick present/absent toggle (`in_stock`): fresh or homemade things without a bottle. */
-export const IN_STOCK_KINDS = [
-  "mixer",
-  "juice",
-  "syrup",
-  "garnish",
-] as const satisfies readonly CategoryKind[];
-
-export function hasInStock(kind: CategoryKind): boolean {
-  return (IN_STOCK_KINDS as readonly CategoryKind[]).includes(kind);
-}
+/** The starter category that groups kitchen supplies; new pantry ingredients default to it. */
+export const PANTRY_CATEGORY_NAME = "Pantry";
 
 export const CATEGORY_NAME_MAX = 100;
 export const DESCRIPTION_MAX = 2000;
@@ -57,10 +48,6 @@ export const categorySchema = z.object({
   description: z.string().nullable(),
   /** The picture (`imageUrl(image_id)`), set through `PUT /:id/image`. */
   image_id: idSchema.nullable(),
-  /** Pantry staples (water, sugar, ice) that are always there. */
-  always_available: z.boolean(),
-  /** Present/absent toggle; `null` for kinds outside `IN_STOCK_KINDS`. */
-  in_stock: z.boolean().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -86,9 +73,6 @@ const fields = {
   default_abv: z.number().min(0).max(100).nullable(),
   /** Blank text is stored as `null`. */
   description: optionalText(DESCRIPTION_MAX),
-  always_available: z.boolean(),
-  /** Only for kinds in `IN_STOCK_KINDS`; defaults to `false` for them. */
-  in_stock: z.boolean(),
 };
 
 /** `POST /categories` */

@@ -12,8 +12,6 @@ const columns = {
   default_abv: categories.default_abv,
   description: categories.description,
   image_id: categories.image_id,
-  always_available: categories.always_available,
-  in_stock: categories.in_stock,
   created_at: categories.created_at,
   updated_at: categories.updated_at,
 };
@@ -22,10 +20,7 @@ const nameKey = sql<string>`larder_name_key(${categories.name})`;
 
 export type NewCategory = typeof categories.$inferInsert;
 export type CategoryChanges = Partial<
-  Pick<
-    NewCategory,
-    "name" | "parent_id" | "kind" | "default_abv" | "description" | "always_available" | "in_stock"
-  >
+  Pick<NewCategory, "name" | "parent_id" | "kind" | "default_abv" | "description">
 >;
 
 export interface CategoryFilter {

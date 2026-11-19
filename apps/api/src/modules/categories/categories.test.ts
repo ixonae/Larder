@@ -1,8 +1,10 @@
 import type { Category, CategoryTree, Page } from "@larder/shared";
 import { and, count, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { barMembers, categories } from "../../db/schema/index.ts";
+import { barMembers, categories, pantryIngredients } from "../../db/schema/index.ts";
 import { createTestApp, errorOf, readJson as json, jsonRequest } from "../../test/app.ts";
+import { STARTER_PANTRY } from "../pantry/starter.ts";
+import { STARTER_CATEGORIES } from "./starter.ts";
 
 const UNKNOWN = "01a1f326-d941-7d74-8a40-504a488cd388";
 
@@ -45,11 +47,69 @@ describe("starter categories", () => {
     const spirit = items.find((c) => c.name === "Spirit");
     const whisky = spirit?.children.find((c) => c.name === "Whisky");
     expect(whisky?.children.map((c) => c.name)).toContain("Scotch");
-    expect(whisky).toMatchObject({ kind: "spirit", default_abv: 40, in_stock: null });
+    expect(whisky).toMatchObject({ kind: "spirit", default_abv: 40 });
     const juice = items.find((c) => c.name === "Juice");
-    expect(juice?.children[0]).toMatchObject({ name: "Lemon juice", in_stock: false });
-    const ice = items.find((c) => c.name === "Pantry")?.children.find((c) => c.name === "Ice");
-    expect(ice).toMatchObject({ always_available: true, default_abv: null });
+    expect(juice?.children[0]).toMatchObject({ name: "Lemon juice", kind: "juice" });
+    // Whole fruit and pantry staples are pantry ingredients, not categories.
+    expect(items.find((c) => c.name === "Garnish")?.children).toEqual([]);
+    expect(items.find((c) => c.name === "Pantry")?.children).toEqual([]);
+  });
+});
+
+describe("starter pantry ingredients", () => {
+  it("are filed under starter categories that exist", () => {
+    const names = new Set<string>();
+    const visit = (nodes: typeof STARTER_CATEGORIES) => {
+      for (const node of nodes) {
+        names.add(node.name);
+        visit(node.children ?? []);
+      }
+    };
+    visit(STARTER_CATEGORIES);
+    expect(Object.keys(STARTER_PANTRY).filter((name) => !names.has(name))).toEqual([]);
+    // Names are unique across the tree, so the name → id map handed to the pantry seed loses nothing.
+    expect(names.size).toBe(JSON.stringify(STARTER_CATEGORIES).match(/"name"/g)?.length);
+  });
+
+  it("are created with every new bar, grouped under Garnish and Pantry", () => {
+    const { db, alice, idOf } = setup();
+    const rows = db
+      .select({
+        name: pantryIngredients.name,
+        category_id: pantryIngredients.category_id,
+        in_stock: pantryIngredients.in_stock,
+        always_available: pantryIngredients.always_available,
+      })
+      .from(pantryIngredients)
+      .where(eq(pantryIngredients.bar_id, alice.barId))
+      .all();
+    const garnish = idOf("Garnish");
+    const pantry = idOf("Pantry");
+    const staple = (name: string, category_id: string, always_available = false) => ({
+      name,
+      category_id,
+      in_stock: false,
+      always_available,
+    });
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        staple("Lemon", garnish),
+        staple("Lime", garnish),
+        staple("Mint", garnish),
+        staple("Orange", garnish),
+        staple("Ice", pantry, true),
+        staple("Water", pantry, true),
+        staple("Sugar", pantry, true),
+        staple("Egg", pantry),
+        staple("Egg white", pantry),
+        staple("Salt", pantry),
+      ]),
+    );
+    expect(rows).toHaveLength(10);
+    // One Lemon ingredient, and no Lemon category leaf; the Lemon juice bottle category stays.
+    expect(rows.filter((r) => r.name === "Lemon")).toHaveLength(1);
+    expect(() => idOf("Lemon")).toThrow("No category Lemon");
+    expect(idOf("Lemon juice")).toBeTruthy();
   });
 });
 
@@ -126,33 +186,20 @@ describe("POST /categories", () => {
       kind: "wine",
       default_abv: 15,
       description: null,
-      always_available: false,
-      in_stock: null,
     });
     const row = db.select().from(categories).where(eq(categories.id, created.id)).get();
     expect(row).toMatchObject({ bar_id: alice.barId, created_by: alice.userId });
   });
 
-  it("inherits the parent's kind and defaults in_stock for fresh kinds", async () => {
+  it("inherits the parent's kind", async () => {
     const { send, idOf } = setup();
     const res = await send("POST", "", { name: "Yuzu juice", parent_id: idOf("Juice") });
-    expect(await json(res)).toMatchObject({ kind: "juice", in_stock: false });
-    const stocked = await send("POST", "", {
-      name: "Pineapple juice",
-      parent_id: idOf("Juice"),
-      in_stock: true,
-    });
-    expect(await json(stocked)).toMatchObject({ in_stock: true });
+    expect(await json(res)).toMatchObject({ kind: "juice" });
   });
 
   it.each([
     ["a root without kind", { name: "Misc" }, "kind is required for a root category"],
     ["an unknown parent", { name: "X", parent_id: UNKNOWN }, "Parent category not found"],
-    [
-      "in_stock on a spirit",
-      { name: "X", kind: "spirit", in_stock: true },
-      "in_stock only applies to these kinds: mixer, juice, syrup, garnish",
-    ],
   ])("refuses %s", async (_, body, message) => {
     const { send, count } = setup();
     const before = count();
@@ -207,16 +254,16 @@ describe("duplicate names", () => {
 
   it("allows the same name under another parent or in another bar", async () => {
     const { send, idOf, bob } = setup();
-    expect((await send("POST", "", { name: "Lime", parent_id: idOf("Juice") })).status).toBe(201);
-    expect(idOf("Lime", bob.barId)).toBeTruthy();
+    expect((await send("POST", "", { name: "Gin", parent_id: idOf("Liqueur") })).status).toBe(201);
+    expect(idOf("Gin", bob.barId)).toBeTruthy();
   });
 
   it("refuses a rename or a move onto an existing name", async () => {
     const { send, idOf } = setup();
     expect((await send("PATCH", `/${idOf("Gin")}`, { name: "vodka" })).status).toBe(409);
-    const garnishLime = idOf("Lime");
-    expect((await send("POST", "", { name: "Lime", kind: "garnish" })).status).toBe(201);
-    const moved = await send("PATCH", `/${garnishLime}`, { parent_id: null });
+    const gin = idOf("Gin");
+    expect((await send("POST", "", { name: "Gin", kind: "spirit" })).status).toBe(201);
+    const moved = await send("PATCH", `/${gin}`, { parent_id: null });
     expect(moved.status).toBe(409);
   });
 });
@@ -276,24 +323,6 @@ describe("PATCH /categories/:id", () => {
     const { send, idOf, bob } = setup();
     const res = await send("PATCH", `/${idOf("Gin")}`, { parent_id: idOf("Spirit", bob.barId) });
     expect(res.status).toBe(400);
-  });
-
-  it("keeps in_stock consistent with the kind", async () => {
-    const { send, idOf } = setup();
-    const id = idOf("Lime juice");
-    expect(await json(await send("PATCH", `/${id}`, { in_stock: true }))).toMatchObject({
-      in_stock: true,
-    });
-    expect(await json(await send("PATCH", `/${id}`, { name: "Fresh lime" }))).toMatchObject({
-      in_stock: true,
-    });
-    expect(await json(await send("PATCH", `/${id}`, { kind: "other" }))).toMatchObject({
-      in_stock: null,
-    });
-    expect((await send("PATCH", `/${id}`, { in_stock: true })).status).toBe(400);
-    expect(await json(await send("PATCH", `/${id}`, { kind: "syrup" }))).toMatchObject({
-      in_stock: false,
-    });
   });
 
   it("answers 404 for an unknown category", async () => {

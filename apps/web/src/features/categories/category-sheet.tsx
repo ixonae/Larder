@@ -5,7 +5,6 @@ import {
   type CategoryTreeNode,
   createCategorySchema,
   flattenTree,
-  hasInStock,
   subtreeIds,
 } from "@larder/shared";
 import { useMemo } from "react";
@@ -99,20 +98,16 @@ function CategoryForm({
       kind: editing?.kind,
       default_abv: editing?.default_abv ?? null,
       description: editing?.description ?? "",
-      always_available: editing?.always_available ?? false,
-      in_stock: editing?.in_stock ?? false,
     },
   });
   const parent = all.find((a) => a.item.id === form.watch("parent_id"))?.item;
   const kind = form.watch("kind") ?? parent?.kind;
-  const showInStock = kind !== undefined && hasInStock(kind);
 
-  const submit = form.handleSubmit(async ({ in_stock, ...values }) => {
+  const submit = form.handleSubmit(async (json) => {
     if (!kind) {
       form.setError("kind", { message: "Pick a kind for a top-level category" });
       return;
     }
-    const json = { ...values, ...(showInStock && { in_stock }) };
     try {
       const saved = editing
         ? await update.mutateAsync({ id: editing.id, json })
@@ -188,17 +183,6 @@ function CategoryForm({
         value={picture.change}
         onChange={picture.setChange}
       />
-
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" className="size-4" {...form.register("always_available")} />
-        Always available (water, sugar, ice…)
-      </label>
-      {showInStock && (
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" className="size-4" {...form.register("in_stock")} />
-          In stock now
-        </label>
-      )}
 
       <SheetFooter className="px-0">
         <Button type="submit" disabled={form.formState.isSubmitting}>

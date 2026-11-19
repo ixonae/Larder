@@ -1,11 +1,8 @@
 import {
   buildTree,
   type Category,
-  type CategoryKind,
   type CategoryTreeNode,
   type CreateCategory,
-  hasInStock,
-  IN_STOCK_KINDS,
   type ListCategoriesQuery,
   type Page,
   subtreeIds,
@@ -50,21 +47,6 @@ function requireParent(db: Executor, barId: string, parentId: string): Category 
   return parent;
 }
 
-/** `in_stock` only exists for some kinds: `null` for the others, `false` until set for those. */
-function resolveInStock(
-  kind: CategoryKind,
-  requested: boolean | undefined,
-  current: boolean | null,
-): boolean | null {
-  if (!hasInStock(kind)) {
-    if (requested !== undefined) {
-      throw invalid(`in_stock only applies to these kinds: ${IN_STOCK_KINDS.join(", ")}`);
-    }
-    return null;
-  }
-  return requested ?? current ?? false;
-}
-
 /** The duplicate is reported on the `name` field, so forms can show it there. */
 const duplicateName = (name: string) => () => {
   const message = `A category named "${name}" already exists at this level`;
@@ -92,8 +74,6 @@ export function createCategory(ctx: Ctx, input: CreateCategory): Category {
           kind,
           default_abv: input.default_abv ?? null,
           description: input.description ?? null,
-          always_available: input.always_available ?? false,
-          in_stock: resolveInStock(kind, input.in_stock, null),
         }),
       duplicateName(name),
     );
@@ -110,17 +90,9 @@ export function updateCategory(ctx: Ctx, id: string | undefined, patch: UpdateCa
         throw invalid("A category cannot be moved under itself or one of its sub-categories");
       }
     }
-    const kind = patch.kind ?? existing.kind;
     const name = patch.name ?? existing.name;
-    const { in_stock, ...rest } = patch;
     return onUniqueViolation(
-      () =>
-        repo.updateCategory(tx, ctx.barId, existing.id, {
-          ...rest,
-          name,
-          kind,
-          in_stock: resolveInStock(kind, in_stock, existing.in_stock),
-        }),
+      () => repo.updateCategory(tx, ctx.barId, existing.id, patch),
       duplicateName(name),
     );
   });

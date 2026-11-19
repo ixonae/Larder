@@ -1,4 +1,4 @@
-import { CATEGORY_KINDS, IN_STOCK_KINDS, UTENSIL_KINDS } from "@larder/shared";
+import { CATEGORY_KINDS, UTENSIL_KINDS } from "@larder/shared";
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -53,8 +53,6 @@ export const categories = sqliteTable(
     default_abv: real("default_abv"),
     description: text("description"),
     image_id: imageId(),
-    always_available: integer("always_available", { mode: "boolean" }).notNull().default(false),
-    in_stock: integer("in_stock", { mode: "boolean" }),
     created_by: text("created_by")
       .notNull()
       .references(() => users.id),
@@ -81,10 +79,47 @@ export const categories = sqliteTable(
       "categories_default_abv_check",
       sql`${t.default_abv} IS NULL OR ${t.default_abv} BETWEEN 0 AND 100`,
     ),
-    check(
-      "categories_in_stock_check",
-      sql`${t.in_stock} IS NULL OR ${t.kind} IN (${sqlList(IN_STOCK_KINDS)})`,
+  ],
+);
+
+/**
+ * A supply the bar keeps that is not a bottle (Lemon, Egg, Salt…), grouped under a category.
+ * Either flag makes it available.
+ */
+export const pantryIngredients = sqliteTable(
+  "pantry_ingredients",
+  {
+    id: id(),
+    bar_id: text("bar_id")
+      .notNull()
+      .references(() => bars.id, { onDelete: "cascade" }),
+    category_id: text("category_id").notNull(),
+    name: nocaseText("name").notNull(),
+    in_stock: integer("in_stock", { mode: "boolean" }).notNull().default(false),
+    always_available: integer("always_available", { mode: "boolean" }).notNull().default(false),
+    created_by: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    ...timestamps(),
+  },
+  (t) => [
+    // Target for cocktail lines (S17); also serves every `bar_id` lookup.
+    uniqueIndex("pantry_ingredients_bar_id_id_unique").on(t.bar_id, t.id),
+    // The category must be in the same bar.
+    foreignKey({
+      name: "pantry_ingredients_category_fk",
+      columns: [t.bar_id, t.category_id],
+      foreignColumns: [categories.bar_id, categories.id],
+    }),
+    // Unique within its category. The name key comes before the category so the index also serves
+    // the list, sorted by name.
+    uniqueIndex("pantry_ingredients_name_unique").on(
+      t.bar_id,
+      sql`larder_name_key(${t.name})`,
+      t.category_id,
     ),
+    // Child key of the category foreign key: lookups by category (delete checks, FK enforcement).
+    index("pantry_ingredients_bar_id_category_id_idx").on(t.bar_id, t.category_id),
   ],
 );
 

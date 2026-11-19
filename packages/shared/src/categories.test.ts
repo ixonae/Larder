@@ -1,22 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  CATEGORY_KINDS,
   categoryTreeSchema,
   createCategorySchema,
-  hasInStock,
-  IN_STOCK_KINDS,
   listCategoriesQuerySchema,
   updateCategorySchema,
 } from "./categories.ts";
 import { usedBySchema } from "./errors.ts";
 
 const ID = "01a1f326-d941-7d74-8a40-504a488cd388";
-
-describe("hasInStock", () => {
-  it.each(CATEGORY_KINDS)("matches IN_STOCK_KINDS for %s", (kind) => {
-    expect(hasInStock(kind)).toBe((IN_STOCK_KINDS as readonly string[]).includes(kind));
-  });
-});
 
 describe("createCategorySchema", () => {
   it("needs only a name, trimmed", () => {
@@ -80,8 +71,6 @@ describe("categoryTreeSchema", () => {
     default_abv: 40,
     description: null,
     image_id: null,
-    always_available: false,
-    in_stock: null,
     created_at: "2026-01-01T00:00:00.000Z",
     updated_at: "2026-01-01T00:00:00.000Z",
   };

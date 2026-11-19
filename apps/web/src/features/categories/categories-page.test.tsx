@@ -1,4 +1,4 @@
-import { buildTree, type Category, type CategoryKind, hasInStock } from "@larder/shared";
+import { buildTree, type Category, type CategoryKind } from "@larder/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { delay, HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -16,8 +16,6 @@ const cat = (name: string, kind: CategoryKind, parent: Category | null = null, e
   default_abv: kind === "spirit" ? 40 : null,
   description: null,
   image_id: null,
-  always_available: false,
-  in_stock: hasInStock(kind) ? false : null,
   created_at: "2026-01-01T00:00:00.000Z",
   updated_at: "2026-01-01T00:00:00.000Z",
   ...extra,
@@ -182,7 +180,6 @@ describe("CategoriesPage", () => {
     await user.selectOptions(within(sheet).getByLabelText("Kind"), "Other");
     await user.type(within(sheet).getByLabelText("Default ABV (%)"), "0");
     await user.type(within(sheet).getByLabelText("Description"), "Staples");
-    await user.click(within(sheet).getByLabelText(/Always available/));
     await user.click(within(sheet).getByRole("button", { name: "Create" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -195,7 +192,6 @@ describe("CategoriesPage", () => {
           kind: "other",
           default_abv: 0,
           description: "Staples",
-          always_available: true,
         },
       },
     ]);
@@ -203,14 +199,13 @@ describe("CategoriesPage", () => {
     await waitFor(() => expect(visibleNames()).toEqual(["Juice", "Pantry", "Spirit"]));
   });
 
-  it("adds a sub-category that inherits its kind and offers in-stock for fresh kinds", async () => {
+  it("adds a sub-category that inherits its kind", async () => {
     const { user } = await openPage();
     await user.click(screen.getByRole("button", { name: "Add under Juice" }));
     const sheet = screen.getByRole("dialog", { name: "New category" });
     expect(within(sheet).getByLabelText("Parent")).toHaveValue(byName("Juice").id);
     expect(within(sheet).getByLabelText("Kind")).toHaveDisplayValue("Same as parent (Juice)");
     await user.type(within(sheet).getByLabelText("Name"), "Yuzu juice");
-    await user.click(within(sheet).getByLabelText("In stock now"));
     await user.click(within(sheet).getByRole("button", { name: "Create" }));
 
     await waitFor(() => expect(requests).toHaveLength(1));
@@ -219,22 +214,9 @@ describe("CategoriesPage", () => {
       parent_id: byName("Juice").id,
       default_abv: null,
       description: null,
-      always_available: false,
-      in_stock: true,
     });
     // The parent was expanded to show the new child.
     expect(await within(tree()).findByText("Yuzu juice")).toBeInTheDocument();
-  });
-
-  it("does not send in_stock for kinds without it", async () => {
-    const { user } = await openPage();
-    await user.click(screen.getByRole("button", { name: "Add under Spirit" }));
-    const sheet = screen.getByRole("dialog", { name: "New category" });
-    expect(within(sheet).queryByLabelText("In stock now")).not.toBeInTheDocument();
-    await user.type(within(sheet).getByLabelText("Name"), "Vodka");
-    await user.click(within(sheet).getByRole("button", { name: "Create" }));
-    await waitFor(() => expect(requests).toHaveLength(1));
-    expect(requests[0]?.body).not.toHaveProperty("in_stock");
   });
 
   it("uploads a picture after saving, and shows it as a thumbnail", async () => {
@@ -284,17 +266,6 @@ describe("CategoriesPage", () => {
       body: { name: "Spirits", kind: "spirit", default_abv: null, parent_id: null },
     });
     expect(await screen.findByText("Category saved")).toBeInTheDocument();
-  });
-
-  it("keeps in_stock when editing a fresh ingredient", async () => {
-    const { user } = await openPage();
-    await user.click(screen.getByRole("button", { name: "Expand Juice" }));
-    await user.click(screen.getByRole("button", { name: "Edit Lime juice" }));
-    const sheet = screen.getByRole("dialog", { name: "Edit Lime juice" });
-    await user.click(within(sheet).getByLabelText("In stock now"));
-    await user.click(within(sheet).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(requests).toHaveLength(1));
-    expect(requests[0]?.body).toMatchObject({ in_stock: true });
   });
 
   it.each([

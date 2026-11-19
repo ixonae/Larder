@@ -63,21 +63,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "always_available": {
-          "name": "always_available",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "in_stock": {
-          "name": "in_stock",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_by": {
           "name": "created_by",
           "type": "text",
@@ -167,10 +152,6 @@
         "categories_default_abv_check": {
           "name": "categories_default_abv_check",
           "value": "\"categories\".\"default_abv\" IS NULL OR \"categories\".\"default_abv\" BETWEEN 0 AND 100"
-        },
-        "categories_in_stock_check": {
-          "name": "categories_in_stock_check",
-          "value": "\"categories\".\"in_stock\" IS NULL OR \"categories\".\"kind\" IN ('mixer', 'juice', 'syrup', 'garnish')"
         }
       }
     },

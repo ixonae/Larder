@@ -1,9 +1,18 @@
-import { eq, getTableName } from "drizzle-orm";
+import { and, eq, getTableName } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { openDb } from "./client.ts";
 import { runMigrations } from "./migrate.ts";
-import { barMembers, bars, categories, images, products, users, utensils } from "./schema/index.ts";
+import {
+  barMembers,
+  bars,
+  categories,
+  images,
+  pantryIngredients,
+  products,
+  users,
+  utensils,
+} from "./schema/index.ts";
 import { DEFAULT_BAR_NAME, DEFAULT_USER, seed, seedUser } from "./seed.ts";
 
 function freshDb() {
@@ -118,7 +127,7 @@ describe("seed", () => {
 });
 
 describe("categories table", () => {
-  it("refuses a parent from another bar and an in_stock value on other kinds", () => {
+  it("refuses a parent from another bar and an abv over 100", () => {
     const db = freshDb();
     const alice = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
     const bob = seedUser(db, { email: "b@x.y", display_name: "B" }, "B");
@@ -135,12 +144,6 @@ describe("categories table", () => {
         .values({ ...row, parent_id: bobsRoot?.id })
         .run(),
     ).toThrow(/FOREIGN KEY/);
-    expect(() =>
-      db
-        .insert(categories)
-        .values({ ...row, in_stock: true })
-        .run(),
-    ).toThrow(/CHECK/);
     expect(() =>
       db
         .insert(categories)
@@ -169,6 +172,40 @@ describe("products table", () => {
     const { db, row, aliceCat, bobCat } = setup();
     const values = { ...row, category_id: aliceCat, ...override(bobCat) };
     expect(() => db.insert(products).values(values).run()).toThrow(error);
+  });
+});
+
+describe("pantry_ingredients table", () => {
+  function setup() {
+    const db = freshDb();
+    const alice = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
+    const bob = seedUser(db, { email: "b@x.y", display_name: "B" }, "B");
+    const pick = (barId: string, name: string) =>
+      db
+        .select()
+        .from(categories)
+        .where(and(eq(categories.bar_id, barId), eq(categories.name, name)))
+        .get()?.id ?? "";
+    const row = { bar_id: alice.barId, created_by: alice.userId };
+    const insert = (name: string, category_id: string) =>
+      db
+        .insert(pantryIngredients)
+        .values({ ...row, name, category_id })
+        .run();
+    return { insert, pick, alice, bob };
+  }
+
+  it("refuses a category from another bar", () => {
+    const { insert, pick, bob } = setup();
+    expect(() => insert("Yuzu", pick(bob.barId, "Garnish"))).toThrow(/FOREIGN KEY/);
+  });
+
+  it("refuses the same name twice in a category, ignoring case and accents form", () => {
+    const { insert, pick, alice } = setup();
+    expect(() => insert("LEMON", pick(alice.barId, "Garnish"))).toThrow(/UNIQUE/);
+    insert("Crème", pick(alice.barId, "Pantry"));
+    expect(() => insert("CRÈME".normalize("NFD"), pick(alice.barId, "Pantry"))).toThrow(/UNIQUE/);
+    expect(() => insert("Lemon", pick(alice.barId, "Pantry"))).not.toThrow();
   });
 });
 
@@ -215,6 +252,14 @@ describe("schema", () => {
       [
         ["bar_id", "bars"],
         ["image_id", "images"],
+        ["created_by", "users"],
+        ["bar_id", "categories"],
+      ],
+    ],
+    [
+      pantryIngredients,
+      [
+        ["bar_id", "bars"],
         ["created_by", "users"],
         ["bar_id", "categories"],
       ],

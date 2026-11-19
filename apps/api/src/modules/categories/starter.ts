@@ -1,4 +1,4 @@
-import { type CategoryKind, hasInStock, newId } from "@larder/shared";
+import { type CategoryKind, newId, PANTRY_CATEGORY_NAME } from "@larder/shared";
 import type { Executor } from "../../db/client.ts";
 import { insertCategories, type NewCategory } from "./repo.ts";
 
@@ -7,14 +7,16 @@ interface StarterCategory {
   /** Required on roots; children take their parent's kind, as in `createCategory`. */
   kind?: CategoryKind;
   abv?: number;
-  always?: boolean;
   children?: StarterCategory[];
 }
 
-const leaves = (abv: number | undefined, names: string[]): StarterCategory[] =>
-  names.map((name) => (abv === undefined ? { name } : { name, abv }));
+const leaves = (abv: number, names: string[]): StarterCategory[] =>
+  names.map((name) => ({ name, abv }));
 
-/** The tree every new bar starts with. Default ABVs are typical values, in percent. */
+/**
+ * The tree every new bar starts with. Default ABVs are typical values, in percent. Bottle categories
+ * such as Lemon juice stay categories; Garnish and Pantry group the starter pantry ingredients.
+ */
 export const STARTER_CATEGORIES: StarterCategory[] = [
   {
     name: "Spirit",
@@ -76,24 +78,19 @@ export const STARTER_CATEGORIES: StarterCategory[] = [
     abv: 0,
     children: leaves(0, ["Soda water", "Tonic water", "Ginger beer", "Cola"]),
   },
-  {
-    name: "Garnish",
-    kind: "garnish",
-    children: leaves(undefined, ["Lime", "Lemon", "Orange", "Mint"]),
-  },
-  {
-    name: "Pantry",
-    kind: "other",
-    children: [
-      { name: "Ice", always: true },
-      { name: "Water", abv: 0, always: true },
-      { name: "Sugar", always: true },
-    ],
-  },
+  { name: "Garnish", kind: "garnish" },
+  { name: PANTRY_CATEGORY_NAME, kind: "other" },
 ];
 
-/** Inserts the starter tree into a new bar. Call inside the transaction that creates the bar. */
-export function seedStarterCategories(db: Executor, barId: string, userId: string): void {
+/**
+ * Inserts the starter tree into a new bar and returns the new ids by name, for seeds that file things
+ * under these categories. Call inside the transaction that creates the bar.
+ */
+export function seedStarterCategories(
+  db: Executor,
+  barId: string,
+  userId: string,
+): Map<string, string> {
   const rows: NewCategory[] = [];
   const visit = (nodes: StarterCategory[], parentId: string | null, parentKind: CategoryKind) => {
     for (const node of nodes) {
@@ -107,8 +104,6 @@ export function seedStarterCategories(db: Executor, barId: string, userId: strin
         name: node.name,
         kind,
         default_abv: node.abv ?? null,
-        always_available: node.always ?? false,
-        in_stock: hasInStock(kind) ? false : null,
       });
       visit(node.children ?? [], id, kind);
     }
@@ -116,4 +111,5 @@ export function seedStarterCategories(db: Executor, barId: string, userId: strin
   // Every root names its kind; "other" is only the type-level fallback.
   visit(STARTER_CATEGORIES, null, "other");
   insertCategories(db, rows);
+  return new Map(rows.map((row) => [row.name, row.id as string]));
 }

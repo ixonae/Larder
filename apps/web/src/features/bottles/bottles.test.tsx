@@ -17,8 +17,6 @@ const category = (n: number, name: string, parent: Category | null = null): Cate
   default_abv: 40,
   description: null,
   image_id: null,
-  always_available: false,
-  in_stock: null,
   created_at: stamp,
   updated_at: stamp,
 });

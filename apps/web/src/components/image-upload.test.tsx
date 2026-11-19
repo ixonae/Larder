@@ -16,8 +16,6 @@ const gin: Category = {
   default_abv: 40,
   description: null,
   image_id: IMAGE,
-  always_available: false,
-  in_stock: null,
   created_at: stamp,
   updated_at: stamp,
 };
