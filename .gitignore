@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+/data/
+/backups/
+test-results/
+playwright-report/
+.DS_Store
+
+# Local planning notes, not committed
+docs/implementation-plan.md
