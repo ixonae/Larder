@@ -12,6 +12,10 @@ export const mediaQuery = {
 Object.defineProperty(window, "matchMedia", { value: () => mediaQuery, writable: true });
 // The router restores scroll on navigation; jsdom does not implement it.
 window.scrollTo = () => {};
+// Radix primitives (toast swipe) use pointer capture, which jsdom lacks.
+Element.prototype.hasPointerCapture ??= vi.fn(() => false);
+Element.prototype.releasePointerCapture ??= vi.fn();
+Element.prototype.setPointerCapture ??= vi.fn();
 
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => {

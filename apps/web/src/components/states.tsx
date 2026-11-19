@@ -1,4 +1,4 @@
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, LoaderCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -23,6 +23,15 @@ export function ErrorState({ error, onRetry }: { error: Error; onRetry: () => vo
       <Button variant="outline" onClick={onRetry}>
         Try again
       </Button>
+    </div>
+  );
+}
+
+export function LoadingState({ label = "Loading…" }: { label?: string }) {
+  return (
+    <div role="status" className="flex items-center justify-center gap-2 p-8 text-muted-foreground">
+      <LoaderCircle className="size-5 animate-spin" aria-hidden />
+      <span className="text-sm">{label}</span>
     </div>
   );
 }
