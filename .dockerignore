@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/coverage
+**/*.test.ts
+**/*.test.tsx
+**/src/test
+.git
+.github
+data
+backups
+docs
+e2e
+test-results
+playwright-report
+*.md

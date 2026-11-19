@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { loadEnv } from "./env.ts";
+import { type Env, loadEnv, securityWarnings } from "./env.ts";
+
+const HASH = "scrypt:32768:8:1:c2FsdA:a2V5";
 
 describe("loadEnv", () => {
   it("applies defaults", () => {
@@ -10,6 +12,7 @@ describe("loadEnv", () => {
       LOG_LEVEL: "info",
       MAX_UPLOAD_MB: 10,
       LARDER_PASSWORD_HASH: undefined,
+      WEB_DIR: undefined,
     });
   });
 
@@ -20,12 +23,14 @@ describe("loadEnv", () => {
       DATA_DIR: "/data",
       LOG_LEVEL: "debug",
       MAX_UPLOAD_MB: "2.5",
-      LARDER_PASSWORD_HASH: "scrypt$abc",
+      LARDER_PASSWORD_HASH: HASH,
+      WEB_DIR: "/app/web",
     });
     expect(env).toMatchObject({
       PORT: 8080,
       MAX_UPLOAD_MB: 2.5,
-      LARDER_PASSWORD_HASH: "scrypt$abc",
+      LARDER_PASSWORD_HASH: HASH,
+      WEB_DIR: "/app/web",
     });
   });
 
@@ -33,7 +38,30 @@ describe("loadEnv", () => {
     expect(loadEnv({ LARDER_PASSWORD_HASH: "" }).LARDER_PASSWORD_HASH).toBeUndefined();
   });
 
+  it("refuses a password hash in the wrong format", () => {
+    expect(() => loadEnv({ LARDER_PASSWORD_HASH: "hunter2" })).toThrow(/pnpm hash-password/);
+  });
+
   it("lists every invalid variable", () => {
     expect(() => loadEnv({ PORT: "abc", LOG_LEVEL: "loud" })).toThrow(/PORT[\s\S]*LOG_LEVEL/);
+  });
+});
+
+describe("securityWarnings", () => {
+  const base = loadEnv({});
+  const env = (over: Partial<Env>): Env => ({ ...base, ...over });
+
+  it.each(["127.0.0.1", "::1", "localhost"])("is quiet on loopback %s", (HOST) => {
+    expect(securityWarnings(env({ HOST }))).toEqual([]);
+  });
+
+  it("is quiet when a password is set", () => {
+    expect(securityWarnings(env({ HOST: "0.0.0.0", LARDER_PASSWORD_HASH: HASH }))).toEqual([]);
+  });
+
+  it("warns on a non-loopback address without a password", () => {
+    expect(securityWarnings(env({ HOST: "0.0.0.0" }))).toEqual([
+      expect.stringContaining("Listening on 0.0.0.0 without a password"),
+    ]);
   });
 });

@@ -11,14 +11,22 @@ export const BOB = { email: "bob@larder.local", display_name: "Bob" } as const;
  * Fresh in-memory database, migrated and seeded with two users who each own one bar:
  * Alice (the default user) owns "Alice's bar", Bob owns "Bob's bar". Requests act as `as` (Alice by default).
  */
-export function createTestApp({ as = ALICE.email }: { as?: string } = {}) {
+export function createTestApp({
+  as = ALICE.email,
+  passwordHash,
+  webDir,
+}: {
+  as?: string;
+  passwordHash?: string;
+  webDir?: string;
+} = {}) {
   const db = openDb(":memory:");
   runMigrations(db);
   const alice = seedUser(db, ALICE, "Alice's bar");
   const bob = seedUser(db, BOB, "Bob's bar");
   const lines: string[] = [];
   const logger = createLogger("debug", (l) => lines.push(l));
-  const app = createApp({ logger, db, userEmail: as });
+  const app = createApp({ logger, db, userEmail: as, passwordHash, webDir });
   const logs = () => lines.map((l) => JSON.parse(l) as Record<string, unknown>);
   return { app, db, alice, bob, logs };
 }
