@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import {
   check,
   foreignKey,
+  index,
   integer,
   real,
   sqliteTable,
@@ -58,5 +59,50 @@ export const categories = sqliteTable(
       "categories_in_stock_check",
       sql`${t.in_stock} IS NULL OR ${t.kind} IN (${sqlList(IN_STOCK_KINDS)})`,
     ),
+  ],
+);
+
+export const products = sqliteTable(
+  "products",
+  {
+    id: id(),
+    bar_id: text("bar_id")
+      .notNull()
+      .references(() => bars.id, { onDelete: "cascade" }),
+    category_id: text("category_id").notNull(),
+    name: nocaseText("name").notNull(),
+    producer: text("producer"),
+    country: text("country"),
+    region: text("region"),
+    abv: real("abv"),
+    vintage: integer("vintage"),
+    age_years: integer("age_years"),
+    description: text("description"),
+    in_bar: integer("in_bar", { mode: "boolean" }).notNull().default(false),
+    created_by: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    ...timestamps(),
+  },
+  (t) => [
+    // Target for cocktail lines (S17); also serves every `bar_id` lookup.
+    uniqueIndex("products_bar_id_id_unique").on(t.bar_id, t.id),
+    // The category must be in the same bar.
+    foreignKey({
+      name: "products_category_fk",
+      columns: [t.bar_id, t.category_id],
+      foreignColumns: [categories.bar_id, categories.id],
+    }),
+    index("products_bar_id_category_id_idx").on(t.bar_id, t.category_id),
+    // The same name is allowed once per vintage, and once without one: two indexes, because
+    // SQLite treats every NULL vintage as distinct.
+    uniqueIndex("products_vintage_name_unique")
+      .on(t.bar_id, sql`larder_name_key(${t.name})`, t.vintage)
+      .where(sql`${t.vintage} IS NOT NULL`),
+    uniqueIndex("products_name_unique")
+      .on(t.bar_id, sql`larder_name_key(${t.name})`)
+      .where(sql`${t.vintage} IS NULL`),
+    check("products_abv_check", sql`${t.abv} IS NULL OR ${t.abv} BETWEEN 0 AND 100`),
+    check("products_age_years_check", sql`${t.age_years} IS NULL OR ${t.age_years} >= 0`),
   ],
 );

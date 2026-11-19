@@ -1,7 +1,7 @@
 import type { Category, CategoryKind } from "@larder/shared";
-import { and, asc, eq, gt, or, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
-import type { NameCursor } from "../../db/cursor.ts";
+import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { categories } from "../../db/schema/index.ts";
 
 const columns = {
@@ -50,12 +50,10 @@ export function listCategories(
         q === undefined ? undefined : sql`instr(${nameKey}, larder_name_key(${q})) > 0`,
         kind === undefined ? undefined : eq(categories.kind, kind),
         parent_id === undefined ? undefined : eq(categories.parent_id, parent_id),
-        after === undefined
-          ? undefined
-          : or(gt(nameKey, after.key), and(eq(nameKey, after.key), gt(categories.id, after.id))),
+        afterName(nameKey, categories.id, after),
       ),
     )
-    .orderBy(asc(nameKey), asc(categories.id))
+    .orderBy(...byName(nameKey, categories.id))
     .limit(limit)
     .all();
 }
@@ -66,7 +64,7 @@ export function listAllCategories(db: Executor, barId: string): Category[] {
     .select(columns)
     .from(categories)
     .where(eq(categories.bar_id, barId))
-    .orderBy(asc(nameKey), asc(categories.id))
+    .orderBy(...byName(nameKey, categories.id))
     .all();
 }
 
@@ -87,7 +85,7 @@ export function listChildren(
     .select({ id: categories.id, name: categories.name })
     .from(categories)
     .where(and(eq(categories.bar_id, barId), eq(categories.parent_id, id)))
-    .orderBy(asc(nameKey), asc(categories.id))
+    .orderBy(...byName(nameKey, categories.id))
     .all();
 }
 

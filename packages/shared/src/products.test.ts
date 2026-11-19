@@ -1,0 +1,105 @@
+import { describe, expect, it } from "vitest";
+import {
+  createProductSchema,
+  listProductsQuerySchema,
+  productSchema,
+  setProductInBarSchema,
+  updateProductSchema,
+} from "./products.ts";
+
+const ID = "01a1f326-d941-7d74-8a40-504a488cd388";
+
+describe("createProductSchema", () => {
+  it("needs a name and a category, trimmed", () => {
+    expect(createProductSchema.parse({ name: " Talisker ", category_id: ID })).toEqual({
+      name: "Talisker",
+      category_id: ID,
+    });
+  });
+
+  it("stores blank text as null", () => {
+    const parsed = createProductSchema.parse({
+      name: "x",
+      category_id: ID,
+      producer: " ",
+      country: " Scotland ",
+      region: "",
+      description: "  ",
+    });
+    expect(parsed).toMatchObject({
+      producer: null,
+      country: "Scotland",
+      region: null,
+      description: null,
+    });
+  });
+
+  it.each([
+    ["a missing name", { category_id: ID }],
+    ["a missing category", { name: "x" }],
+    ["a bad category id", { name: "x", category_id: "nope" }],
+    ["a long name", { name: "x".repeat(201), category_id: ID }],
+    ["a long producer", { name: "x", category_id: ID, producer: "x".repeat(101) }],
+    ["a negative abv", { name: "x", category_id: ID, abv: -1 }],
+    ["an old vintage", { name: "x", category_id: ID, vintage: 1799 }],
+    ["a far vintage", { name: "x", category_id: ID, vintage: 2201 }],
+    ["a fractional age", { name: "x", category_id: ID, age_years: 1.5 }],
+    ["a negative age", { name: "x", category_id: ID, age_years: -1 }],
+  ])("refuses %s", (_, input) => {
+    expect(createProductSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe("updateProductSchema", () => {
+  it("accepts any single field and refuses an empty patch", () => {
+    expect(updateProductSchema.parse({ vintage: null })).toEqual({ vintage: null });
+    expect(updateProductSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("setProductInBarSchema", () => {
+  it("needs a boolean", () => {
+    expect(setProductInBarSchema.parse({ in_bar: true })).toEqual({ in_bar: true });
+    expect(setProductInBarSchema.safeParse({ in_bar: "yes" }).success).toBe(false);
+  });
+});
+
+describe("listProductsQuerySchema", () => {
+  it("defaults to a first page", () => {
+    expect(listProductsQuerySchema.parse({})).toEqual({ limit: 50 });
+  });
+
+  it("parses filters", () => {
+    expect(listProductsQuerySchema.parse({ q: " gin ", category_id: ID, in_bar: "false" })).toEqual(
+      { limit: 50, q: "gin", category_id: ID, in_bar: false },
+    );
+    expect(listProductsQuerySchema.parse({ in_bar: "true" }).in_bar).toBe(true);
+  });
+
+  it.each([{ q: "" }, { in_bar: "yes" }, { category_id: "nope" }])("refuses %o", (query) => {
+    expect(listProductsQuerySchema.safeParse(query).success).toBe(false);
+  });
+});
+
+describe("productSchema", () => {
+  it("validates a bottle", () => {
+    const product = {
+      id: ID,
+      name: "Talisker 10",
+      category_id: ID,
+      category_name: "Scotch",
+      producer: null,
+      country: null,
+      region: null,
+      abv: 45.8,
+      vintage: null,
+      age_years: 10,
+      description: null,
+      in_bar: true,
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    };
+    expect(productSchema.parse(product)).toEqual(product);
+    expect(productSchema.safeParse({ ...product, in_bar: null }).success).toBe(false);
+  });
+});

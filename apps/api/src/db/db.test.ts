@@ -3,7 +3,7 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { openDb } from "./client.ts";
 import { runMigrations } from "./migrate.ts";
-import { barMembers, bars, categories, users } from "./schema/index.ts";
+import { barMembers, bars, categories, products, users } from "./schema/index.ts";
 import { DEFAULT_BAR_NAME, DEFAULT_USER, seed, seedUser } from "./seed.ts";
 
 function freshDb() {
@@ -150,6 +150,28 @@ describe("categories table", () => {
   });
 });
 
+describe("products table", () => {
+  function setup() {
+    const db = freshDb();
+    const alice = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
+    const bob = seedUser(db, { email: "b@x.y", display_name: "B" }, "B");
+    const pick = (barId: string) =>
+      db.select().from(categories).where(eq(categories.bar_id, barId)).get()?.id ?? "";
+    const row = { bar_id: alice.barId, created_by: alice.userId, name: "X" };
+    return { db, row, aliceCat: pick(alice.barId), bobCat: pick(bob.barId) };
+  }
+
+  it.each([
+    ["a category from another bar", (c: string) => ({ category_id: c }), /FOREIGN KEY/],
+    ["an abv over 100", () => ({ abv: 101 }), /CHECK/],
+    ["a negative age", () => ({ age_years: -1 }), /CHECK/],
+  ])("refuses %s", (_, override, error) => {
+    const { db, row, aliceCat, bobCat } = setup();
+    const values = { ...row, category_id: aliceCat, ...override(bobCat) };
+    expect(() => db.insert(products).values(values).run()).toThrow(error);
+  });
+});
+
 describe("schema", () => {
   it.each([
     [bars, [["owner_id", "users"]]],
@@ -162,6 +184,14 @@ describe("schema", () => {
     ],
     [
       categories,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+        ["bar_id", "categories"],
+      ],
+    ],
+    [
+      products,
       [
         ["bar_id", "bars"],
         ["created_by", "users"],

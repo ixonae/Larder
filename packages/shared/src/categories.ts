@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "./id.ts";
 import { paginationQuerySchema } from "./pagination.ts";
+import { optionalText } from "./text.ts";
 import type { TreeNode } from "./tree.ts";
 
 export const CATEGORY_KINDS = [
@@ -82,12 +83,7 @@ const fields = {
   kind: categoryKindSchema,
   default_abv: z.number().min(0).max(100).nullable(),
   /** Blank text is stored as `null`. */
-  description: z
-    .string()
-    .trim()
-    .max(DESCRIPTION_MAX)
-    .transform((s) => s || null)
-    .nullable(),
+  description: optionalText(DESCRIPTION_MAX),
   always_available: z.boolean(),
   /** Only for kinds in `IN_STOCK_KINDS`; defaults to `false` for them. */
   in_stock: z.boolean(),

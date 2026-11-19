@@ -17,6 +17,7 @@ import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
 import { conflict, invalid, notFound, parseId } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
+import { listProductsInCategory } from "../products/repo.ts";
 import * as repo from "./repo.ts";
 
 /** `GET /categories`: a page of the flat list, sorted by name. */
@@ -124,16 +125,21 @@ export function updateCategory(ctx: Ctx, id: string | undefined, patch: UpdateCa
   });
 }
 
-/** Refused with `CONFLICT` while sub-categories use it (products in S11, cocktail lines in S17). */
+/** Refused with `CONFLICT` while sub-categories or bottles use it (cocktail lines in S17). */
 export function deleteCategory(ctx: Ctx, id: string | undefined): void {
   ctx.db.transaction((tx) => {
     const existing = requireCategory(tx, ctx.barId, id);
     const children = repo.listChildren(tx, ctx.barId, existing.id);
-    if (children.length > 0) {
+    const bottles = listProductsInCategory(tx, ctx.barId, existing.id);
+    if (children.length > 0 || bottles.length > 0) {
       const details: UsedBy = {
-        used_by: children.map((c) => ({ type: "category", id: c.id, name: c.name })),
+        used_by: [
+          ...children.map((c) => ({ type: "category" as const, id: c.id, name: c.name })),
+          ...bottles.map((p) => ({ type: "product" as const, id: p.id, name: p.name })),
+        ],
       };
-      throw conflict(`"${existing.name}" still has sub-categories`, details);
+      const what = [children.length > 0 && "sub-categories", bottles.length > 0 && "bottles"];
+      throw conflict(`"${existing.name}" still has ${what.filter(Boolean).join(" and ")}`, details);
     }
     repo.deleteCategory(tx, ctx.barId, existing.id);
   });

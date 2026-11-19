@@ -10,6 +10,9 @@ export const paginationQuerySchema = z.object({
 });
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
 
+/** A boolean query parameter, written `true` or `false`. */
+export const booleanQuerySchema = z.stringbool({ truthy: ["true"], falsy: ["false"] });
+
 /** A page of results; `next_cursor` is null on the last page. */
 export function pageSchema<T extends z.ZodType>(item: T) {
   return z.object({
