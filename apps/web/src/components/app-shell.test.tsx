@@ -19,8 +19,9 @@ describe("AppShell", () => {
       expect(links.map((l) => l.textContent)).toEqual([
         "Cocktails",
         "Bottles",
-        "Categories",
+        "Pantry",
         "Utensils",
+        "Categories",
       ]);
     }
   });
@@ -48,7 +49,7 @@ describe("AppShell", () => {
     );
 
     const side = screen.getByRole("navigation", { name: "Sidebar" });
-    for (const name of ["Categories", "Utensils", "Cocktails"]) {
+    for (const name of ["Pantry", "Categories", "Utensils", "Cocktails"]) {
       await user.click(within(side).getByRole("link", { name }));
       expect(await screen.findByRole("heading", { name })).toBeInTheDocument();
     }

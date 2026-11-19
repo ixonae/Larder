@@ -1,5 +1,5 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import { FolderTree, Martini, UtensilsCrossed, Wine } from "lucide-react";
+import { Citrus, FolderTree, Martini, UtensilsCrossed, Wine } from "lucide-react";
 import { useMe } from "@/api/queries.ts";
 import { ErrorState } from "./states.tsx";
 import { ThemeToggle } from "./theme.tsx";
@@ -7,8 +7,9 @@ import { ThemeToggle } from "./theme.tsx";
 const NAV = [
   { to: "/cocktails", label: "Cocktails", icon: Martini },
   { to: "/bottles", label: "Bottles", icon: Wine },
-  { to: "/categories", label: "Categories", icon: FolderTree },
+  { to: "/pantry", label: "Pantry", icon: Citrus },
   { to: "/utensils", label: "Utensils", icon: UtensilsCrossed },
+  { to: "/categories", label: "Categories", icon: FolderTree },
 ] as const;
 
 function NavLinks({ variant }: { variant: "side" | "bottom" }) {
@@ -61,7 +62,7 @@ export function AppShell() {
 
       <nav
         aria-label="Bottom navigation"
-        className="fixed inset-x-0 bottom-0 grid grid-cols-4 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 grid grid-cols-5 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         <NavLinks variant="bottom" />
       </nav>

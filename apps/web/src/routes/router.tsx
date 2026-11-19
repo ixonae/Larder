@@ -11,6 +11,7 @@ import { NotFoundPage, SectionPage } from "@/components/section-page.tsx";
 import { BottleDetailPage } from "@/features/bottles/bottle-detail-page.tsx";
 import { BottlesPage, bottlesSearchSchema } from "@/features/bottles/bottles-page.tsx";
 import { CategoriesPage } from "@/features/categories/categories-page.tsx";
+import { PantryPage } from "@/features/pantry/pantry-page.tsx";
 import { UtensilsPage } from "@/features/utensils/utensils-page.tsx";
 
 export interface RouterContext {
@@ -51,6 +52,7 @@ export const routeTree = rootRoute.addChildren([
     path: "/bottles/$productId",
     component: BottleDetailPage,
   }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/pantry", component: PantryPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/categories", component: CategoriesPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/utensils", component: UtensilsPage }),
 ]);

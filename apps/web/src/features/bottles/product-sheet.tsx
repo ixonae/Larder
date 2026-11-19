@@ -2,17 +2,12 @@ import {
   type CategoryTreeNode,
   createProductSchema,
   flattenTree,
-  idSchema,
   type Product,
 } from "@larder/shared";
-import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { z } from "zod";
-import { categoryTreeQuery } from "@/api/categories.ts";
 import { useProductMutations } from "@/api/products.ts";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
 import { NativeSelect } from "@/components/native-select.tsx";
-import { ErrorState, LoadingState } from "@/components/states.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -25,7 +20,11 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
-import { CategoryOptions } from "@/features/categories/category-options.tsx";
+import {
+  CategoryOptions,
+  CategoryTreeLoader,
+  categoryIdField,
+} from "@/features/categories/category-options.tsx";
 import { applyServerErrors, emptyToNullNumber, FormField, useZodForm } from "@/lib/form.tsx";
 
 /** What the sheet is open for: the bottle being edited, `"new"` to add one, or null when closed. */
@@ -49,29 +48,23 @@ export function ProductSheet({
           <SheetTitle>{editing ? `Edit ${editing.name}` : "New bottle"}</SheetTitle>
           <SheetDescription>A bottle you own or have tasted.</SheetDescription>
         </SheetHeader>
-        {target && <ProductFormLoader barId={barId} editing={editing} onDone={onClose} />}
+        {target && (
+          <CategoryTreeLoader barId={barId}>
+            {(tree) => <ProductForm barId={barId} editing={editing} onDone={onClose} tree={tree} />}
+          </CategoryTreeLoader>
+        )}
       </SheetContent>
     </Sheet>
   );
 }
 
 /** The API schema, with a message for the empty "Choose…" option of the category picker. */
-const formSchema = createProductSchema.extend({
-  category_id: idSchema.or(z.literal("")).refine((v) => v !== "", "Choose a category"),
-});
+const formSchema = createProductSchema.extend({ category_id: categoryIdField });
 
 interface FormProps {
   barId: string;
   editing: Product | null;
   onDone: () => void;
-}
-
-/** The category picker needs the tree: the form waits for it, so the saved category is selected. */
-function ProductFormLoader(props: FormProps) {
-  const tree = useQuery(categoryTreeQuery(props.barId));
-  if (tree.isPending) return <LoadingState label="Loading categories…" />;
-  if (tree.isError) return <ErrorState error={tree.error} onRetry={() => tree.refetch()} />;
-  return <ProductForm {...props} tree={tree.data} />;
 }
 
 function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: CategoryTreeNode[] }) {

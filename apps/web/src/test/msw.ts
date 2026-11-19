@@ -16,6 +16,9 @@ export const meFixture: Me = {
 export const handlers = [
   http.get("/api/me", () => HttpResponse.json(meFixture)),
   http.get(`/api/bars/${BAR_ID}/categories/tree`, () => HttpResponse.json({ items: [] })),
+  http.get(`/api/bars/${BAR_ID}/pantry-ingredients`, () =>
+    HttpResponse.json({ items: [], next_cursor: null }),
+  ),
   http.get(`/api/bars/${BAR_ID}/utensils`, () =>
     HttpResponse.json({ items: [], next_cursor: null }),
   ),

@@ -1,0 +1,177 @@
+import {
+  ancestors,
+  type BarSummary,
+  type CategoryTreeNode,
+  flattenTree,
+  hasRole,
+  type PantryIngredient,
+} from "@larder/shared";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { categoryTreeQuery } from "@/api/categories.ts";
+import { pantryListQuery, usePantryMutations } from "@/api/pantry.ts";
+import { BarGate } from "@/components/bar-gate.tsx";
+import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
+import { toast } from "@/components/toaster.tsx";
+import { Button } from "@/components/ui/button.tsx";
+import { IngredientSheet, type IngredientTarget } from "./ingredient-sheet.tsx";
+import { StockToggle } from "./stock-toggle.tsx";
+
+export function PantryPage() {
+  return <BarGate title="Pantry">{(bar) => <PantryView key={bar.id} bar={bar} />}</BarGate>;
+}
+
+/** Each category's path ("Garnish › Citrus"), so same-named sub-categories stay apart. */
+function categoryPaths(tree: CategoryTreeNode[]): Map<string, string> {
+  const items = flattenTree(tree).map(({ item }) => item);
+  return new Map(
+    items.map((c) => [
+      c.id,
+      [...ancestors(items, c.id).reverse(), c].map((a) => a.name).join(" › "),
+    ]),
+  );
+}
+
+/**
+ * Ingredients grouped by category, headed by its path (just the name until the tree loads), groups
+ * sorted by heading; items keep the API's name order.
+ */
+function byCategory(items: PantryIngredient[], paths: Map<string, string>) {
+  const groups = new Map<string, { name: string; items: PantryIngredient[] }>();
+  for (const item of items) {
+    const name = paths.get(item.category_id) ?? item.category_name;
+    const group = groups.get(item.category_id) ?? { name, items: [] };
+    group.items.push(item);
+    groups.set(item.category_id, group);
+  }
+  return [...groups.entries()].sort(([, a], [, b]) => a.name.localeCompare(b.name));
+}
+
+function PantryView({ bar }: { bar: BarSummary }) {
+  const canEdit = hasRole(bar.role, "editor");
+  const list = useInfiniteQuery(pantryListQuery(bar.id));
+  const { remove } = usePantryMutations(bar.id);
+  const [target, setTarget] = useState<IngredientTarget>(null);
+  const [deleting, setDeleting] = useState<PantryIngredient | null>(null);
+  const tree = useQuery(categoryTreeQuery(bar.id));
+  const paths = useMemo(() => categoryPaths(tree.data ?? []), [tree.data]);
+  const groups = useMemo(
+    () => byCategory(list.data?.pages.flatMap((page) => page.items) ?? [], paths),
+    [list.data, paths],
+  );
+
+  return (
+    <section className="mx-auto flex max-w-3xl flex-col gap-4">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="font-semibold text-2xl">Pantry</h1>
+        {canEdit && (
+          <Button onClick={() => setTarget("new")}>
+            <Plus aria-hidden />
+            Add ingredient
+          </Button>
+        )}
+      </div>
+
+      {list.isPending ? (
+        <LoadingState label="Loading the pantry…" />
+      ) : list.isError ? (
+        <ErrorState error={list.error} onRetry={() => list.refetch()} />
+      ) : groups.length === 0 ? (
+        <EmptyState title="The pantry is empty">
+          Add the fruit, eggs and other supplies you keep next to your bottles.
+        </EmptyState>
+      ) : (
+        <>
+          {groups.map(([categoryId, group]) => {
+            const heading = `pantry-${categoryId}`;
+            return (
+              <div key={categoryId} className="flex flex-col gap-2">
+                <h2 id={heading} className="font-medium text-muted-foreground text-sm">
+                  {group.name}
+                </h2>
+                <ul aria-labelledby={heading} className="flex flex-col divide-y rounded-lg border">
+                  {group.items.map((ingredient) => (
+                    <IngredientRow
+                      key={ingredient.id}
+                      barId={bar.id}
+                      ingredient={ingredient}
+                      canEdit={canEdit}
+                      onEdit={() => setTarget(ingredient)}
+                      onDelete={() => setDeleting(ingredient)}
+                    />
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+          {list.hasNextPage && (
+            <Button
+              variant="outline"
+              disabled={list.isFetchingNextPage}
+              onClick={() => list.fetchNextPage()}
+            >
+              Load more
+            </Button>
+          )}
+        </>
+      )}
+
+      <IngredientSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
+      {deleting && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && setDeleting(null)}
+          title={`Delete ${deleting.name}?`}
+          description="This cannot be undone."
+          onConfirm={async () => {
+            await remove.mutateAsync(deleting.id);
+            toast(`Deleted ${deleting.name}`);
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function IngredientRow({
+  barId,
+  ingredient,
+  canEdit,
+  onEdit,
+  onDelete,
+}: {
+  barId: string;
+  ingredient: PantryIngredient;
+  canEdit: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <li className="flex items-center gap-2 p-3">
+      <p className="min-w-0 flex-1 truncate font-medium">{ingredient.name}</p>
+      <StockToggle barId={barId} ingredient={ingredient} canEdit={canEdit} />
+      {canEdit && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Edit ${ingredient.name}`}
+            onClick={onEdit}
+          >
+            <Pencil aria-hidden />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Delete ${ingredient.name}`}
+            onClick={onDelete}
+          >
+            <Trash2 aria-hidden />
+          </Button>
+        </>
+      )}
+    </li>
+  );
+}
