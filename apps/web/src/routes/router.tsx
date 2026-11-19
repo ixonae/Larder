@@ -8,6 +8,8 @@ import {
 } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell.tsx";
 import { NotFoundPage, SectionPage } from "@/components/section-page.tsx";
+import { BottleDetailPage } from "@/features/bottles/bottle-detail-page.tsx";
+import { BottlesPage, bottlesSearchSchema } from "@/features/bottles/bottles-page.tsx";
 import { CategoriesPage } from "@/features/categories/categories-page.tsx";
 
 export interface RouterContext {
@@ -37,7 +39,17 @@ const section = <P extends string>(path: P, title: string, description: string) 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
   section("/cocktails", "Cocktails", "Your recipes will show up here."),
-  section("/bottles", "Bottles", "Your bottles will show up here."),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/bottles",
+    validateSearch: bottlesSearchSchema,
+    component: BottlesPage,
+  }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/bottles/$productId",
+    component: BottleDetailPage,
+  }),
   createRoute({ getParentRoute: () => rootRoute, path: "/categories", component: CategoriesPage }),
   section("/utensils", "Utensils", "Your glasses and tools will show up here."),
 ]);

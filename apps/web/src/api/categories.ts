@@ -19,10 +19,13 @@ export const categoryTreeQuery = (barId: string) =>
     },
   });
 
-/** Create, update and delete; each refreshes every category query of the bar. */
+/**
+ * Create, update and delete. Each refreshes every query of the bar, not only the categories: bottles
+ * carry their category's name.
+ */
 export function useCategoryMutations(barId: string) {
   const queryClient = useQueryClient();
-  const onSuccess = () => queryClient.invalidateQueries({ queryKey: categoriesKey(barId) });
+  const onSuccess = () => queryClient.invalidateQueries({ queryKey: ["bars", barId] });
   return {
     create: useMutation({
       mutationFn: async (json: CreateCategory) =>

@@ -31,6 +31,7 @@ import {
   FormField,
   useZodForm,
 } from "@/lib/form.tsx";
+import { CategoryOptions } from "./category-options.tsx";
 
 export interface SheetTarget {
   /** The category being edited, or null to create one. */
@@ -134,12 +135,7 @@ function CategoryForm({
         {(control) => (
           <NativeSelect {...control} {...form.register("parent_id", { setValueAs: emptyToNull })}>
             <option value="">None (top level)</option>
-            {parentOptions.map(({ item, depth }) => (
-              <option key={item.id} value={item.id}>
-                {"  ".repeat(depth)}
-                {item.name}
-              </option>
-            ))}
+            <CategoryOptions items={parentOptions} />
           </NativeSelect>
         )}
       </FormField>

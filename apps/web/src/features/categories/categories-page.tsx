@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { categoryTreeQuery, useCategoryMutations } from "@/api/categories.ts";
-import { useMe } from "@/api/queries.ts";
+import { BarGate } from "@/components/bar-gate.tsx";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { toast } from "@/components/toaster.tsx";
@@ -13,19 +13,14 @@ import { CategorySheet, type SheetTarget } from "./category-sheet.tsx";
 const Title = () => <h1 className="font-semibold text-2xl">Categories</h1>;
 
 export function CategoriesPage() {
-  const me = useMe();
-  const bar = me.data?.bars[0];
-  const barId = bar?.id;
-  let body = <LoadingState />;
-  if (bar) body = <CategoriesView barId={bar.id} canEdit={hasRole(bar.role, "editor")} />;
-  else if (me.data) {
-    body = <EmptyState title="No bar">You are not a member of any bar yet.</EmptyState>;
-  }
   return (
-    <section className="mx-auto flex max-w-3xl flex-col gap-4">
-      {!barId && <Title />}
-      {body}
-    </section>
+    <BarGate title="Categories">
+      {(bar) => (
+        <section className="mx-auto flex max-w-3xl flex-col gap-4">
+          <CategoriesView barId={bar.id} canEdit={hasRole(bar.role, "editor")} />
+        </section>
+      )}
+    </BarGate>
   );
 }
 
