@@ -4,7 +4,7 @@ import { EmptyState } from "./states.tsx";
 export function SectionPage({ title, description }: { title: string; description: string }) {
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-4">
-      <h1 className="font-semibold text-2xl">{title}</h1>
+      <h1 className="text-3xl">{title}</h1>
       <EmptyState title="Nothing here yet">{description}</EmptyState>
     </section>
   );

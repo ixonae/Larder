@@ -1,14 +1,12 @@
 import {
   type CategoryTreeNode,
   createPantryIngredientSchema,
-  flattenTree,
   isPantryCategoryKind,
   isPantryRoot,
   type PantryIngredient,
 } from "@larder/shared";
 import { useMemo } from "react";
 import { usePantryMutations } from "@/api/pantry.ts";
-import { NativeSelect } from "@/components/native-select.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -21,11 +19,11 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet.tsx";
 import {
-  CategoryOptions,
   CategoryTreeLoader,
   categoryIdField,
+  categoryOptions,
 } from "@/features/categories/category-options.tsx";
-import { applyServerErrors, FormField, useZodForm } from "@/lib/form.tsx";
+import { applyServerErrors, ComboboxField, FormField, useZodForm } from "@/lib/form.tsx";
 
 /** What the sheet is open for: the ingredient being edited, `"new"` to add one, or null when closed. */
 export type IngredientTarget = PantryIngredient | "new" | null;
@@ -79,8 +77,9 @@ function IngredientForm({
   const currentCategoryId = editing?.category_id;
   const categories = useMemo(
     () =>
-      flattenTree(tree).filter(
-        ({ item }) => isPantryCategoryKind(item.kind) || item.id === currentCategoryId,
+      categoryOptions(
+        tree,
+        (item) => isPantryCategoryKind(item.kind) || item.id === currentCategoryId,
       ),
     [tree, currentCategoryId],
   );
@@ -90,7 +89,7 @@ function IngredientForm({
   const form = useZodForm(formSchema, {
     defaultValues: {
       name: editing?.name ?? "",
-      category_id: editing?.category_id ?? pantry?.item.id ?? "",
+      category_id: editing?.category_id ?? pantry?.value ?? "",
       in_stock: editing?.in_stock ?? true,
       always_available: editing?.always_available ?? false,
     },
@@ -117,14 +116,13 @@ function IngredientForm({
         {(control) => <Input autoComplete="off" {...control} {...form.register("name")} />}
       </FormField>
 
-      <FormField form={form} name="category_id" label="Category">
-        {(control) => (
-          <NativeSelect {...control} {...form.register("category_id")}>
-            <option value="">Choose…</option>
-            <CategoryOptions items={categories} />
-          </NativeSelect>
-        )}
-      </FormField>
+      <ComboboxField
+        form={form}
+        name="category_id"
+        label="Category"
+        options={categories}
+        searchPlaceholder="Search categories"
+      />
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" className="size-4" {...form.register("in_stock")} />

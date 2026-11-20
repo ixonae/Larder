@@ -6,7 +6,7 @@ import {
   type Utensil,
 } from "@larder/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, UtensilsCrossed } from "lucide-react";
 import { useState } from "react";
 import { useUtensilMutations, utensilListQuery } from "@/api/utensils.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
@@ -32,7 +32,7 @@ function UtensilsView({ bar }: { bar: BarSummary }) {
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="font-semibold text-2xl">Utensils</h1>
+        <h1 className="text-3xl">Utensils</h1>
         {canEdit && (
           <Button onClick={() => setTarget("new")}>
             <Plus aria-hidden />
@@ -58,10 +58,13 @@ function UtensilsView({ bar }: { bar: BarSummary }) {
                 <h2 id={heading} className="font-medium text-muted-foreground text-sm">
                   {UTENSIL_KIND_PLURAL[kind]}
                 </h2>
-                <ul aria-labelledby={heading} className="flex flex-col divide-y rounded-lg border">
+                <ul
+                  aria-labelledby={heading}
+                  className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
+                >
                   {group.map((utensil) => (
                     <li key={utensil.id} className="flex items-center gap-2 p-3">
-                      <Thumbnail imageId={utensil.image_id} />
+                      <Thumbnail imageId={utensil.image_id} icon={UtensilsCrossed} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{utensil.name}</p>
                         {(utensil.capacity_ml !== null || utensil.description) && (

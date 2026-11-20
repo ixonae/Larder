@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { BAR_ID, server } from "@/test/msw.ts";
-import { renderWithProviders } from "@/test/render.tsx";
+import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const url = `/api/bars/${BAR_ID}/products`;
 const stamp = "2026-01-01T00:00:00.000Z";
@@ -105,7 +105,7 @@ describe("ImageUpload", () => {
     const { user, sheet } = await openSheet("Add bottle");
     expect(within(sheet).getByText("None")).toBeInTheDocument();
     await user.type(within(sheet).getByLabelText("Name"), "Sipsmith");
-    await user.selectOptions(within(sheet).getByLabelText("Category"), gin.id);
+    await choose(user, "Category", "Gin");
     await user.upload(within(sheet).getByLabelText("Picture"), photo());
     expect(within(sheet).getByRole("img", { name: "Preview" }).getAttribute("src")).toMatch(
       /^blob:/,

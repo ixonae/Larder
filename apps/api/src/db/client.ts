@@ -1,10 +1,9 @@
+import { nameKey } from "@larder/shared";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema/index.ts";
 
 export type Db = ReturnType<typeof openDb>;
-
-export const nameKey = (name: string) => name.normalize("NFC").toLowerCase().normalize("NFC");
 
 /** Opens the SQLite database (`:memory:` in tests) with the pragmas Larder relies on. */
 export function openDb(path: string) {

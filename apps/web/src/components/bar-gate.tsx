@@ -16,7 +16,7 @@ export function BarGate({
   if (bar) return children(bar);
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-4">
-      <h1 className="font-semibold text-2xl">{title}</h1>
+      <h1 className="text-3xl">{title}</h1>
       {me.data ? (
         <EmptyState title="No bar">You are not a member of any bar yet.</EmptyState>
       ) : (

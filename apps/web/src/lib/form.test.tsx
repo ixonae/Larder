@@ -4,14 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { ApiError } from "@/api/client.ts";
 import { Input } from "@/components/ui/input.tsx";
-import {
-  applyServerErrors,
-  emptyToNull,
-  emptyToNullNumber,
-  emptyToUndefined,
-  FormField,
-  useZodForm,
-} from "./form.tsx";
+import { applyServerErrors, emptyToNullNumber, FormField, useZodForm } from "./form.tsx";
 
 const schema = z.object({ name: z.string().trim().min(1, "Name is required") });
 
@@ -103,10 +96,6 @@ describe("applyServerErrors", () => {
 
 describe("setValueAs coercers", () => {
   it("turn the empty value into undefined or null and keep the rest", () => {
-    expect(emptyToUndefined("")).toBeUndefined();
-    expect(emptyToUndefined("gin")).toBe("gin");
-    expect(emptyToNull("")).toBeNull();
-    expect(emptyToNull("id")).toBe("id");
     expect(emptyToNullNumber("")).toBeNull();
     expect(emptyToNullNumber(null)).toBeNull();
     expect(emptyToNullNumber("40.5")).toBe(40.5);

@@ -44,6 +44,7 @@ function summarize(
     volume_ml: computeVolume(measuredLines),
     abv: computeAbv(lines, method),
     spirits: spiritsContained(lines),
+    ingredients: lines.filter((line) => !line.preparation_only).map(({ name }) => name),
   };
 }
 

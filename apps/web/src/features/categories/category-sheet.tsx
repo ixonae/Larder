@@ -10,7 +10,6 @@ import {
 import { useMemo } from "react";
 import { useCategoryMutations } from "@/api/categories.ts";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
-import { NativeSelect } from "@/components/native-select.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -25,13 +24,12 @@ import {
 import { Textarea } from "@/components/ui/textarea.tsx";
 import {
   applyServerErrors,
-  emptyToNull,
+  ComboboxField,
   emptyToNullNumber,
-  emptyToUndefined,
   FormField,
   useZodForm,
 } from "@/lib/form.tsx";
-import { CategoryOptions } from "./category-options.tsx";
+import { categoryOptions } from "./category-options.tsx";
 
 export interface SheetTarget {
   /** The category being edited, or null to create one. */
@@ -83,13 +81,14 @@ function CategoryForm({
   const all = useMemo(() => flattenTree(tree), [tree]);
   // A category cannot move under itself or one of its sub-categories.
   const parentOptions = useMemo(() => {
-    if (!editing) return all;
-    const excluded = subtreeIds(
-      all.map((a) => a.item),
-      editing.id,
-    );
-    return all.filter((a) => !excluded.has(a.item.id));
-  }, [all, editing]);
+    const excluded = editing
+      ? subtreeIds(
+          all.map((a) => a.item),
+          editing.id,
+        )
+      : new Set<string>();
+    return categoryOptions(tree, (item) => !excluded.has(item.id));
+  }, [tree, all, editing]);
 
   const form = useZodForm(createCategorySchema, {
     defaultValues: {
@@ -129,31 +128,26 @@ function CategoryForm({
         {(control) => <Input autoComplete="off" {...control} {...form.register("name")} />}
       </FormField>
 
-      <FormField form={form} name="parent_id" label="Parent">
-        {(control) => (
-          <NativeSelect {...control} {...form.register("parent_id", { setValueAs: emptyToNull })}>
-            <option value="">None (top level)</option>
-            <CategoryOptions items={parentOptions} />
-          </NativeSelect>
-        )}
-      </FormField>
+      <ComboboxField
+        form={form}
+        name="parent_id"
+        label="Parent"
+        toValue={(value) => value || null}
+        options={parentOptions}
+        clearLabel="None (top level)"
+        searchPlaceholder="Search categories"
+      />
 
-      <FormField form={form} name="kind" label="Kind">
-        {(control) => (
-          <NativeSelect {...control} {...form.register("kind", { setValueAs: emptyToUndefined })}>
-            {!editing && (
-              <option value="">
-                {parent ? `Same as parent (${CATEGORY_KIND_LABEL[parent.kind]})` : "Choose…"}
-              </option>
-            )}
-            {CATEGORY_KINDS.map((k) => (
-              <option key={k} value={k}>
-                {CATEGORY_KIND_LABEL[k]}
-              </option>
-            ))}
-          </NativeSelect>
-        )}
-      </FormField>
+      <ComboboxField
+        form={form}
+        name="kind"
+        label="Kind"
+        toValue={(value) => value || undefined}
+        options={CATEGORY_KINDS.map((k) => ({ value: k, label: CATEGORY_KIND_LABEL[k] }))}
+        clearLabel={
+          editing || !parent ? undefined : `Same as parent (${CATEGORY_KIND_LABEL[parent.kind]})`
+        }
+      />
 
       <FormField
         form={form}

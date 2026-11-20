@@ -27,6 +27,8 @@ const computedCocktailSchema = z.object({
   /** Estimated percent after dilution. */
   abv: z.number().min(0).max(100),
   spirits: namedReferenceSchema.array(),
+  /** Preferred ingredient names in recipe order, without preparation-only lines. */
+  ingredients: z.string().array(),
 });
 export type ComputedCocktail = z.infer<typeof computedCocktailSchema>;
 

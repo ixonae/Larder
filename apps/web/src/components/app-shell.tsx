@@ -1,4 +1,5 @@
 import { Link, Outlet } from "@tanstack/react-router";
+import { cn } from "cn";
 import { Citrus, FolderTree, Martini, UtensilsCrossed, Wine } from "lucide-react";
 import { useMe } from "@/api/queries.ts";
 import { ErrorState } from "./states.tsx";
@@ -15,21 +16,36 @@ const NAV = [
 function NavLinks({ variant }: { variant: "side" | "bottom" }) {
   const base =
     variant === "side"
-      ? "flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent"
-      : "flex flex-col items-center gap-1 py-2 text-xs";
+      ? "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent/60"
+      : "group flex flex-col items-center gap-1 py-2 text-[11px] transition-colors";
+  // Separate inactive/active classes: with both on the element, CSS order (not class order) wins.
+  const active =
+    variant === "side"
+      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium [&>svg]:text-brand"
+      : "text-brand font-medium";
   return NAV.map(({ to, label, icon: Icon }) => (
     <Link
       key={to}
       to={to}
       className={base}
-      // Separate inactive/active colours: with both on the element, CSS order (not class order) wins.
-      inactiveProps={{ className: "text-muted-foreground" }}
-      activeProps={{ className: "text-foreground font-medium", "aria-current": "page" }}
+      inactiveProps={{ className: "text-muted-foreground hover:text-foreground" }}
+      activeProps={{ className: active, "aria-current": "page" }}
     >
       <Icon className="size-5" aria-hidden />
       {label}
     </Link>
   ));
+}
+
+function Brand({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center gap-2", className)}>
+      <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-brand-foreground shadow-sm">
+        <Martini className="size-4.5" aria-hidden />
+      </span>
+      <span className="font-semibold text-lg tracking-tight">Larder</span>
+    </span>
+  );
 }
 
 /** Mobile first: bottom tab bar on phones, sidebar from the `md` breakpoint. */
@@ -39,23 +55,26 @@ export function AppShell() {
 
   return (
     <div className="min-h-dvh bg-background text-foreground md:flex">
-      <aside className="hidden border-r p-3 md:flex md:w-56 md:flex-col md:gap-4">
-        <span className="px-3 pt-2 font-semibold text-lg">Larder</span>
+      <aside className="sticky top-0 hidden h-dvh border-sidebar-border border-r bg-sidebar p-3 md:flex md:w-60 md:shrink-0 md:flex-col md:gap-6">
+        <Brand className="px-2 pt-2" />
         <nav aria-label="Sidebar" className="flex flex-col gap-1">
           <NavLinks variant="side" />
         </nav>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-2 border-b bg-background/95 px-4 backdrop-blur">
-          <span className="font-semibold md:hidden">Larder</span>
-          <span className="truncate text-muted-foreground text-sm" data-testid="bar-name">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-2 border-b bg-background/85 px-4 backdrop-blur md:px-8">
+          <Brand className="md:hidden" />
+          <span
+            className="truncate rounded-full border bg-card px-3 py-1 text-muted-foreground text-xs empty:hidden md:text-sm"
+            data-testid="bar-name"
+          >
             {barName}
           </span>
           <ThemeToggle />
         </header>
 
-        <main className="flex-1 px-4 py-6 pb-24 md:pb-6">
+        <main className="flex-1 px-4 py-6 pb-24 md:px-8 md:py-8">
           {me.isError && <ErrorState error={me.error} onRetry={() => me.refetch()} />}
           {!me.isLoadingError && <Outlet />}
         </main>
@@ -63,7 +82,7 @@ export function AppShell() {
 
       <nav
         aria-label="Bottom navigation"
-        className="fixed inset-x-0 bottom-0 grid grid-cols-5 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 grid grid-cols-5 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         <NavLinks variant="bottom" />
       </nav>

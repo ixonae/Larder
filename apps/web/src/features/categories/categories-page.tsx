@@ -11,7 +11,7 @@ import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { CategorySheet, type SheetTarget } from "./category-sheet.tsx";
 
-const Title = () => <h1 className="font-semibold text-2xl">Categories</h1>;
+const Title = () => <h1 className="text-3xl">Categories</h1>;
 
 export function CategoriesPage() {
   return (
@@ -115,7 +115,11 @@ function TreeList({
   actions: RowActions;
 }) {
   return (
-    <ul className="flex flex-col">
+    <ul
+      className={
+        depth === 0 ? "flex flex-col rounded-xl border bg-card p-1.5 shadow-xs" : "flex flex-col"
+      }
+    >
       {nodes.map((node) => (
         <TreeRow key={node.id} node={node} depth={depth} actions={actions} />
       ))}

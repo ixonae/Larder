@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ReactNode } from "react";
 import {
+  Controller,
   type FieldValues,
   type Path,
   type Resolver,
@@ -10,6 +11,7 @@ import {
 } from "react-hook-form";
 import type { z } from "zod";
 import { ApiError } from "@/api/client.ts";
+import { Combobox, type ComboboxProps } from "@/components/combobox.tsx";
 import { Label } from "@/components/ui/label.tsx";
 
 /** `useForm` validated by a shared Zod schema: the same rules as the API, checked before sending. */
@@ -40,10 +42,6 @@ const isIssueList = (details: unknown): details is Issue[] =>
       typeof d === "object" && d !== null && Array.isArray(d.path) && typeof d.message === "string",
   );
 
-/** `setValueAs` for optional selects: the empty option means "not set". */
-export const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
-/** `setValueAs` for nullable selects. */
-export const emptyToNull = (v: unknown) => (v === "" ? null : v);
 /** `setValueAs` for optional number inputs. */
 export const emptyToNullNumber = (v: unknown) => (v === "" || v === null ? null : Number(v));
 
@@ -84,12 +82,15 @@ export function FormField<T extends FieldValues>({
   name,
   label,
   hint,
+  srOnlyLabel = false,
   children,
 }: {
   form: AnyForm<T>;
   name: Path<T>;
   label: string;
   hint?: string;
+  /** Keep the label for screen readers only, where the layout already says what the field is. */
+  srOnlyLabel?: boolean;
   children: (control: ControlProps) => ReactNode;
 }) {
   const id = `field-${name}`;
@@ -97,7 +98,9 @@ export function FormField<T extends FieldValues>({
   const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className={srOnlyLabel ? "sr-only" : undefined}>
+        {label}
+      </Label>
       {children({ id, "aria-invalid": !!error, "aria-describedby": describedBy || undefined })}
       {hint && (
         <p id={`${id}-hint`} className="text-muted-foreground text-xs">
@@ -110,5 +113,49 @@ export function FormField<T extends FieldValues>({
         </p>
       )}
     </div>
+  );
+}
+
+type ComboboxFieldProps<T extends FieldValues> = {
+  form: AnyForm<T>;
+  name: Path<T>;
+  label: string;
+  hint?: string;
+  /** What to store for a choice; for example `(value) => value || null` to store a cleared one as null. */
+  toValue?: (value: string) => unknown;
+} & Omit<
+  ComboboxProps,
+  "id" | "value" | "onChange" | "onBlur" | "ref" | "aria-invalid" | "aria-describedby"
+>;
+
+/** A labelled `Combobox` bound to a form field. */
+export function ComboboxField<T extends FieldValues>({
+  form,
+  name,
+  label,
+  hint,
+  toValue = (value) => value,
+  ...combobox
+}: ComboboxFieldProps<T>) {
+  return (
+    <FormField form={form} name={name} label={label} hint={hint}>
+      {(control) => (
+        <Controller
+          control={form.control}
+          name={name}
+          render={({ field }) => (
+            <Combobox
+              {...control}
+              {...combobox}
+              ref={field.ref}
+              value={field.value}
+              disabled={field.disabled}
+              onBlur={field.onBlur}
+              onChange={(value) => field.onChange(toValue(value))}
+            />
+          )}
+        />
+      )}
+    </FormField>
   );
 }

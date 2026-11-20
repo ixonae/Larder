@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { delay, HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
-import { renderWithProviders } from "@/test/render.tsx";
+import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const url = `/api/bars/${BAR_ID}/pantry-ingredients`;
 const treeUrl = `/api/bars/${BAR_ID}/categories/tree`;
@@ -265,11 +265,13 @@ describe("IngredientSheet", () => {
     const { user } = await open();
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
     const sheet = await screen.findByRole("dialog", { name: "New ingredient" });
-    const picker = await within(sheet).findByLabelText("Category");
-    expect(picker).toHaveValue(pantry.id);
-    expect(within(picker).getByRole("option", { name: "Syrup" })).toBeInTheDocument();
-    expect(within(picker).queryByRole("option", { name: "Gin" })).not.toBeInTheDocument();
-    expect(within(picker).queryByRole("option", { name: "Juice" })).not.toBeInTheDocument();
+    const picker = await within(sheet).findByRole("combobox", { name: "Category" });
+    expect(picker).toHaveTextContent("Pantry");
+    await user.click(picker);
+    expect(await screen.findByRole("option", { name: "Syrup" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Gin" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Juice" })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
     await user.type(within(sheet).getByLabelText("Name"), "Honey");
     await user.click(within(sheet).getByRole("button", { name: "Add" }));
     expect(await screen.findByText("Ingredient added")).toBeInTheDocument();
@@ -290,7 +292,7 @@ describe("IngredientSheet", () => {
     await user.type(await within(sheet).findByLabelText("Name"), "Yuzu");
     await user.click(within(sheet).getByRole("button", { name: "Add" }));
     expect(await within(sheet).findByText("Choose a category")).toBeInTheDocument();
-    await user.selectOptions(within(sheet).getByLabelText("Category"), "Garnish");
+    await choose(user, "Category", "Garnish");
     await user.click(within(sheet).getByRole("button", { name: "Add" }));
     expect(await screen.findByText("Ingredient added")).toBeInTheDocument();
     expect(requests[0]?.body).toMatchObject({ name: "Yuzu", category_id: garnish.id });
@@ -367,7 +369,7 @@ describe("IngredientSheet", () => {
     expect(await within(sheet).findByText("No tree")).toBeInTheDocument();
     fail = false;
     await user.click(within(sheet).getByRole("button", { name: "Try again" }));
-    expect(await within(sheet).findByLabelText("Category")).toHaveValue(pantry.id);
+    expect(await within(sheet).findByLabelText("Category")).toHaveTextContent("Pantry");
   });
 
   it("closes without saving", async () => {

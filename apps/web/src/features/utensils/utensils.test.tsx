@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
-import { renderWithProviders } from "@/test/render.tsx";
+import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const url = `/api/bars/${BAR_ID}/utensils`;
 const stamp = "2026-01-01T00:00:00.000Z";
@@ -192,7 +192,7 @@ describe("UtensilSheet", () => {
     await user.click(screen.getByRole("button", { name: "Edit Coupe" }));
     const sheet = await screen.findByRole("dialog", { name: "Edit Coupe" });
     expect(within(sheet).getByLabelText("Capacity (ml)")).toHaveValue(180);
-    await user.selectOptions(within(sheet).getByLabelText("Kind"), "Tool");
+    await choose(user, "Kind", "Tool");
     expect(within(sheet).queryByLabelText("Capacity (ml)")).not.toBeInTheDocument();
     await user.click(within(sheet).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Utensil saved")).toBeInTheDocument();
@@ -206,7 +206,7 @@ describe("UtensilSheet", () => {
     const sheet = await screen.findByRole("dialog", { name: "New utensil" });
     await user.type(within(sheet).getByLabelText("Name"), "Muddler");
     await user.type(within(sheet).getByLabelText("Capacity (ml)"), "0");
-    await user.selectOptions(within(sheet).getByLabelText("Kind"), "Tool");
+    await choose(user, "Kind", "Tool");
     await user.click(within(sheet).getByRole("button", { name: "Add" }));
     expect(await screen.findByText("Utensil added")).toBeInTheDocument();
     expect(requests[0]?.body).toMatchObject({ name: "Muddler", kind: "tool", capacity_ml: null });

@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { delay, HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
-import { renderWithProviders } from "@/test/render.tsx";
+import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const url = `/api/bars/${BAR_ID}/categories`;
 const treeUrl = `${url}/tree`;
@@ -177,7 +177,7 @@ describe("CategoriesPage", () => {
     ).toBeInTheDocument();
     expect(requests).toEqual([]);
 
-    await user.selectOptions(within(sheet).getByLabelText("Kind"), "Other");
+    await choose(user, "Kind", "Other");
     await user.type(within(sheet).getByLabelText("Default ABV (%)"), "0");
     await user.type(within(sheet).getByLabelText("Description"), "Staples");
     await user.click(within(sheet).getByRole("button", { name: "Create" }));
@@ -203,8 +203,14 @@ describe("CategoriesPage", () => {
     const { user } = await openPage();
     await user.click(screen.getByRole("button", { name: "Add under Juice" }));
     const sheet = screen.getByRole("dialog", { name: "New category" });
-    expect(within(sheet).getByLabelText("Parent")).toHaveValue(byName("Juice").id);
-    expect(within(sheet).getByLabelText("Kind")).toHaveDisplayValue("Same as parent (Juice)");
+    expect(within(sheet).getByLabelText("Parent")).toHaveTextContent("Juice");
+    expect(within(sheet).getByLabelText("Kind")).toHaveTextContent("Same as parent (Juice)");
+    // Moving to the top level and back, and picking a kind then reverting, keeps the inherited kind.
+    await choose(user, "Parent", "None (top level)");
+    expect(within(sheet).getByLabelText("Kind")).toHaveTextContent("Choose…");
+    await choose(user, "Parent", "Juice");
+    await choose(user, "Kind", "Other");
+    await choose(user, "Kind", "Same as parent (Juice)");
     await user.type(within(sheet).getByLabelText("Name"), "Yuzu juice");
     await user.click(within(sheet).getByRole("button", { name: "Create" }));
 
@@ -216,7 +222,8 @@ describe("CategoriesPage", () => {
       description: null,
     });
     // The parent was expanded to show the new child.
-    expect(await within(tree()).findByText("Yuzu juice")).toBeInTheDocument();
+    // Retry the tree lookup too: it is hidden from assistive tech until the sheet has closed.
+    await waitFor(() => expect(within(tree()).getByText("Yuzu juice")).toBeInTheDocument());
   });
 
   it("uploads a picture after saving, and shows it as a thumbnail", async () => {
@@ -245,13 +252,15 @@ describe("CategoriesPage", () => {
     const { user } = await openPage();
     await user.click(screen.getByRole("button", { name: "Edit Spirit" }));
     const sheet = screen.getByRole("dialog", { name: "Edit Spirit" });
-    const options = within(within(sheet).getByLabelText("Parent")).getAllByRole("option");
+    await user.click(within(sheet).getByLabelText("Parent"));
+    const options = await screen.findAllByRole("option");
     expect(options.map((o) => o.textContent?.trim())).toEqual([
       "None (top level)",
       "Juice",
       "Lime juice",
     ]);
-    expect(within(sheet).getByLabelText("Kind")).toHaveValue("spirit");
+    await user.keyboard("{Escape}");
+    expect(within(sheet).getByLabelText("Kind")).toHaveTextContent("Spirit");
     expect(within(sheet).getByLabelText("Default ABV (%)")).toHaveValue(40);
 
     await user.clear(within(sheet).getByLabelText("Name"));

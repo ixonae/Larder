@@ -1,6 +1,6 @@
 import { UNIT_INFO, UNITS, type Unit, unitNeedsAmount } from "@larder/shared";
 import { cn } from "cn";
-import { NativeSelect } from "@/components/native-select.tsx";
+import { Combobox } from "@/components/combobox.tsx";
 import { Input } from "@/components/ui/input.tsx";
 
 export interface Amount {
@@ -41,20 +41,18 @@ export function AmountInput({
         className="min-w-0 flex-1"
         {...aria}
       />
-      <NativeSelect
+      <Combobox
         aria-label="Unit"
+        className="w-28 shrink-0"
         value={value.unit}
-        onChange={(e) => {
-          const unit = e.target.value as Unit;
+        onChange={(next) => {
+          const unit = next as Unit;
           onChange({ unit, amount: unitNeedsAmount(unit) ? value.amount : null });
         }}
-      >
-        {UNITS.map((unit) => (
-          <option key={unit} value={unit}>
-            {UNIT_INFO[unit].plural}
-          </option>
-        ))}
-      </NativeSelect>
+        options={UNITS.map((unit) => ({ value: unit, label: UNIT_INFO[unit].plural }))}
+        placeholder="Unit"
+        searchPlaceholder="Search units"
+      />
     </div>
   );
 }

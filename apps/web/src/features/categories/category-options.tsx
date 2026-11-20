@@ -1,4 +1,5 @@
 import {
+  ancestry,
   type Category,
   type CategoryTreeNode,
   flattenTree,
@@ -9,23 +10,37 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { z } from "zod";
 import { categoryTreeQuery } from "@/api/categories.ts";
+import type { ComboboxOption } from "@/components/combobox.tsx";
 import { ErrorState, LoadingState } from "@/components/states.tsx";
 
-/** `<option>`s for a category picker, indented by depth as `flattenTree` returns them. */
-export function CategoryOptions({ items }: { items: { item: Category; depth: number }[] }) {
-  return items.map(({ item, depth }) => (
-    <option key={item.id} value={item.id}>
-      {"  ".repeat(depth)}
-      {item.name}
-    </option>
-  ));
+export type CategoryOption = ComboboxOption & { item: Category };
+
+/**
+ * Combobox options for a category picker: the tree in display order, indented for browsing, each
+ * with its ancestors as context for search. `keep` filters rows; context always uses the full tree.
+ */
+export function categoryOptions(
+  tree: readonly CategoryTreeNode[],
+  keep: (item: Category, byId: ReadonlyMap<string, Category>) => boolean,
+): CategoryOption[] {
+  const entries = flattenTree(tree);
+  const byId = new Map(entries.map(({ item }) => [item.id, item]));
+  return entries
+    .filter(({ item }) => keep(item, byId))
+    .map(({ item, depth }) => {
+      const parents = ancestry(byId, item.id).slice(1).reverse();
+      return {
+        item,
+        value: item.id,
+        label: item.name,
+        depth,
+        context: parents.map(({ name }) => name).join(" › ") || undefined,
+      };
+    });
 }
 
-export function bottleCategoryOptions(tree: readonly CategoryTreeNode[], currentId?: string) {
-  const options = flattenTree(tree);
-  const byId = new Map(options.map(({ item }) => [item.id, item]));
-  return options.filter(({ item }) => item.id === currentId || isBottleCategory(item, byId));
-}
+export const bottleCategoryOptions = (tree: readonly CategoryTreeNode[], currentId?: string) =>
+  categoryOptions(tree, (item, byId) => item.id === currentId || isBottleCategory(item, byId));
 
 /** A form's `category_id`: the picker's empty "Choose…" option is refused with a message. */
 export const categoryIdField = idSchema

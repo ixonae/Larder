@@ -55,7 +55,7 @@ function CocktailView({ bar, id }: { bar: BarSummary; id: string }) {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-semibold text-2xl">{recipe.data.name}</h1>
+        <h1 className="text-3xl">{recipe.data.name}</h1>
         {hasRole(bar.role, "editor") && (
           <Button asChild variant="outline">
             <Link to="/cocktails/$cocktailId/edit" params={{ cocktailId: id }} search={search}>
@@ -98,7 +98,7 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
         <img
           src={imageUrl(recipe.image_id)}
           alt={recipe.name}
-          className="max-h-80 w-full rounded-lg object-cover"
+          className="max-h-80 w-full rounded-xl object-cover shadow-sm"
         />
       )}
       {recipe.description && <p className="whitespace-pre-line">{recipe.description}</p>}
@@ -140,8 +140,8 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
         </fieldset>
       </div>
 
-      <section className="grid gap-2 rounded-lg border p-4">
-        <h2 className="font-semibold">Ingredients</h2>
+      <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-xs sm:p-5">
+        <h2 className="font-semibold text-lg">Ingredients</h2>
         {scaled.isPending ? (
           <LoadingState label="Scaling recipe…" />
         ) : scaled.isError ? (
@@ -152,8 +152,8 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
       </section>
 
       {recipe.steps.length > 0 && (
-        <section className="grid gap-2 rounded-lg border p-4">
-          <h2 className="font-semibold">Steps</h2>
+        <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-xs sm:p-5">
+          <h2 className="font-semibold text-lg">Steps</h2>
           <ol className="list-decimal space-y-2 pl-5">
             {recipe.steps.map((step) => (
               <li key={step.id} className="whitespace-pre-line">
@@ -163,7 +163,7 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
           </ol>
         </section>
       )}
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-lg border p-4 text-sm">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border bg-card p-4 text-sm shadow-xs sm:p-5">
         {facts
           .filter(([, value]) => value)
           .map(([label, value]) => (

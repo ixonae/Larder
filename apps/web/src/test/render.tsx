@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createMemoryHistory } from "@tanstack/react-router";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "@/app.tsx";
 import { createAppRouter } from "@/routes/router.tsx";
@@ -16,4 +16,18 @@ export function renderWithProviders(path = "/") {
     user,
     queryClient,
   };
+}
+
+/** Anything that can click: a `userEvent.setup()` instance or `userEvent` itself. */
+type User = Pick<ReturnType<typeof userEvent.setup>, "click">;
+
+/** Opens a combobox found by its trigger (for pickers repeated per row) and picks an option. */
+export async function pick(user: User, trigger: HTMLElement, option: string | RegExp) {
+  await user.click(trigger);
+  await user.click(await screen.findByRole("option", { name: option }));
+}
+
+/** Opens the combobox named `label` and picks the option named `option`. */
+export async function choose(user: User, label: string | RegExp, option: string | RegExp) {
+  await pick(user, screen.getByRole("combobox", { name: label }), option);
 }

@@ -1,18 +1,18 @@
 import { type BarSummary, hasRole, idSchema, PRODUCT_NAME_MAX } from "@larder/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { Plus, Search } from "lucide-react";
+import { Plus, Wine } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { productListQuery } from "@/api/products.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
-import { NativeSelect } from "@/components/native-select.tsx";
+import { Combobox } from "@/components/combobox.tsx";
+import { SearchInput } from "@/components/search-input.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Thumbnail } from "@/components/thumbnail.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Input } from "@/components/ui/input.tsx";
-import { bottleCategoryOptions, CategoryOptions } from "@/features/categories/category-options.tsx";
+import { bottleCategoryOptions } from "@/features/categories/category-options.tsx";
 import { useDebouncedSearch } from "@/lib/debounced-search.ts";
 import { InBarToggle } from "./in-bar-toggle.tsx";
 import { ProductSheet, type ProductTarget } from "./product-sheet.tsx";
@@ -56,7 +56,7 @@ function BottlesView({ bar }: { bar: BarSummary }) {
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="font-semibold text-2xl">Bottles</h1>
+        <h1 className="text-3xl">Bottles</h1>
         {canEdit && (
           <Button onClick={() => setTarget("new")}>
             <Plus aria-hidden />
@@ -66,40 +66,33 @@ function BottlesView({ bar }: { bar: BarSummary }) {
       </div>
 
       <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            maxLength={PRODUCT_NAME_MAX}
-            aria-label="Search bottles"
-            placeholder="Search name or producer"
-            className="pl-8"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
-        <NativeSelect
+        <SearchInput
+          maxLength={PRODUCT_NAME_MAX}
+          aria-label="Search bottles"
+          placeholder="Search name or producer"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <Combobox
           aria-label="Category"
-          value={search.category ?? ""}
-          onChange={(e) => setSearch({ category: e.target.value || undefined })}
-        >
-          <option value="">All categories</option>
-          <CategoryOptions items={bottleCategoryOptions(tree.data ?? [], search.category)} />
-        </NativeSelect>
-        <NativeSelect
+          className="sm:w-48"
+          value={search.category}
+          onChange={(value) => setSearch({ category: value || undefined })}
+          options={bottleCategoryOptions(tree.data ?? [], search.category)}
+          clearLabel="All categories"
+          searchPlaceholder="Search categories"
+        />
+        <Combobox
           aria-label="In the bar"
+          className="sm:w-44"
           value={search.in_bar === undefined ? "" : String(search.in_bar)}
-          onChange={(e) =>
-            setSearch({ in_bar: e.target.value ? e.target.value === "true" : undefined })
-          }
-        >
-          <option value="">In the bar or not</option>
-          <option value="true">In the bar</option>
-          <option value="false">Not in the bar</option>
-        </NativeSelect>
+          onChange={(value) => setSearch({ in_bar: value ? value === "true" : undefined })}
+          options={[
+            { value: "true", label: "In the bar" },
+            { value: "false", label: "Not in the bar" },
+          ]}
+          clearLabel="In the bar or not"
+        />
       </div>
 
       {list.isPending ? (
@@ -114,10 +107,13 @@ function BottlesView({ bar }: { bar: BarSummary }) {
         )
       ) : (
         <>
-          <ul aria-label="Bottles" className="flex flex-col divide-y rounded-lg border">
+          <ul
+            aria-label="Bottles"
+            className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
+          >
             {items.map((product) => (
               <li key={product.id} className="flex items-center gap-3 p-3">
-                <Thumbnail imageId={product.image_id} />
+                <Thumbnail imageId={product.image_id} icon={Wine} />
                 <div className="min-w-0 flex-1">
                   <Link
                     to="/bottles/$productId"

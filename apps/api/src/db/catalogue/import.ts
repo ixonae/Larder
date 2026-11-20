@@ -8,6 +8,7 @@ import {
   type IngredientSource,
   isBottleCategory,
   isPantryCategoryKind,
+  nameKey,
   unitSchema,
 } from "@larder/shared";
 import { and, eq } from "drizzle-orm";
@@ -22,7 +23,7 @@ import { insertPantryIngredient } from "../../modules/pantry/repo.ts";
 import { insertProduct } from "../../modules/products/repo.ts";
 import { insertUtensil } from "../../modules/utensils/repo.ts";
 import type { ImageStorage } from "../../storage/storage.ts";
-import { type Db, nameKey, type Tx } from "../client.ts";
+import type { Db, Tx } from "../client.ts";
 import {
   barDataMigrations,
   bars,

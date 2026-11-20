@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { delay, HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
-import { renderWithProviders } from "@/test/render.tsx";
+import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const url = `/api/bars/${BAR_ID}/products`;
 const id = (n: number) => `01a1f326-d941-7d74-8a40-${String(n).padStart(12, "0")}`;
@@ -165,22 +165,19 @@ describe("BottlesPage", () => {
 
   it("filters by search, category including children, and in-bar, kept in the URL", async () => {
     const { user, router } = await openList();
-    await user.selectOptions(screen.getByRole("combobox", { name: "Category" }), whisky.id);
+    await choose(user, "Category", "Whisky");
     await waitFor(() => expect(names()).toEqual(["Blended whisky", "Talisker 10"]));
-    await user.selectOptions(screen.getByRole("combobox", { name: "In the bar" }), "In the bar");
+    await choose(user, "In the bar", "In the bar");
     await waitFor(() => expect(names()).toEqual(["Talisker 10"]));
     expect(router.state.location.search).toEqual({ category: whisky.id, in_bar: true });
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Category" }), "");
+    await choose(user, "Category", "All categories");
     await user.type(screen.getByRole("searchbox", { name: "Search bottles" }), "hend");
     await waitFor(() => expect(names()).toEqual(["Hendrick's"]));
     await user.clear(screen.getByRole("searchbox", { name: "Search bottles" }));
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "In the bar" }),
-      "Not in the bar",
-    );
+    await choose(user, "In the bar", "Not in the bar");
     await waitFor(() => expect(names()).toEqual(["Blended whisky"]));
-    await user.selectOptions(screen.getByRole("combobox", { name: "In the bar" }), "");
+    await choose(user, "In the bar", "In the bar or not");
     await waitFor(() => expect(names()).toHaveLength(2));
     expect(router.state.location.search).toEqual({});
   });
@@ -188,13 +185,15 @@ describe("BottlesPage", () => {
   it("reads filters from the URL and ignores bad ones", async () => {
     await openList(`/bottles?in_bar=maybe&category=${gin.id}`);
     await waitFor(() => expect(names()).toEqual(["Hendrick's"]));
-    expect(screen.getByRole("combobox", { name: "In the bar" })).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "In the bar" })).toHaveTextContent(
+      "In the bar or not",
+    );
   });
 
   it("drops a malformed category from the URL instead of failing", async () => {
     await openList("/bottles?category=abc");
     expect(names()).toEqual(["Blended whisky", "Hendrick's"]);
-    expect(screen.getByRole("combobox", { name: "Category" })).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "Category" })).toHaveTextContent("All categories");
   });
 
   it("clears the search box when the search is cleared elsewhere", async () => {
@@ -295,15 +294,16 @@ describe("ProductSheet", () => {
     const { user } = await openList();
     await user.click(screen.getByRole("button", { name: "Add bottle" }));
     const sheet = await screen.findByRole("dialog", { name: "New bottle" });
-    const picker = await within(sheet).findByLabelText("Category");
-    expect(within(picker).getByRole("option", { name: "Juice" })).toBeInTheDocument();
-    expect(within(picker).queryByRole("option", { name: "Syrup" })).not.toBeInTheDocument();
+    await user.click(await within(sheet).findByLabelText("Category"));
+    expect(await screen.findByRole("option", { name: "Juice" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Syrup" })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
     await user.type(within(sheet).getByLabelText("Name"), "Ardbeg 10");
     await user.click(within(sheet).getByRole("button", { name: "Add" }));
     expect(await within(sheet).findByText("Choose a category")).toBeInTheDocument();
     expect(requests).toEqual([]);
 
-    await user.selectOptions(within(sheet).getByLabelText("Category"), scotch.id);
+    await choose(user, "Category", "Scotch");
     await user.type(within(sheet).getByLabelText("Producer"), "Ardbeg");
     await user.type(within(sheet).getByLabelText("ABV (%)"), "46");
     await user.type(within(sheet).getByLabelText("Age (years)"), "10");
@@ -329,7 +329,7 @@ describe("ProductSheet", () => {
     await user.click(screen.getByRole("button", { name: "Add bottle" }));
     const sheet = await screen.findByRole("dialog", { name: "New bottle" });
     await user.type(within(sheet).getByLabelText("Name"), "Hendrick's");
-    await user.selectOptions(within(sheet).getByLabelText("Category"), gin.id);
+    await choose(user, "Category", "Gin");
     await user.click(within(sheet).getByRole("button", { name: "Add" }));
     expect(
       await within(sheet).findByText(`A bottle named "Hendrick's" already exists`),
@@ -414,11 +414,11 @@ describe("BottleDetailPage", () => {
     const { user } = await openDetail("Glenlivet 12");
     await user.click(screen.getByRole("button", { name: "Edit bottle" }));
     const sheet = await screen.findByRole("dialog", { name: "Edit Glenlivet 12" });
-    expect(within(sheet).getByLabelText("Category")).toHaveValue(scotch.id);
+    expect(within(sheet).getByLabelText("Category")).toHaveTextContent("Scotch");
     expect(within(sheet).getByLabelText("Vintage")).toHaveValue(2010);
     await user.clear(within(sheet).getByLabelText("Vintage"));
     await user.clear(within(sheet).getByLabelText("Country"));
-    await user.selectOptions(within(sheet).getByLabelText("Category"), whisky.id);
+    await choose(user, "Category", "Whisky");
     await user.click(within(sheet).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Bottle saved")).toBeInTheDocument();
     expect(requests.at(-1)?.body).toMatchObject({

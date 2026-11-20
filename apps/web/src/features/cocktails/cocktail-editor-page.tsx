@@ -1,29 +1,31 @@
 import {
-  ancestry,
   type BarSummary,
   COCKTAIL_ICE,
   COCKTAIL_METHODS,
   type CocktailDetail,
   hasRole,
+  nameKey,
   type Utensil,
 } from "@larder/shared";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { Check, Plus, X } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Controller, useFieldArray } from "react-hook-form";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { type CocktailFilters, cocktailQuery, useSaveCocktail } from "@/api/cocktails.ts";
 import { utensilOptionsQuery } from "@/api/utensils.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
+import { optionPath } from "@/components/combobox.tsx";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
-import { NativeSelect } from "@/components/native-select.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { toast } from "@/components/toaster.tsx";
+import { toggleChip } from "@/components/toggle-chip.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { bottleCategoryOptions } from "@/features/categories/category-options.tsx";
-import { applyServerErrors, FormField, useZodForm } from "@/lib/form.tsx";
+import { applyServerErrors, ComboboxField, FormField, useZodForm } from "@/lib/form.tsx";
 import {
   type CocktailForm,
   cocktailDefaults,
@@ -65,7 +67,7 @@ function EditorPage({
 }) {
   return (
     <section className="mx-auto grid max-w-3xl gap-4">
-      <h1 className="font-semibold text-2xl">{id ? "Edit cocktail" : "New cocktail"}</h1>
+      <h1 className="text-3xl">{id ? "Edit cocktail" : "New cocktail"}</h1>
       {hasRole(bar.role, "editor") ? (
         <EditorLoader key={`${bar.id}/${id}`} barId={bar.id} id={id} search={search} />
       ) : (
@@ -96,17 +98,8 @@ function EditorLoader({
     return <LoadingState label="Loading recipe editor…" />;
   }
   const refreshError = queries.find((query) => query.isRefetchError);
-  const options = bottleCategoryOptions(categories.data);
-  const byId = new Map(options.map(({ item }) => [item.id, item]));
-  const categoryOptions = options.map(({ item }) =>
-    sourceOption(
-      "category_id",
-      item.id,
-      ancestry(byId, item.id)
-        .reverse()
-        .map(({ name }) => name)
-        .join(" › "),
-    ),
+  const categoryOptions = bottleCategoryOptions(categories.data).map((option) =>
+    sourceOption("category_id", option.value, optionPath(option)),
   );
   return (
     <>
@@ -177,85 +170,92 @@ function CocktailFormView({
     }
   });
 
+  const glasses = utensils
+    .filter(({ kind }) => kind === "glass")
+    .map(({ id, name }) => ({ value: id, label: name }));
+
   return (
     <form onSubmit={submit} noValidate>
-      <fieldset disabled={form.formState.isSubmitting} className="grid min-w-0 gap-5">
-        <FormField form={form} name="name" label="Name">
-          {(control) => <Input {...control} {...form.register("name")} />}
-        </FormField>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <FormField form={form} name="method" label="Method">
-            {(control) => (
-              <NativeSelect {...control} {...form.register("method")}>
-                {COCKTAIL_METHODS.map((method) => (
-                  <option key={method} value={method}>
-                    {method}
-                  </option>
-                ))}
-              </NativeSelect>
-            )}
+      <fieldset disabled={form.formState.isSubmitting} className="grid min-w-0 gap-4">
+        <FormSection title="Basics">
+          <FormField form={form} name="name" label="Name">
+            {(control) => <Input autoComplete="off" {...control} {...form.register("name")} />}
           </FormField>
-          <FormField form={form} name="ice" label="Ice">
-            {(control) => (
-              <NativeSelect {...control} {...form.register("ice")}>
-                {COCKTAIL_ICE.map((ice) => (
-                  <option key={ice} value={ice}>
-                    {ice.replaceAll("_", " ")}
-                  </option>
-                ))}
-              </NativeSelect>
-            )}
+          <FormField form={form} name="description" label="Description">
+            {(control) => <Textarea rows={2} {...control} {...form.register("description")} />}
           </FormField>
-          <FormField form={form} name="servings" label="Servings">
-            {(control) => (
-              <Input
-                type="number"
-                min={1}
-                inputMode="numeric"
-                {...control}
-                {...form.register("servings", { valueAsNumber: true })}
-              />
-            )}
-          </FormField>
-          <FormField form={form} name="glass_id" label="Glass">
-            {(control) => (
-              <NativeSelect className="w-full min-w-0" {...control} {...form.register("glass_id")}>
-                <option value="">None</option>
-                {utensils
-                  .filter(({ kind }) => kind === "glass")
-                  .map(({ id, name }) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-              </NativeSelect>
-            )}
-          </FormField>
-        </div>
-        <CocktailIngredientsEditor form={form} barId={barId} categories={categories} />
-        <RecipeLists form={form} utensils={utensils} />
-        {(
-          [
-            ["description", "Description"],
-            ["garnish", "Garnish"],
-            ["serving_notes", "Serving notes"],
-            ["source", "Source"],
-            ["notes", "Notes"],
-          ] as const
-        ).map(([name, label]) => (
-          <FormField key={name} form={form} name={name} label={label}>
-            {(control) => <Textarea {...control} {...form.register(name)} />}
-          </FormField>
-        ))}
-        <ImageUpload
-          imageId={recipe?.image_id ?? null}
-          value={picture.change}
-          onChange={picture.setChange}
-        />
-        <div className="flex flex-wrap justify-end gap-2">
+          <ImageUpload
+            imageId={recipe?.image_id ?? null}
+            value={picture.change}
+            onChange={picture.setChange}
+          />
+        </FormSection>
+
+        <FormSection title="Ingredients">
+          <CocktailIngredientsEditor form={form} barId={barId} categories={categories} />
+        </FormSection>
+
+        <FormSection title="Preparation">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <ComboboxField
+              form={form}
+              name="method"
+              label="Method"
+              options={COCKTAIL_METHODS.map((method) => ({ value: method, label: method }))}
+            />
+            <ComboboxField
+              form={form}
+              name="ice"
+              label="Ice"
+              options={COCKTAIL_ICE.map((ice) => ({
+                value: ice,
+                label: ice.replaceAll("_", " "),
+              }))}
+            />
+            <ComboboxField
+              form={form}
+              name="glass_id"
+              label="Glass"
+              options={glasses}
+              clearLabel="None"
+              searchPlaceholder="Search glasses"
+            />
+            <FormField form={form} name="servings" label="Servings">
+              {(control) => (
+                <Input
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  {...control}
+                  {...form.register("servings", { valueAsNumber: true })}
+                />
+              )}
+            </FormField>
+          </div>
+          <RecipeLists form={form} utensils={utensils} />
+        </FormSection>
+
+        <FormSection title="Notes">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ["garnish", "Garnish"],
+                ["serving_notes", "Serving notes"],
+                ["source", "Source"],
+                ["notes", "Notes"],
+              ] as const
+            ).map(([name, label]) => (
+              <FormField key={name} form={form} name={name} label={label}>
+                {(control) => <Textarea rows={2} {...control} {...form.register(name)} />}
+              </FormField>
+            ))}
+          </div>
+        </FormSection>
+
+        <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 flex justify-end gap-2 rounded-xl border bg-background/90 p-2 shadow-lg backdrop-blur md:bottom-4">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             onClick={() =>
               navigate(recipe ? detailLocation(recipe.id) : { to: "/cocktails", search })
             }
@@ -269,41 +269,73 @@ function CocktailFormView({
   );
 }
 
+function FormSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="grid min-w-0 gap-4 rounded-xl border bg-card p-4 shadow-xs sm:p-5">
+      <h2 className="font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
 function RecipeLists({ form, utensils }: { form: CocktailForm; utensils: Utensil[] }) {
   const steps = useFieldArray({ control: form.control, name: "steps" });
-  const tags = useFieldArray({ control: form.control, name: "tags" });
   const tools = utensils.filter(({ kind }) => kind === "tool");
   return (
     <>
-      <section className="grid gap-3">
-        <h2 className="font-semibold">Steps</h2>
-        {steps.fields.map(({ id }, index) => (
-          <div className="grid gap-2" key={id}>
-            <FormField form={form} name={`steps.${index}.text`} label={`Step ${index + 1}`}>
-              {(control) => <Textarea {...control} {...form.register(`steps.${index}.text`)} />}
-            </FormField>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="justify-self-start"
-              onClick={() => steps.remove(index)}
-            >
-              Remove step
-            </Button>
-          </div>
-        ))}
+      <fieldset className="grid gap-2">
+        <legend className="mb-2 font-medium text-sm">Steps</legend>
+        <ol className="grid gap-2">
+          {steps.fields.map(({ id }, index) => (
+            <li className="flex items-start gap-2" key={id}>
+              <span
+                className="mt-1.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand/10 font-medium text-brand text-xs tabular-nums"
+                aria-hidden
+              >
+                {index + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <FormField
+                  form={form}
+                  name={`steps.${index}.text`}
+                  label={`Step ${index + 1}`}
+                  srOnlyLabel
+                >
+                  {(control) => (
+                    <Textarea
+                      rows={1}
+                      className="min-h-9"
+                      {...control}
+                      {...form.register(`steps.${index}.text`)}
+                    />
+                  )}
+                </FormField>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Remove step"
+                onClick={() => steps.remove(index)}
+              >
+                <X />
+              </Button>
+            </li>
+          ))}
+        </ol>
         <Button
           type="button"
           variant="outline"
+          size="sm"
           className="justify-self-start"
           onClick={() => steps.append({ text: "" })}
         >
+          <Plus aria-hidden />
           Add step
         </Button>
-      </section>
+      </fieldset>
       <fieldset className="grid gap-2">
-        <legend className="mb-1 font-semibold">Tools</legend>
+        <legend className="mb-2 font-medium text-sm">Tools</legend>
         {tools.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             Add tools in Utensils to select them here.
@@ -313,12 +345,12 @@ function RecipeLists({ form, utensils }: { form: CocktailForm; utensils: Utensil
             control={form.control}
             name="tool_ids"
             render={({ field }) => (
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="flex flex-wrap gap-2">
                 {tools.map(({ id, name }) => (
-                  <label key={id} className="flex min-h-9 items-center gap-2 text-sm">
+                  <label key={id} className={toggleChip()}>
                     <input
                       type="checkbox"
-                      className="size-4"
+                      className="sr-only"
                       checked={field.value.includes(id)}
                       onChange={(event) =>
                         field.onChange(
@@ -328,6 +360,7 @@ function RecipeLists({ form, utensils }: { form: CocktailForm; utensils: Utensil
                         )
                       }
                     />
+                    <Check className="hidden size-3.5 [:checked+&]:block" aria-hidden />
                     {name}
                   </label>
                 ))}
@@ -336,33 +369,77 @@ function RecipeLists({ form, utensils }: { form: CocktailForm; utensils: Utensil
           />
         )}
       </fieldset>
-      <section className="grid gap-3">
-        <h2 className="font-semibold">Tags</h2>
-        {tags.fields.map(({ id }, index) => (
-          <div className="grid gap-2" key={id}>
-            <FormField form={form} name={`tags.${index}.name`} label={`Tag ${index + 1}`}>
-              {(control) => <Input {...control} {...form.register(`tags.${index}.name`)} />}
-            </FormField>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="justify-self-start"
-              onClick={() => tags.remove(index)}
-            >
-              Remove tag
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          className="justify-self-start"
-          onClick={() => tags.append({ name: "" })}
-        >
+      <TagsField form={form} />
+    </>
+  );
+}
+
+function TagsField({ form }: { form: CocktailForm }) {
+  const tags = useFieldArray({ control: form.control, name: "tags" });
+  const [draft, setDraft] = useState("");
+  const errors = form.formState.errors.tags;
+  const add = () => {
+    const name = draft.trim();
+    // Tags are only added and removed here, so `fields` holds every current name.
+    if (name && !tags.fields.some((tag) => nameKey(tag.name) === nameKey(name))) {
+      tags.append({ name }, { shouldFocus: false });
+    }
+    setDraft("");
+  };
+  return (
+    <fieldset className="grid gap-2">
+      <legend className="mb-2 font-medium text-sm">Tags</legend>
+      {tags.fields.length > 0 && (
+        <ul aria-label="Tags" className="flex flex-wrap gap-2">
+          {tags.fields.map(({ id, name }, index) => {
+            return (
+              <li
+                key={id}
+                className="flex h-8 items-center gap-1 rounded-full bg-secondary pr-1 pl-3 text-sm"
+              >
+                {name}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="rounded-full"
+                  aria-label={`Remove tag ${name}`}
+                  onClick={() => tags.remove(index)}
+                >
+                  <X />
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {tags.fields.map(({ id, name }, index) => {
+        const message = errors?.[index]?.name?.message;
+        return (
+          message && (
+            <p key={id} className="text-destructive text-sm">
+              {name}: {message}
+            </p>
+          )
+        );
+      })}
+      <div className="flex gap-2">
+        <Input
+          aria-label="New tag"
+          placeholder="Add a tag, then press Enter"
+          className="max-w-72"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            add();
+          }}
+        />
+        <Button type="button" variant="outline" disabled={!draft.trim()} onClick={add}>
           Add tag
         </Button>
-      </section>
-    </>
+      </div>
+    </fieldset>
   );
 }

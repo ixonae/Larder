@@ -65,7 +65,7 @@ function PantryView({ bar }: { bar: BarSummary }) {
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="font-semibold text-2xl">Pantry</h1>
+        <h1 className="text-3xl">Pantry</h1>
         {canEdit && (
           <Button onClick={() => setTarget("new")}>
             <Plus aria-hidden />
@@ -91,7 +91,10 @@ function PantryView({ bar }: { bar: BarSummary }) {
                 <h2 id={heading} className="font-medium text-muted-foreground text-sm">
                   {group.name}
                 </h2>
-                <ul aria-labelledby={heading} className="flex flex-col divide-y rounded-lg border">
+                <ul
+                  aria-labelledby={heading}
+                  className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
+                >
                   {group.items.map((ingredient) => (
                     <IngredientRow
                       key={ingredient.id}

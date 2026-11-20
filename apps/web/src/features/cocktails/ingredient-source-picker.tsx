@@ -1,14 +1,13 @@
-import { PANTRY_INGREDIENT_NAME_MAX } from "@larder/shared";
+import { PANTRY_INGREDIENT_NAME_MAX, searchKey } from "@larder/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { type Ref, useState } from "react";
 import { pantryListQuery } from "@/api/pantry.ts";
 import { productListQuery } from "@/api/products.ts";
-import { NativeSelect } from "@/components/native-select.tsx";
+import { Combobox } from "@/components/combobox.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Input } from "@/components/ui/input.tsx";
 import { useDebouncedSearch } from "@/lib/debounced-search.ts";
 import type { ControlProps } from "@/lib/form.tsx";
-import { emptySource, type SourceOption, sourceOption } from "./cocktail-editor-schema.ts";
+import { type SourceOption, sourceOption } from "./cocktail-editor-schema.ts";
 
 const SOURCE_PAGE_SIZE = 25;
 
@@ -17,7 +16,7 @@ interface PickerField {
   value: SourceOption;
   onChange: (option: SourceOption) => void;
   onBlur: () => void;
-  ref: Ref<HTMLSelectElement>;
+  ref: Ref<HTMLButtonElement>;
 }
 
 export function IngredientSourcePicker({
@@ -35,10 +34,11 @@ export function IngredientSourcePicker({
     placeholderData: undefined,
   });
   const pantry = useInfiniteQuery(pantryListQuery(barId, filters));
-  const categoryQuery = query.trim().normalize("NFC").toLowerCase();
-  const matchingCategories = categoryQuery
-    ? categories.filter(({ name }) => name.normalize("NFC").toLowerCase().includes(categoryQuery))
-    : categories;
+  // The same accent-insensitive match as the combobox uses when it filters by itself.
+  const categoryQuery = searchKey(query.trim());
+  const matchingCategories = categories.filter(({ name }) =>
+    searchKey(name).includes(categoryQuery),
+  );
   const moreCategories = matchingCategories.length > categoryLimit;
   const groups = [
     { label: "Bottle categories", options: matchingCategories.slice(0, categoryLimit) },
@@ -61,89 +61,77 @@ export function IngredientSourcePicker({
         ) ?? [],
     },
   ];
-  const options = groups.flatMap(({ options }) => options);
   const current = field.value;
   const lists = [bottles, pantry];
   const failed = lists.filter((list) => list.isError);
   const more = lists.filter((list) => list.hasNextPage);
   const loading = lists.some((list) => list.isFetching);
+  const hasMore = moreCategories || more.length > 0;
   return (
-    <div className="grid gap-2">
-      <NativeSelect
-        className="w-full min-w-0"
-        {...control}
-        {...field}
-        value={current.value}
-        onChange={(event) =>
-          field.onChange(options.find(({ value }) => value === event.target.value) ?? emptySource)
-        }
-      >
-        <option value="">Choose an ingredient…</option>
-        {current.value && !options.some(({ value }) => value === current.value) && (
-          <option value={current.value}>{current.name}</option>
-        )}
-        {groups.map(({ label, options }) => (
-          <optgroup key={label} label={label}>
-            {options.map(({ value, name }) => (
-              <option key={value} value={value}>
-                {name}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </NativeSelect>
-      <Input
-        type="search"
-        aria-label="Search ingredients"
-        placeholder="Search ingredients"
-        maxLength={PANTRY_INGREDIENT_NAME_MAX}
-        value={search}
-        onChange={(event) => {
+    <Combobox
+      {...control}
+      {...field}
+      value={current.value}
+      onChange={(value, name) => field.onChange({ value, name })}
+      options={groups.flatMap(({ label, options }) =>
+        options.map(({ value, name }) => ({ value, label: name, group: label })),
+      )}
+      placeholder="Choose an ingredient…"
+      fallbackLabel={current.name}
+      searchPlaceholder="Search ingredients"
+      search={{
+        text: search,
+        onChange: (value) => {
           setCategoryLimit(SOURCE_PAGE_SIZE);
-          setSearch(event.target.value);
-        }}
-      />
-      {loading && (
-        <p role="status" className="text-muted-foreground text-sm">
-          Loading ingredient choices…
-        </p>
-      )}
-      {failed.length > 0 ? (
-        <div role="alert" className="flex items-center justify-between gap-2 text-sm">
-          <span>Could not load ingredient choices.</span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={loading}
-            onClick={() =>
-              Promise.all(
-                failed.map((list) =>
-                  list.isFetchNextPageError ? list.fetchNextPage() : list.refetch(),
-                ),
+          setSearch(value.slice(0, PANTRY_INGREDIENT_NAME_MAX));
+        },
+      }}
+      footer={
+        (loading || failed.length > 0 || hasMore) && (
+          <>
+            {loading && (
+              <p role="status" className="px-1 text-muted-foreground text-sm">
+                Loading ingredient choices…
+              </p>
+            )}
+            {failed.length > 0 ? (
+              <div role="alert" className="flex items-center justify-between gap-2 px-1 text-sm">
+                <span>Could not load ingredient choices.</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={loading}
+                  onClick={() =>
+                    Promise.all(
+                      failed.map((list) =>
+                        list.isFetchNextPageError ? list.fetchNextPage() : list.refetch(),
+                      ),
+                    )
+                  }
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : (
+              hasMore && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={loading}
+                  onClick={() => {
+                    if (moreCategories) setCategoryLimit((limit) => limit + SOURCE_PAGE_SIZE);
+                    return Promise.all(more.map((list) => list.fetchNextPage()));
+                  }}
+                >
+                  Load more ingredient choices
+                </Button>
               )
-            }
-          >
-            Try again
-          </Button>
-        </div>
-      ) : (
-        (moreCategories || more.length > 0) && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="justify-self-start"
-            disabled={loading}
-            onClick={() => {
-              if (moreCategories) setCategoryLimit((limit) => limit + SOURCE_PAGE_SIZE);
-              return Promise.all(more.map((list) => list.fetchNextPage()));
-            }}
-          >
-            Load more ingredient choices
-          </Button>
+            )}
+          </>
         )
-      )}
-    </div>
+      }
+    />
   );
 }

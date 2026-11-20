@@ -6,7 +6,6 @@ import {
 } from "@larder/shared";
 import { useUtensilMutations } from "@/api/utensils.ts";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
-import { NativeSelect } from "@/components/native-select.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -19,7 +18,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
-import { applyServerErrors, emptyToNullNumber, FormField, useZodForm } from "@/lib/form.tsx";
+import {
+  applyServerErrors,
+  ComboboxField,
+  emptyToNullNumber,
+  FormField,
+  useZodForm,
+} from "@/lib/form.tsx";
 
 /** What the sheet is open for: the utensil being edited, `"new"` to add one, or null when closed. */
 export type UtensilTarget = Utensil | "new" | null;
@@ -93,17 +98,15 @@ function UtensilForm({
         {(control) => <Input autoComplete="off" {...control} {...form.register("name")} />}
       </FormField>
 
-      <FormField form={form} name="kind" label="Kind">
-        {(control) => (
-          <NativeSelect {...control} {...form.register("kind")}>
-            {UTENSIL_KINDS.map((kind) => (
-              <option key={kind} value={kind}>
-                {UTENSIL_KIND_LABEL[kind]}
-              </option>
-            ))}
-          </NativeSelect>
-        )}
-      </FormField>
+      <ComboboxField
+        form={form}
+        name="kind"
+        label="Kind"
+        options={UTENSIL_KINDS.map((kind) => ({
+          value: kind,
+          label: UTENSIL_KIND_LABEL[kind],
+        }))}
+      />
 
       {isGlass && (
         <FormField form={form} name="capacity_ml" label="Capacity (ml)">

@@ -2,7 +2,6 @@ import { type CategoryTreeNode, createProductSchema, type Product } from "@larde
 import { useMemo } from "react";
 import { useProductMutations } from "@/api/products.ts";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
-import { NativeSelect } from "@/components/native-select.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -17,11 +16,16 @@ import {
 import { Textarea } from "@/components/ui/textarea.tsx";
 import {
   bottleCategoryOptions,
-  CategoryOptions,
   CategoryTreeLoader,
   categoryIdField,
 } from "@/features/categories/category-options.tsx";
-import { applyServerErrors, emptyToNullNumber, FormField, useZodForm } from "@/lib/form.tsx";
+import {
+  applyServerErrors,
+  ComboboxField,
+  emptyToNullNumber,
+  FormField,
+  useZodForm,
+} from "@/lib/form.tsx";
 
 /** What the sheet is open for: the bottle being edited, `"new"` to add one, or null when closed. */
 export type ProductTarget = Product | "new" | null;
@@ -123,14 +127,13 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
     <form onSubmit={submit} className="flex flex-1 flex-col gap-4 px-4" noValidate>
       {text("name", "Name")}
 
-      <FormField form={form} name="category_id" label="Category">
-        {(control) => (
-          <NativeSelect {...control} {...form.register("category_id")}>
-            <option value="">Choose…</option>
-            <CategoryOptions items={categories} />
-          </NativeSelect>
-        )}
-      </FormField>
+      <ComboboxField
+        form={form}
+        name="category_id"
+        label="Category"
+        options={categories}
+        searchPlaceholder="Search categories"
+      />
 
       {text("producer", "Producer")}
       <div className="grid grid-cols-2 gap-4">

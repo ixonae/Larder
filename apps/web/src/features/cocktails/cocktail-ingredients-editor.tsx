@@ -1,5 +1,9 @@
+import { cn } from "cn";
+import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
+import type { ComponentProps } from "react";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import { AmountInput } from "@/components/amount-input.tsx";
+import { toggleChip } from "@/components/toggle-chip.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { FormField } from "@/lib/form.tsx";
@@ -16,42 +20,41 @@ export function CocktailIngredientsEditor({
   ...catalogue
 }: { form: CocktailForm } & IngredientCatalogue) {
   const ingredients = useFieldArray({ control: form.control, name: "ingredients" });
+  const last = ingredients.fields.length - 1;
   return (
-    <section className="grid gap-3">
-      <h2 className="font-semibold">Ingredients</h2>
+    <div className="grid gap-3">
       {ingredients.fields.map(({ id }, index) => (
-        <fieldset className="grid min-w-0 gap-3 rounded-lg border p-3" key={id}>
-          <legend className="px-1 font-medium text-sm">Ingredient {index + 1}</legend>
+        <fieldset className="grid min-w-0 gap-3 rounded-lg border bg-background p-3" key={id}>
+          <legend className="sr-only">Ingredient {index + 1}</legend>
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className="flex size-6 items-center justify-center rounded-full bg-brand/10 font-medium text-brand text-xs tabular-nums"
+              aria-hidden
+            >
+              {index + 1}
+            </span>
+            <div className="flex gap-0.5">
+              <IconButton
+                label="Move up"
+                disabled={index === 0}
+                onClick={() => ingredients.move(index, index - 1)}
+              >
+                <ArrowUp />
+              </IconButton>
+              <IconButton
+                label="Move down"
+                disabled={index === last}
+                onClick={() => ingredients.move(index, index + 1)}
+              >
+                <ArrowDown />
+              </IconButton>
+              <IconButton label="Remove ingredient" onClick={() => ingredients.remove(index)}>
+                <Trash2 />
+              </IconButton>
+            </div>
+          </div>
           {/* biome-ignore lint/suspicious/noArrayIndexKey: Remount the nested field array when its form path changes after a move. */}
           <Ingredient key={`${id}/${index}`} form={form} catalogue={catalogue} index={index} />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={index === 0}
-              onClick={() => ingredients.move(index, index - 1)}
-            >
-              Move up
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={index === ingredients.fields.length - 1}
-              onClick={() => ingredients.move(index, index + 1)}
-            >
-              Move down
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => ingredients.remove(index)}
-            >
-              Remove ingredient
-            </Button>
-          </div>
         </fieldset>
       ))}
       <Button
@@ -70,9 +73,28 @@ export function CocktailIngredientsEditor({
           })
         }
       >
+        <Plus aria-hidden />
         Add ingredient
       </Button>
-    </section>
+    </div>
+  );
+}
+
+function IconButton({
+  label,
+  className,
+  ...props
+}: { label: string } & Omit<ComponentProps<typeof Button>, "aria-label">) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      aria-label={label}
+      title={label}
+      className={cn("text-muted-foreground", className)}
+      {...props}
+    />
   );
 }
 
@@ -96,63 +118,80 @@ function Ingredient({
   });
   return (
     <>
-      <Preparation form={form} catalogue={catalogue} path={path} label="Preferred source" />
-      <FormField form={form} name={`${path}.amount`} label="Quantity">
-        {(control) => (
-          <AmountInput
-            {...control}
-            value={{ amount, unit }}
-            onChange={(value) => {
-              form.setValue(`${path}.unit`, value.unit);
-              form.setValue(`${path}.amount`, value.amount, {
-                shouldValidate: form.formState.isSubmitted,
-              });
-            }}
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_16rem]">
+        <SourceField form={form} catalogue={catalogue} path={path} label="Preferred source" />
+        <FormField form={form} name={`${path}.amount`} label="Quantity">
+          {(control) => (
+            <AmountInput
+              {...control}
+              value={{ amount, unit }}
+              onChange={(value) => {
+                form.setValue(`${path}.unit`, value.unit);
+                form.setValue(`${path}.amount`, value.amount, {
+                  shouldValidate: form.formState.isSubmitted,
+                });
+              }}
+            />
+          )}
+        </FormField>
+      </div>
+      <NoteField form={form} path={path} />
+      <div className="flex flex-wrap gap-2">
+        <label className={toggleChip({ size: "sm" })}>
+          <input type="checkbox" className="sr-only" {...form.register(`${path}.optional`)} />
+          Optional
+        </label>
+        <label className={toggleChip({ size: "sm" })} title="For example, a glass rinse">
+          <input
+            type="checkbox"
+            className="sr-only"
+            {...form.register(`${path}.preparation_only`)}
           />
-        )}
-      </FormField>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" className="size-4" {...form.register(`${path}.optional`)} />
-        Optional
-      </label>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" className="size-4" {...form.register(`${path}.preparation_only`)} />
-        Preparation only (for example, a glass rinse)
-      </label>
-      {alternatives.fields.map(({ id }, alternativeIndex) => (
-        <fieldset key={id} className="grid min-w-0 gap-3 rounded-md border p-3">
-          <legend className="px-1 text-sm">Alternative {alternativeIndex + 1}</legend>
-          <Preparation
-            form={form}
-            catalogue={catalogue}
-            path={`${path}.alternatives.${alternativeIndex}`}
-            label="Substitute"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="justify-self-start"
-            onClick={() => alternatives.remove(alternativeIndex)}
-          >
-            Remove alternative
-          </Button>
-        </fieldset>
-      ))}
+          Preparation only
+        </label>
+      </div>
+      {alternatives.fields.map(({ id }, alternativeIndex) => {
+        const alternative = `${path}.alternatives.${alternativeIndex}` as const;
+        return (
+          <fieldset key={id} className="grid min-w-0 gap-2 border-brand/30 border-l-2 pl-3">
+            <legend className="mb-1 font-medium text-muted-foreground text-xs">
+              Alternative {alternativeIndex + 1}
+            </legend>
+            <div className="flex items-end gap-2">
+              <div className="min-w-0 flex-1">
+                <SourceField
+                  form={form}
+                  catalogue={catalogue}
+                  path={alternative}
+                  label="Substitute"
+                />
+              </div>
+              <IconButton
+                label="Remove alternative"
+                onClick={() => alternatives.remove(alternativeIndex)}
+              >
+                <X />
+              </IconButton>
+            </div>
+            <NoteField form={form} path={alternative} />
+          </fieldset>
+        );
+      })}
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         size="sm"
-        className="justify-self-start"
+        className="justify-self-start text-muted-foreground"
         onClick={() => alternatives.append({ source: emptySource, note: "" })}
       >
+        <Plus aria-hidden />
         Add alternative
       </Button>
     </>
   );
 }
 
-function Preparation({
+function SourceField({
   form,
   catalogue,
   path,
@@ -164,21 +203,30 @@ function Preparation({
   label: string;
 }) {
   return (
-    <>
-      <FormField form={form} name={`${path}.source`} label={label}>
-        {(control) => (
-          <Controller
-            control={form.control}
-            name={`${path}.source`}
-            render={({ field }) => (
-              <IngredientSourcePicker {...catalogue} {...control} field={field} />
-            )}
-          />
-        )}
-      </FormField>
-      <FormField form={form} name={`${path}.note`} label="Preparation note">
-        {(control) => <Input {...control} {...form.register(`${path}.note`)} />}
-      </FormField>
-    </>
+    <FormField form={form} name={`${path}.source`} label={label}>
+      {(control) => (
+        <Controller
+          control={form.control}
+          name={`${path}.source`}
+          render={({ field }) => (
+            <IngredientSourcePicker {...catalogue} {...control} field={field} />
+          )}
+        />
+      )}
+    </FormField>
+  );
+}
+
+function NoteField({ form, path }: { form: CocktailForm; path: PreparationPath }) {
+  return (
+    <FormField form={form} name={`${path}.note`} label="Preparation note" srOnlyLabel>
+      {(control) => (
+        <Input
+          placeholder="Note, e.g. freshly squeezed"
+          {...control}
+          {...form.register(`${path}.note`)}
+        />
+      )}
+    </FormField>
   );
 }

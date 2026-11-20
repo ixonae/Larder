@@ -74,17 +74,27 @@ test("list and detail compute the preferred recipe, and scaling leaves saved ser
       { category_id: mixer.id, amount: 40, unit: "ml", optional: true },
       { pantry_ingredient_id: garnish, amount: 3, unit: "wedge" },
       { category_id: mixer.id, unit: "top" },
+      { category_id: leaf.id, unit: "to_taste", preparation_only: true },
     ],
   });
   expect(recipe.computed.volume_ml).toBe(60);
   expect(recipe.computed.abv).toBeCloseTo(20);
   expect(recipe.computed.spirits).toEqual([{ id: family.id, name: family.name }]);
+  // Preparation-only lines (a rinse) are left out of the ingredient summary.
+  expect(recipe.computed.ingredients).toEqual([
+    "Bottle",
+    "Blanco",
+    "Zero-proof bottle",
+    "Sparkling mixer",
+    "Peel",
+    "Sparkling mixer",
+  ]);
   const page = await list();
   expect(page.items[0]?.computed).toEqual(recipe.computed);
   const url = `${path}/${recipe.id}`;
   const scaled = cocktailDetailSchema.parse(await (await app.request(`${url}?servings=1`)).json());
   expect(scaled.servings).toBe(1);
-  expect(scaled.ingredients.map(({ amount }) => amount)).toEqual([1, 10, 10, 20, 2, null]);
+  expect(scaled.ingredients.map(({ amount }) => amount)).toEqual([1, 10, 10, 20, 2, null, null]);
   expect(scaled.ingredients[0]?.alternatives).toEqual(recipe.ingredients[0]?.alternatives);
   expect(scaled.computed).toEqual({ ...recipe.computed, volume_ml: 30 });
   expect(await (await app.request(url)).json()).toEqual(recipe);

@@ -74,7 +74,7 @@ function BottleDetails({ bar, product }: { bar: BarSummary; product: Product }) 
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="min-w-0 flex-1 font-semibold text-2xl">{product.name}</h1>
+        <h1 className="min-w-0 flex-1 text-3xl">{product.name}</h1>
         <InBarToggle barId={bar.id} product={product} canEdit={canEdit} />
         {canEdit && (
           <>
@@ -106,7 +106,7 @@ function BottleDetails({ bar, product }: { bar: BarSummary; product: Product }) 
         />
       )}
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-lg border p-4 text-sm">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border bg-card p-4 text-sm shadow-xs sm:p-5">
         {facts
           .filter(([, value]) => value !== null)
           .map(([label, value]) => (
