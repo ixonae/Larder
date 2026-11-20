@@ -23,11 +23,13 @@ import {
 import {
   barMembers,
   bars,
+  categories,
   cocktails,
   comments,
   favourites,
   images,
   passwordCredentials,
+  productPurchases,
   ratings,
   sessions,
   users,
@@ -405,6 +407,43 @@ describe("user administration", () => {
     expect((await t.request("/api/me", "GET", undefined, session)).status).toBe(200);
     const utensils = await t.request(`/api/bars/${t.alice.barId}/utensils`);
     expect(await utensils.json()).toMatchObject({ items: [{ name: "Coupe" }] });
+  });
+
+  it("refuses to delete the author of a bottle purchase and keeps the purchase", async () => {
+    const t = setup();
+    const userId = newId();
+    t.db
+      .insert(users)
+      .values({ id: userId, email: account.email, display_name: account.display_name })
+      .run();
+    t.db
+      .insert(barMembers)
+      .values({ bar_id: t.alice.barId, user_id: userId, role: "editor" })
+      .run();
+    const bottles = `/api/bars/${t.alice.barId}/products`;
+    const category = t.db
+      .select()
+      .from(categories)
+      .where(eq(categories.bar_id, t.alice.barId))
+      .get();
+    const created = await t.request(bottles, "POST", { name: "Gin X", category_id: category?.id });
+    const { id } = (await created.json()) as { id: string };
+    const session = t.cookie(userId);
+    const bought = await t.request(
+      `${bottles}/${id}/purchases`,
+      "POST",
+      { bought_on: "2026-11-01" },
+      session,
+    );
+    expect(bought.status).toBe(201);
+    const result = await t.request(`/api/admin/users/${userId}`, "DELETE", {
+      email: account.email,
+    });
+    expect(result.status).toBe(409);
+    expect(usedBySchema.parse((await errorOf(result)).details)).toEqual({
+      used_by: [{ type: "bar", id: t.alice.barId, name: "Alice's bar" }],
+    });
+    expect(t.db.select().from(productPurchases).all()).toMatchObject([{ created_by: userId }]);
   });
 });
 

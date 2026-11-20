@@ -1,13 +1,23 @@
 import {
   createProductSchema,
+  createPurchaseSchema,
+  finishProductSchema,
   listProductsQuerySchema,
-  setProductInBarSchema,
+  setProductStatusSchema,
   updateProductSchema,
+  updatePurchaseSchema,
 } from "@larder/shared";
 import { Hono } from "hono";
 import { requireRole } from "../../middleware/context.ts";
 import { validate } from "../../middleware/validate.ts";
 import type { AppEnv } from "../../types.ts";
+import {
+  createPurchases,
+  deletePurchase,
+  finishProduct,
+  listPurchases,
+  updatePurchase,
+} from "./purchases-service.ts";
 import {
   createProduct,
   deleteProduct,
@@ -28,10 +38,35 @@ export const productRoutes = new Hono<AppEnv>()
   .patch("/:id", requireRole("editor"), validate("json", updateProductSchema), (c) =>
     c.json(updateProduct(c.var.ctx, c.req.param("id"), c.req.valid("json"))),
   )
-  .patch("/:id/in-bar", requireRole("editor"), validate("json", setProductInBarSchema), (c) =>
-    // The one-tap toggle: an update of that single field.
+  .patch("/:id/status", requireRole("editor"), validate("json", setProductStatusSchema), (c) =>
+    // Setting the status by hand: an update of that single field; purchases are left untouched.
     c.json(updateProduct(c.var.ctx, c.req.param("id"), c.req.valid("json"))),
   )
+  .post("/:id/finish", requireRole("editor"), validate("json", finishProductSchema), (c) =>
+    c.json(finishProduct(c.var.ctx, c.req.param("id"), c.req.valid("json"))),
+  )
+  .get("/:id/purchases", (c) => c.json(listPurchases(c.var.ctx, c.req.param("id"))))
+  .post("/:id/purchases", requireRole("editor"), validate("json", createPurchaseSchema), (c) =>
+    c.json(createPurchases(c.var.ctx, c.req.param("id"), c.req.valid("json")), 201),
+  )
+  .patch(
+    "/:id/purchases/:purchaseId",
+    requireRole("editor"),
+    validate("json", updatePurchaseSchema),
+    (c) =>
+      c.json(
+        updatePurchase(
+          c.var.ctx,
+          c.req.param("id"),
+          c.req.param("purchaseId"),
+          c.req.valid("json"),
+        ),
+      ),
+  )
+  .delete("/:id/purchases/:purchaseId", requireRole("editor"), (c) => {
+    deletePurchase(c.var.ctx, c.req.param("id"), c.req.param("purchaseId"));
+    return c.body(null, 204);
+  })
   .delete("/:id", requireRole("editor"), async (c) => {
     await deleteProduct(c.var.ctx, c.req.param("id"));
     return c.body(null, 204);

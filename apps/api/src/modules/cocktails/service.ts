@@ -32,7 +32,7 @@ import type { Ctx } from "../../types.ts";
 import { listAllCategories } from "../categories/repo.ts";
 import { deleteWithImage } from "../images/service.ts";
 import { listAvailablePantryIngredientIds } from "../pantry/repo.ts";
-import { listInBarProducts } from "../products/repo.ts";
+import { listOwnedProducts } from "../products/repo.ts";
 import { findUtensil } from "../utensils/repo.ts";
 import { type PersonalSummary, personalSummaries } from "./feedback.ts";
 import { favouriteIds, listRatings } from "./feedback-repo.ts";
@@ -61,11 +61,11 @@ function summarize(
   };
 }
 
-/** What the bar's in-bar bottles and available Pantry ingredients can pour. */
+/** What the bar's owned bottles and available Pantry ingredients can pour. */
 const loadInventory = (db: Executor, barId: string, categories: Category[]) =>
   buildInventory(
     categories,
-    listInBarProducts(db, barId),
+    listOwnedProducts(db, barId),
     listAvailablePantryIngredientIds(db, barId),
   );
 

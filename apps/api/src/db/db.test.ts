@@ -1,8 +1,12 @@
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { and, eq, getTableName } from "drizzle-orm";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { openDb } from "./client.ts";
-import { runMigrations } from "./migrate.ts";
+import { MIGRATIONS_DIR, runMigrations } from "./migrate.ts";
 import {
   barDataMigrations,
   barInvitations,
@@ -21,6 +25,7 @@ import {
   installationSettings,
   pantryIngredients,
   passwordCredentials,
+  productPurchases,
   products,
   ratings,
   sessions,
@@ -237,6 +242,86 @@ describe("products table", () => {
   });
 });
 
+describe("product_purchases table", () => {
+  function setup() {
+    const db = freshDb();
+    const alice = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
+    const bob = seedUser(db, { email: "b@x.y", display_name: "B" }, "B");
+    const bottle = (barId: string, userId: string) => {
+      const category = db.select().from(categories).where(eq(categories.bar_id, barId)).get();
+      return db
+        .insert(products)
+        .values({ bar_id: barId, created_by: userId, name: "X", category_id: category?.id ?? "" })
+        .returning()
+        .get().id;
+    };
+    const row = {
+      bar_id: alice.barId,
+      created_by: alice.userId,
+      product_id: bottle(alice.barId, alice.userId),
+      bought_on: "2026-11-01",
+    };
+    return { db, row, bobBottle: bottle(bob.barId, bob.userId) };
+  }
+
+  it.each([
+    ["a bottle from another bar", (bob: string) => ({ product_id: bob }), /FOREIGN KEY/],
+    ["a negative price", () => ({ price_minor: -1, currency: "JPY" }), /CHECK/],
+    ["a price without a currency", () => ({ price_minor: 100 }), /CHECK/],
+    ["a currency without a price", () => ({ currency: "JPY" }), /CHECK/],
+    ["an unknown currency", () => ({ price_minor: 1, currency: "XXX" }), /CHECK/],
+    ["a finish before the purchase", () => ({ finished_on: "2026-10-31" }), /CHECK/],
+  ])("refuses %s", (_, override, error) => {
+    const { db, row, bobBottle } = setup();
+    // Bypasses the column types on purpose: the database must refuse it too.
+    const values = { ...row, ...override(bobBottle) } as typeof productPurchases.$inferInsert;
+    expect(() => db.insert(productPurchases).values(values).run()).toThrow(error);
+  });
+
+  it("accepts a priced, finished bottle", () => {
+    const { db, row } = setup();
+    const values = { ...row, price_minor: 0, currency: "USD", finished_on: row.bought_on } as const;
+    db.insert(productPurchases).values(values).run();
+    expect(db.select().from(productPurchases).get()).toMatchObject(values);
+  });
+});
+
+describe("0005 bottle status migration", () => {
+  it("turns in_bar bottles into owned ones and leaves the others without a status", () => {
+    // Applies the migrations before 0005, adds bottles the old way, then runs the rest.
+    const dir = mkdtempSync(join(tmpdir(), "larder-migrations-"));
+    try {
+      cpSync(MIGRATIONS_DIR, dir, { recursive: true });
+      const journalPath = join(dir, "meta", "_journal.json");
+      const journal = JSON.parse(readFileSync(journalPath, "utf8")) as { entries: unknown[] };
+      writeFileSync(
+        journalPath,
+        JSON.stringify({ ...journal, entries: journal.entries.slice(0, 5) }),
+      );
+      const db = openDb(":memory:");
+      migrate(db, { migrationsFolder: dir });
+      const { barId, userId } = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
+      const category = db.select().from(categories).where(eq(categories.bar_id, barId)).get();
+      const insert = db.$client.prepare(
+        "INSERT INTO products (id, bar_id, category_id, name, in_bar, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, '', '')",
+      );
+      insert.run("a", barId, category?.id, "Kept", 1, userId);
+      insert.run("b", barId, category?.id, "Gone", 0, userId);
+      runMigrations(db);
+      expect(
+        db.select({ name: products.name, status: products.status }).from(products).all(),
+      ).toEqual(
+        expect.arrayContaining([
+          { name: "Kept", status: "owned" },
+          { name: "Gone", status: null },
+        ]),
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("pantry_ingredients table", () => {
   function setup() {
     const db = freshDb();
@@ -392,6 +477,14 @@ describe("schema", () => {
         ["image_id", "images"],
         ["created_by", "users"],
         ["bar_id", "categories"],
+      ],
+    ],
+    [
+      productPurchases,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+        ["bar_id", "products"],
       ],
     ],
     [

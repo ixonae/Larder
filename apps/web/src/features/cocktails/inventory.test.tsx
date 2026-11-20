@@ -3,6 +3,7 @@ import type {
   CocktailIngredient,
   MissingIngredient,
   PantryIngredient,
+  Product,
 } from "@larder/shared";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, screen, waitFor, within } from "@testing-library/react";
@@ -10,7 +11,13 @@ import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
 import { cocktailsKey } from "@/api/cocktails.ts";
 import { usePantryMutations } from "@/api/pantry.ts";
-import { useProductMutations, useSetProductInBar } from "@/api/products.ts";
+import {
+  useBuyBottle,
+  useFinishBottle,
+  useProductMutations,
+  usePurchaseMutations,
+  useSetBottleStatus,
+} from "@/api/products.ts";
 import { createQueryClient } from "@/api/query-client.ts";
 import { fixtureId, page, timestamps, unrated } from "@/test/fixtures.ts";
 import { BAR_ID, server } from "@/test/msw.ts";
@@ -193,10 +200,38 @@ it("updates the same live availability status when stock changes while viewing a
 /** Each row is a hook that returns a function running one stock mutation. */
 const stockChanges: [string, () => () => Promise<unknown>][] = [
   [
-    "putting a bottle in the bar",
+    "buying a bottle",
     () => {
-      const { mutateAsync } = useSetProductInBar(BAR_ID);
-      return () => mutateAsync({ id: id(400), in_bar: true });
+      const { mutateAsync } = useBuyBottle(BAR_ID);
+      return () => mutateAsync({ id: id(400), json: { bought_on: "2026-11-01", count: 1 } });
+    },
+  ],
+  [
+    "running out of a bottle",
+    () => {
+      const { mutateAsync } = useFinishBottle(BAR_ID);
+      return () => mutateAsync({ id: id(400), finished_on: "2026-11-02" });
+    },
+  ],
+  [
+    "setting a bottle's status",
+    () => {
+      const { mutateAsync } = useSetBottleStatus(BAR_ID);
+      return () => mutateAsync({ id: id(400), status: "owned" });
+    },
+  ],
+  [
+    "editing a purchase",
+    () => {
+      const { mutateAsync } = usePurchaseMutations(BAR_ID).update;
+      return () => mutateAsync({ id: id(400), purchaseId: id(402), json: { finished_on: null } });
+    },
+  ],
+  [
+    "deleting a purchase",
+    () => {
+      const { mutateAsync } = usePurchaseMutations(BAR_ID).remove;
+      return () => mutateAsync({ id: id(400), purchaseId: id(402) });
     },
   ],
   [
@@ -316,5 +351,54 @@ it("restocking a lemon in the Pantry updates the cocktails on return", async () 
   await user.click(screen.getAllByRole("link", { name: "Cocktails" })[0] as HTMLElement);
   expect(
     await within(await screen.findByRole("list", { name: "Cocktails" })).findByText("Can make"),
+  ).toBeInTheDocument();
+});
+
+it("running out of the last bottle changes availability on the Cocktails page", async () => {
+  const gin = id(310);
+  let bottle: Product = {
+    ...timestamps,
+    id: id(311),
+    name: "Beefeater",
+    category_id: gin,
+    category_name: "Gin",
+    producer: null,
+    country: null,
+    region: null,
+    abv: null,
+    vintage: null,
+    age_years: null,
+    description: null,
+    image_id: null,
+    status: "owned",
+    stock: { open_count: 1, total_count: 1, last_bought_on: "2026-11-01", last_finished_on: null },
+  };
+  const finished: { finished_on?: string }[] = [];
+  server.use(
+    http.get(`${base}/cocktails`, () =>
+      page([bottle.status === "owned" ? { ...short, missing: [] } : short]),
+    ),
+    http.get(`${base}/products`, () => page([bottle])),
+    http.post(`${base}/products/${bottle.id}/finish`, async ({ request }) => {
+      finished.push((await request.json()) as { finished_on?: string });
+      bottle = { ...bottle, status: "finished" };
+      return HttpResponse.json(bottle);
+    }),
+  );
+  const { user } = renderWithProviders("/cocktails");
+  const cards = await screen.findByRole("list", { name: "Cocktails" });
+  expect(await within(cards).findByText("Can make")).toBeInTheDocument();
+
+  await user.click(screen.getAllByRole("link", { name: "Bottles" })[0] as HTMLElement);
+  await user.click(await screen.findByRole("button", { name: "Status of Beefeater: Owned" }));
+  await user.click(await screen.findByRole("button", { name: "Ran out…" }));
+  const sheet = await screen.findByRole("dialog", { name: "Ran out of Beefeater?" });
+  await user.click(within(sheet).getByRole("button", { name: "Ran out" }));
+  expect(await screen.findByText("Ran out of Beefeater")).toBeInTheDocument();
+  expect(finished).toHaveLength(1);
+
+  await user.click(screen.getAllByRole("link", { name: "Cocktails" })[0] as HTMLElement);
+  expect(
+    await within(await screen.findByRole("list", { name: "Cocktails" })).findByText("Missing 1"),
   ).toBeInTheDocument();
 });

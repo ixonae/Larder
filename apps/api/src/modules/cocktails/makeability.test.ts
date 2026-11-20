@@ -22,12 +22,12 @@ async function setup() {
   const addCategory = (input: object) => post<Category>("categories", input);
   const addSupply = (name: string, category_id: string, flags: object = {}) =>
     post<PantryIngredient>("pantry-ingredients", { name, category_id, ...flags });
-  const addBottle = (name: string, category_id: string, in_bar = true) =>
-    post<Product>("products", { name, category_id, in_bar });
+  const addBottle = (name: string, category_id: string, owned = true) =>
+    post<Product>("products", { name, category_id, status: owned ? "owned" : "tasted" });
   const setStock = (id: string, in_stock: boolean) =>
     send("PATCH", `pantry-ingredients/${id}`, { in_stock });
-  const setInBar = (id: string, in_bar: boolean) =>
-    send("PATCH", `products/${id}/in-bar`, { in_bar });
+  const setOwned = (id: string, owned: boolean) =>
+    send("PATCH", `products/${id}/status`, { status: owned ? "owned" : "finished" });
   const create = async (name: string, ingredients: object[]) =>
     cocktailDetailSchema.parse(await post("cocktails", { name, method: "shaken", ingredients }));
   const get = async (id: string) =>
@@ -53,7 +53,7 @@ async function setup() {
     addBottle,
     addSupply,
     setStock,
-    setInBar,
+    setOwned,
     create,
     get,
     list,
@@ -75,7 +75,7 @@ const line = (source: object, extra: object = {}) => ({
 });
 
 test("a juice line accepting fresh or bottled is missing only when neither is there; fresh-only lines and the twist need the lemon", async () => {
-  const { addBottle, addSupply, setStock, setInBar, create, get, bottledLemon, fruit } =
+  const { addBottle, addSupply, setStock, setOwned, create, get, bottledLemon, fruit } =
     await setup();
   const lemon = await addSupply("Lemon", fruit.id);
   const bottle = await addBottle("Squeezy", bottledLemon.id, false);
@@ -97,7 +97,7 @@ test("a juice line accepting fresh or bottled is missing only when neither is th
   ]);
   expect(await missingIn(strict.id)).toEqual(["Lemon", "Lemon"]);
   // Bottle only.
-  await setInBar(bottle.id, true);
+  await setOwned(bottle.id, true);
   expect(await missingIn(flexible.id)).toEqual([]);
   expect(await missingIn(strict.id)).toEqual(["Lemon", "Lemon"]);
   // Both.
@@ -105,7 +105,7 @@ test("a juice line accepting fresh or bottled is missing only when neither is th
   expect(await missingIn(flexible.id)).toEqual([]);
   expect(await missingIn(strict.id)).toEqual([]);
   // Fresh only.
-  await setInBar(bottle.id, false);
+  await setOwned(bottle.id, false);
   expect(await missingIn(flexible.id)).toEqual([]);
   expect(await missingIn(strict.id)).toEqual([]);
 });
@@ -125,16 +125,16 @@ test("staples, optional garnishes and required blending ice", async () => {
   expect((await get(frozen.id)).missing).toEqual([]);
 });
 
-test("products must be in the bar, and categories match in-bar bottles in sub-categories", async () => {
-  const { addBottle, setInBar, create, get, gin, london, rum } = await setup();
+test("products must be owned, and categories match owned bottles in sub-categories", async () => {
+  const { addBottle, setOwned, create, get, gin, london, rum } = await setup();
   const dry = await addBottle("Dry Bottle", london.id);
   const cane = await addBottle("Cane Bottle", rum.id, false);
   const martini = await create("Juniper Martini", [line({ category_id: gin.id })]);
   const named = await create("Named Cane", [line({ product_id: cane.id })]);
   expect(martini.missing).toEqual([]);
   expect(named.missing.map(({ name }) => name)).toEqual(["Cane Bottle"]);
-  await setInBar(cane.id, true);
-  await setInBar(dry.id, false);
+  await setOwned(cane.id, true);
+  await setOwned(dry.id, false);
   expect((await get(martini.id)).missing.map(({ name }) => name)).toEqual(["Juniper"]);
   expect((await get(named.id)).missing).toEqual([]);
 });
@@ -172,7 +172,7 @@ test("list reports missing lines and filters by the exact missing count across p
   expect(await names("missing=0")).toEqual(["A None Missing", "B One Missing", "D Empty"]);
 });
 
-test("detail lists matching in-bar bottles for each category source, preferred or alternative", async () => {
+test("detail lists matching owned bottles for each category source, preferred or alternative", async () => {
   const { addBottle, addSupply, create, gin, london, rum, bottledLemon, fruit } = await setup();
   const dry = await addBottle("Dry Bottle", london.id);
   const plain = await addBottle("Plain Juniper", gin.id);
@@ -218,7 +218,7 @@ test("another bar's stock never makes a cocktail available or shows as a matchin
     .returning()
     .get();
   db.insert(products)
-    .values({ ...audit, name: "Bob's Bottle", category_id: foreign.id, in_bar: true })
+    .values({ ...audit, name: "Bob's Bottle", category_id: foreign.id, status: "owned" })
     .run();
 
   const detail = await get(sour.id);

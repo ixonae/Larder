@@ -56,7 +56,7 @@ describe("isAvailable", () => {
     expect(isAvailable(product("unknown"), inventory)).toBe(false);
   });
 
-  test("a category matches an in-bar product in it or any sub-category, never above it", () => {
+  test("a category matches an owned product in it or any sub-category, never above it", () => {
     expect(isAvailable(category("london"), inventory)).toBe(true);
     expect(isAvailable(category("gin"), inventory)).toBe(true);
     expect(isAvailable(category("spirit"), inventory)).toBe(true);
@@ -156,7 +156,7 @@ describe("makeability", () => {
   });
 });
 
-test("matchingBottles lists in-bar bottles in a category or below it, in the given order", () => {
+test("matchingBottles lists owned bottles in a category or below it, in the given order", () => {
   const inventory = buildInventory(
     categories,
     [bottle("beefeater", "london"), bottle("tanqueray", "gin"), bottle("plantation", "rum")],

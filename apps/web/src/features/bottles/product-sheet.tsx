@@ -27,6 +27,7 @@ import {
   FormField,
   useZodForm,
 } from "@/lib/form.tsx";
+import { NO_STATUS_LABEL, statusOptions } from "./bottle-status.tsx";
 
 /** What the sheet is open for: the bottle being edited, `"new"` to add one, or null when closed. */
 export type ProductTarget = Product | "new" | null;
@@ -47,7 +48,7 @@ export function ProductSheet({
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{editing ? `Edit ${editing.name}` : "New bottle"}</SheetTitle>
-          <SheetDescription>A bottle you own or have tasted.</SheetDescription>
+          <SheetDescription>A bottle you own, wish for or have tasted.</SheetDescription>
         </SheetHeader>
         {target && (
           <CategoryTreeLoader barId={barId}>
@@ -88,7 +89,8 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
       vintage: editing?.vintage ?? null,
       age_years: editing?.age_years ?? null,
       description: editing?.description ?? "",
-      in_bar: editing?.in_bar ?? true,
+      // New bottles are usually ones just bought; an existing bottle keeps what it has.
+      status: editing ? editing.status : "owned",
     },
   });
 
@@ -163,10 +165,16 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
         onChange={picture.setChange}
       />
 
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" className="size-4" {...form.register("in_bar")} />
-        <span>In the bar now</span>
-      </label>
+      <ComboboxField
+        form={form}
+        name="status"
+        label="Status"
+        options={statusOptions}
+        placeholder={NO_STATUS_LABEL}
+        clearLabel={NO_STATUS_LABEL}
+        toValue={(value) => value || null}
+        hint="Owned bottles are in the bar. Recording purchases keeps this up to date."
+      />
 
       <SheetFooter className="px-0">
         <Button type="submit" disabled={form.formState.isSubmitting}>

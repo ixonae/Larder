@@ -8,3 +8,12 @@ export type IsoDateTime = z.infer<typeof isoDateTimeSchema>;
 export function nowIso(date: Date = new Date()): IsoDateTime {
   return date.toISOString();
 }
+
+/** A calendar date, `YYYY-MM-DD` (purchases, "ran out" dates). */
+export const isoDateSchema = z.iso.date();
+export type IsoDate = z.infer<typeof isoDateSchema>;
+
+/** Today's UTC date as `YYYY-MM-DD`. */
+export function todayIso(date: Date = new Date()): IsoDate {
+  return date.toISOString().slice(0, 10);
+}

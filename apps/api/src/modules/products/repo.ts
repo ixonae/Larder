@@ -1,9 +1,9 @@
-import type { CountryCode, Product } from "@larder/shared";
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { type CountryCode, NO_STATUS, type Product, type ProductStatus } from "@larder/shared";
+import { and, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { SelectedFields } from "drizzle-orm/sqlite-core";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
-import { categories, products } from "../../db/schema/index.ts";
+import { categories, productPurchases, products } from "../../db/schema/index.ts";
 
 const columns = {
   id: products.id,
@@ -18,7 +18,7 @@ const columns = {
   age_years: products.age_years,
   description: products.description,
   image_id: products.image_id,
-  in_bar: products.in_bar,
+  status: products.status,
   created_at: products.created_at,
   updated_at: products.updated_at,
 };
@@ -38,7 +38,7 @@ export type ProductChanges = Partial<
     | "vintage"
     | "age_years"
     | "description"
-    | "in_bar"
+    | "status"
   >
 >;
 
@@ -46,16 +46,44 @@ export interface ProductFilter {
   q?: string;
   /** Any of these categories. */
   categoryIds?: string[];
-  in_bar?: boolean;
+  /** Any of these statuses; `none` matches bottles without one. */
+  statuses?: (ProductStatus | typeof NO_STATUS)[];
   country?: CountryCode;
   after?: NameCursor;
   limit: number;
 }
 
-/** Products joined with their category (same bar, enforced by the foreign key). */
+/** `status IN (...)`, with `none` standing for NULL (which `IN` never matches). */
+function statusFilter(statuses: (ProductStatus | typeof NO_STATUS)[] | undefined) {
+  if (statuses === undefined) return undefined;
+  const named = statuses.filter((status): status is ProductStatus => status !== NO_STATUS);
+  return or(
+    named.length > 0 ? inArray(products.status, named) : undefined,
+    named.length < statuses.length ? isNull(products.status) : undefined,
+  );
+}
+
+/** A per-bottle aggregate over its purchases: one index seek for each row returned. */
+const ofPurchases = <T>(aggregate: SQL, filter?: SQL) =>
+  sql<T>`(SELECT ${aggregate} FROM ${productPurchases} WHERE ${and(
+    eq(productPurchases.bar_id, products.bar_id),
+    eq(productPurchases.product_id, products.id),
+    filter,
+  )})`;
+
+/** Products joined with their category (same bar, enforced by the foreign key) and their stock. */
 const selectProducts = <E extends SelectedFields>(db: Executor, extra: E) =>
   db
-    .select({ ...columns, ...extra })
+    .select({
+      ...columns,
+      stock: {
+        open_count: ofPurchases<number>(sql`count(*)`, isNull(productPurchases.finished_on)),
+        total_count: ofPurchases<number>(sql`count(*)`),
+        last_bought_on: ofPurchases<string | null>(sql`max(${productPurchases.bought_on})`),
+        last_finished_on: ofPurchases<string | null>(sql`max(${productPurchases.finished_on})`),
+      },
+      ...extra,
+    })
     .from(products)
     .innerJoin(
       categories,
@@ -66,7 +94,7 @@ const selectProducts = <E extends SelectedFields>(db: Executor, extra: E) =>
 export function listProducts(
   db: Executor,
   barId: string,
-  { q, categoryIds, in_bar, country, after, limit }: ProductFilter,
+  { q, categoryIds, statuses, country, after, limit }: ProductFilter,
 ): (Product & { key: string })[] {
   const needle = sql`larder_name_key(${q})`;
   return selectProducts(db, { key: nameKey })
@@ -80,7 +108,7 @@ export function listProducts(
               sql`instr(larder_name_key(ifnull(${products.producer}, '')), ${needle}) > 0`,
             ),
         categoryIds === undefined ? undefined : inArray(products.category_id, categoryIds),
-        in_bar === undefined ? undefined : eq(products.in_bar, in_bar),
+        statusFilter(statuses),
         country === undefined ? undefined : eq(products.country, country),
         afterName(nameKey, products.id, after),
       ),
@@ -132,15 +160,15 @@ export function deleteProduct(db: Executor, barId: string, id: string): void {
     .run();
 }
 
-/** Every bottle in the bar right now, by name: what generic category lines can pour from. */
-export function listInBarProducts(
+/** Every owned bottle (in the bar right now), by name: what generic category lines can pour from. */
+export function listOwnedProducts(
   db: Executor,
   barId: string,
 ): { id: string; name: string; category_id: string }[] {
   return db
     .select({ id: products.id, name: products.name, category_id: products.category_id })
     .from(products)
-    .where(and(eq(products.bar_id, barId), eq(products.in_bar, true)))
+    .where(and(eq(products.bar_id, barId), eq(products.status, "owned")))
     .orderBy(...byName(nameKey, products.id))
     .all();
 }

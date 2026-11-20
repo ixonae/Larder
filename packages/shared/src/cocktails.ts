@@ -4,7 +4,7 @@ import { cocktailIngredientInputSchema, cocktailIngredientSchema } from "./cockt
 import { otherRatingSchema, ratingSummarySchema } from "./feedback.ts";
 import { idSchema } from "./id.ts";
 import { missingIngredientSchema } from "./makeability.ts";
-import { booleanQuerySchema, pageSchema, paginationQuerySchema } from "./pagination.ts";
+import { booleanQuerySchema, listOf, pageSchema, paginationQuerySchema } from "./pagination.ts";
 import { optionalText } from "./text.ts";
 
 export const COCKTAIL_METHODS = [
@@ -106,15 +106,6 @@ export type UpdateCocktail = z.infer<typeof updateCocktailSchema>;
 
 export const COCKTAIL_SORTS = ["name", "rating"] as const;
 export type CocktailSort = (typeof COCKTAIL_SORTS)[number];
-
-/** Most values one list filter accepts. */
-export const MAX_FILTER_VALUES = 20;
-/** `a,b,c` in the query string: one or more values, so a single value still works. */
-const listOf = <T extends z.ZodType<unknown, string>>(item: T) =>
-  z
-    .string()
-    .transform((value) => value.split(","))
-    .pipe(z.array(item).min(1).max(MAX_FILTER_VALUES));
 
 export const listCocktailsQuerySchema = paginationQuerySchema.extend({
   /** `rating`: highest average first, unrated last, then by name. */

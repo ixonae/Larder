@@ -1,4 +1,14 @@
-import type { CountryCode, CreateProduct, Page, Product, UpdateProduct } from "@larder/shared";
+import type {
+  CountryCode,
+  CreateProduct,
+  CreatePurchase,
+  NO_STATUS,
+  Page,
+  Product,
+  ProductStatus,
+  UpdateProduct,
+  UpdatePurchase,
+} from "@larder/shared";
 import {
   hashKey,
   type InfiniteData,
@@ -18,7 +28,8 @@ export const productsKey = (barId: string) => ["bars", barId, "products"] as con
 export interface ProductFilters {
   q?: string;
   category_id?: string;
-  in_bar?: boolean;
+  /** Any of these statuses; `none` for bottles without one. */
+  status?: (ProductStatus | typeof NO_STATUS)[];
   country?: CountryCode;
   limit?: number;
 }
@@ -33,7 +44,7 @@ export const productListQuery = (barId: string, filters: ProductFilters) =>
         ...(filters.q && { q: filters.q }),
         ...(filters.category_id && { category_id: filters.category_id }),
         ...(filters.country && { country: filters.country }),
-        ...(filters.in_bar !== undefined && { in_bar: String(filters.in_bar) }),
+        ...(filters.status?.length && { status: filters.status.join(",") }),
         ...(pageParam && { cursor: pageParam }),
       };
       return unwrap(await bar.products.$get({ param: { barId }, query }, { init: { signal } }));
@@ -84,34 +95,117 @@ export function useProductMutations(barId: string) {
   };
 }
 
+export const purchasesQuery = (barId: string, productId: string) =>
+  queryOptions({
+    queryKey: [...productsKey(barId), "purchases", productId],
+    queryFn: async () =>
+      unwrap(await bar.products[":id"].purchases.$get({ param: { barId, id: productId } })),
+  });
+
 type ListData = InfiniteData<Page<Product>, string>;
 
 /**
- * The one-tap in-bar toggle. The answer is written straight into the cached detail and lists, so a tap
- * costs no refetch; other lists are only marked stale (a filtered list keeps the row until then).
+ * Cache helpers shared by the stock mutations. A returned bottle is written straight into the
+ * cached detail and lists, so the shown row changes at once without refetching every loaded page
+ * (a filtered list keeps the row until it refetches). Cocktails refresh through `stockMeta`, since
+ * stock drives what can be made.
  */
-export function useSetProductInBar(barId: string) {
+function useStockCache(barId: string) {
   const queryClient = useQueryClient();
+  const write = (id: string, change: (product: Product) => Product) => {
+    queryClient.setQueryData<Product>(productQuery(barId, id).queryKey, (p) => p && change(p));
+    queryClient.setQueriesData<ListData>({ queryKey: [...productsKey(barId), "list"] }, (data) =>
+      data
+        ? {
+            ...data,
+            pages: data.pages.map((page) => ({
+              ...page,
+              items: page.items.map((p) => (p.id === id ? change(p) : p)),
+            })),
+          }
+        : data,
+    );
+  };
+  /** Marks every bottle query stale; only the bottle's purchase history refetches now. */
+  const settled = (id: string) =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: productsKey(barId), refetchType: "none" }),
+      queryClient.invalidateQueries({ queryKey: purchasesQuery(barId, id).queryKey }),
+    ]);
+  /** For changes whose answer is not the bottle: refetch what is on screen. */
+  const refresh = () => queryClient.invalidateQueries({ queryKey: productsKey(barId) });
+  return { write, settled, refresh };
+}
+
+const product = (barId: string, id: string) => ({ param: { barId, id } });
+
+/** "Bought": records `count` bottles; buying always puts the bottle in the bar. */
+export function useBuyBottle(barId: string) {
+  const { write, refresh } = useStockCache(barId);
   return useMutation({
     meta: stockMeta(barId),
-    mutationFn: async ({ id, in_bar }: { id: string; in_bar: boolean }) =>
-      unwrap(
-        await bar.products[":id"]["in-bar"].$patch({ param: { barId, id }, json: { in_bar } }),
-      ),
-    onSuccess: (product) => {
-      queryClient.setQueryData(productQuery(barId, product.id).queryKey, product);
-      queryClient.setQueriesData<ListData>({ queryKey: [...productsKey(barId), "list"] }, (data) =>
-        data
-          ? {
-              ...data,
-              pages: data.pages.map((page) => ({
-                ...page,
-                items: page.items.map((p) => (p.id === product.id ? product : p)),
-              })),
-            }
-          : data,
-      );
-      return queryClient.invalidateQueries({ queryKey: productsKey(barId), refetchType: "none" });
+    mutationFn: async ({ id, json }: { id: string; json: CreatePurchase }) =>
+      unwrap(await bar.products[":id"].purchases.$post({ ...product(barId, id), json })),
+    onSuccess: (_, { id }) => {
+      write(id, (p) => ({ ...p, status: "owned" }));
+      return refresh();
     },
   });
+}
+
+/** "Ran out": closes the oldest open bottle. */
+export function useFinishBottle(barId: string) {
+  const { write, settled } = useStockCache(barId);
+  return useMutation({
+    meta: stockMeta(barId),
+    mutationFn: async ({ id, finished_on }: { id: string; finished_on: string }) =>
+      unwrap(
+        await bar.products[":id"].finish.$post({ ...product(barId, id), json: { finished_on } }),
+      ),
+    onSuccess: (saved) => {
+      write(saved.id, () => saved);
+      return settled(saved.id);
+    },
+  });
+}
+
+/** Sets the status by hand; purchases are left untouched. */
+export function useSetBottleStatus(barId: string) {
+  const { write, settled } = useStockCache(barId);
+  return useMutation({
+    meta: stockMeta(barId),
+    mutationFn: async ({ id, status }: { id: string; status: ProductStatus | null }) =>
+      unwrap(await bar.products[":id"].status.$patch({ ...product(barId, id), json: { status } })),
+    onSuccess: (saved) => {
+      write(saved.id, () => saved);
+      return settled(saved.id);
+    },
+  });
+}
+
+/** Editing and removing a purchase, which can reopen or finish the bottle. */
+export function usePurchaseMutations(barId: string) {
+  const { refresh } = useStockCache(barId);
+  const purchase = (id: string, purchaseId: string) => ({ param: { barId, id, purchaseId } });
+  return {
+    update: useMutation({
+      meta: stockMeta(barId),
+      mutationFn: async (args: { id: string; purchaseId: string; json: UpdatePurchase }) =>
+        unwrap(
+          await bar.products[":id"].purchases[":purchaseId"].$patch({
+            ...purchase(args.id, args.purchaseId),
+            json: args.json,
+          }),
+        ),
+      onSuccess: refresh,
+    }),
+    remove: useMutation({
+      meta: stockMeta(barId),
+      mutationFn: async ({ id, purchaseId }: { id: string; purchaseId: string }) =>
+        unwrap(
+          await bar.products[":id"].purchases[":purchaseId"].$delete(purchase(id, purchaseId)),
+        ),
+      onSuccess: refresh,
+    }),
+  };
 }

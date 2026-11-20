@@ -13,6 +13,15 @@ export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
 /** A boolean query parameter, written `true` or `false`. */
 export const booleanQuerySchema = z.stringbool({ truthy: ["true"], falsy: ["false"] });
 
+/** Most values one list filter accepts. */
+export const MAX_FILTER_VALUES = 20;
+/** `a,b,c` in the query string: one or more values, so a single value still works. */
+export const listOf = <T extends z.ZodType<unknown, string>>(item: T) =>
+  z
+    .string()
+    .transform((value) => value.split(","))
+    .pipe(z.array(item).min(1).max(MAX_FILTER_VALUES));
+
 /** A page of results; `next_cursor` is null on the last page. */
 export function pageSchema<T extends z.ZodType>(item: T) {
   return z.object({

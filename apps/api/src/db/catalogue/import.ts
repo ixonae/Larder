@@ -248,6 +248,7 @@ function insertCatalogue(
           abv: source.product_abv,
           country: source.country,
           region: source.region,
+          // Catalogue bottles are examples to discover, not bottles the bar has bought: no status.
         });
       bottles.set(key, id);
       trackImage(`product:${name}`, "products", id);

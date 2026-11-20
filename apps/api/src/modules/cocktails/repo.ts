@@ -12,7 +12,7 @@ const { bar_id: _barId, created_by: _createdBy, ...columns } = getTableColumns(c
 export const nameKey = sql<string>`larder_name_key(${cocktails.name})`;
 export type NewCocktail = typeof cocktails.$inferInsert;
 
-const inBar = (barId: string, id: string) => and(eq(cocktails.bar_id, barId), eq(cocktails.id, id));
+const byId = (barId: string, id: string) => and(eq(cocktails.bar_id, barId), eq(cocktails.id, id));
 
 /** Separates the rating from the name key in a `sort=rating` cursor. */
 const RATING_SEP = "\u0001";
@@ -101,7 +101,7 @@ export function listCocktails(
 }
 
 export function findCocktail(db: Executor, barId: string, id: string) {
-  return db.select(columns).from(cocktails).where(inBar(barId, id)).get();
+  return db.select(columns).from(cocktails).where(byId(barId, id)).get();
 }
 
 export function insertCocktail(db: Executor, input: NewCocktail) {
@@ -117,13 +117,13 @@ export function updateCocktail(
   return db
     .update(cocktails)
     .set({ ...patch, updated_at: nowIso() })
-    .where(inBar(barId, id))
+    .where(byId(barId, id))
     .returning(columns)
     .get();
 }
 
 export function deleteCocktail(db: Executor, barId: string, id: string) {
-  db.delete(cocktails).where(inBar(barId, id)).run();
+  db.delete(cocktails).where(byId(barId, id)).run();
 }
 
 export function listCocktailReferences(

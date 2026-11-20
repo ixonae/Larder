@@ -31,7 +31,8 @@ const bottle = (id: number, name: string, image_id: string | null): Product => (
   age_years: null,
   description: null,
   image_id,
-  in_bar: false,
+  status: "tasted",
+  stock: { open_count: 0, total_count: 0, last_bought_on: null, last_finished_on: null },
   ...timestamps,
 });
 

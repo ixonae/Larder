@@ -5,4 +5,5 @@ export * from "./cocktail-ingredients.ts";
 export * from "./cocktail-recipe.ts";
 export * from "./cocktails.ts";
 export * from "./feedback.ts";
+export * from "./purchases.ts";
 export * from "./tenancy.ts";

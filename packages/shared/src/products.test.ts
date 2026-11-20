@@ -3,7 +3,7 @@ import {
   createProductSchema,
   listProductsQuerySchema,
   productSchema,
-  setProductInBarSchema,
+  setProductStatusSchema,
   updateProductSchema,
 } from "./products.ts";
 
@@ -65,10 +65,13 @@ describe("updateProductSchema", () => {
   });
 });
 
-describe("setProductInBarSchema", () => {
-  it("needs a boolean", () => {
-    expect(setProductInBarSchema.parse({ in_bar: true })).toEqual({ in_bar: true });
-    expect(setProductInBarSchema.safeParse({ in_bar: "yes" }).success).toBe(false);
+describe("setProductStatusSchema", () => {
+  it("needs a known status", () => {
+    expect(setProductStatusSchema.parse({ status: "want_to_try" })).toEqual({
+      status: "want_to_try",
+    });
+    expect(setProductStatusSchema.parse({ status: null })).toEqual({ status: null });
+    expect(setProductStatusSchema.safeParse({ status: "stocked" }).success).toBe(false);
   });
 });
 
@@ -78,16 +81,20 @@ describe("listProductsQuerySchema", () => {
   });
 
   it("parses filters", () => {
-    expect(listProductsQuerySchema.parse({ q: " gin ", category_id: ID, in_bar: "false" })).toEqual(
-      { limit: 50, q: "gin", category_id: ID, in_bar: false },
+    expect(listProductsQuerySchema.parse({ q: " gin ", category_id: ID, status: "owned" })).toEqual(
+      { limit: 50, q: "gin", category_id: ID, status: ["owned"] },
     );
-    expect(listProductsQuerySchema.parse({ in_bar: "true" }).in_bar).toBe(true);
+    expect(listProductsQuerySchema.parse({ status: "want_to_buy,want_to_try" }).status).toEqual([
+      "want_to_buy",
+      "want_to_try",
+    ]);
     expect(listProductsQuerySchema.parse({ country: "JP" }).country).toBe("JP");
   });
 
   it.each([
     { q: "" },
-    { in_bar: "yes" },
+    { status: "yes" },
+    { status: "" },
     { category_id: "nope" },
     { country: "jp" },
     { country: "" },
@@ -111,11 +118,18 @@ describe("productSchema", () => {
       age_years: 10,
       description: null,
       image_id: null,
-      in_bar: true,
+      status: "owned",
+      stock: {
+        open_count: 1,
+        total_count: 2,
+        last_bought_on: "2026-11-01",
+        last_finished_on: null,
+      },
       created_at: "2026-01-01T00:00:00.000Z",
       updated_at: "2026-01-01T00:00:00.000Z",
     };
     expect(productSchema.parse(product)).toEqual(product);
-    expect(productSchema.safeParse({ ...product, in_bar: null }).success).toBe(false);
+    expect(productSchema.parse({ ...product, status: null }).status).toBeNull();
+    expect(productSchema.safeParse({ ...product, status: "wished" }).success).toBe(false);
   });
 });

@@ -59,7 +59,7 @@ const resolvedSource = z.object({
   name: z.string(),
   category_path: z.array(z.object({ id: idSchema, name: z.string() })),
   abv: z.number(),
-  /** In-bar products for a category source (it or its sub-categories); empty for other sources. */
+  /** Owned products for a category source (it or its sub-categories); empty for other sources. */
   matching_bottles: matchingBottleSchema.array(),
 });
 export const cocktailIngredientSchema = resolvedSource.extend({

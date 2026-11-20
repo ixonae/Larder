@@ -41,16 +41,24 @@ async function stock(t: ReturnType<typeof setup>) {
     producer: "Diageo",
     abv: 45.8,
     age_years: 10,
-    in_bar: true,
+    status: "owned",
   });
-  const buffalo = await t.create({ name: "Buffalo Trace", category_id: t.cat("Bourbon") });
+  const buffalo = await t.create({
+    name: "Buffalo Trace",
+    category_id: t.cat("Bourbon"),
+    status: "tasted",
+  });
   const hendricks = await t.create({
     name: "Hendrick's",
     category_id: t.cat("Gin"),
     producer: "William Grant",
-    in_bar: true,
+    status: "owned",
   });
-  const whisky = await t.create({ name: "Blended whisky", category_id: t.cat("Whisky") });
+  const whisky = await t.create({
+    name: "Blended whisky",
+    category_id: t.cat("Whisky"),
+    status: "want_to_buy",
+  });
   return { talisker, buffalo, hendricks, whisky };
 }
 
@@ -76,7 +84,8 @@ describe("POST /products", () => {
       vintage: null,
       age_years: null,
       description: null,
-      in_bar: false,
+      status: null,
+      stock: { open_count: 0, total_count: 0, last_bought_on: null, last_finished_on: null },
     });
     const row = t.db.select().from(products).where(eq(products.id, created.id)).get();
     expect(row).toMatchObject({ bar_id: t.alice.barId, created_by: t.alice.userId });
@@ -182,7 +191,7 @@ describe("duplicate names", () => {
   it("refuses a rename onto an existing name and changes nothing", async () => {
     const t = setup();
     const { buffalo } = await stock(t);
-    const res = await t.send("PATCH", `/${buffalo.id}`, { name: "talisker 10", in_bar: true });
+    const res = await t.send("PATCH", `/${buffalo.id}`, { name: "talisker 10", status: "owned" });
     expect(res.status).toBe(409);
     expect(await json(await t.send("GET", `/${buffalo.id}`))).toEqual(buffalo);
   });
@@ -208,7 +217,7 @@ describe("GET /products", () => {
     });
   });
 
-  it("filters by category including sub-categories, in_bar and search", async () => {
+  it("filters by category including sub-categories, status and search", async () => {
     const t = setup();
     await stock(t);
     expect(await t.names(`?category_id=${t.cat("Whisky")}`)).toEqual([
@@ -216,11 +225,19 @@ describe("GET /products", () => {
       "Buffalo Trace",
       "Talisker 10",
     ]);
-    expect(await t.names(`?category_id=${t.cat("Spirit")}&in_bar=true`)).toEqual([
+    expect(await t.names(`?category_id=${t.cat("Spirit")}&status=owned`)).toEqual([
       "Hendrick's",
       "Talisker 10",
     ]);
-    expect(await t.names("?in_bar=false")).toEqual(["Blended whisky", "Buffalo Trace"]);
+    expect(await t.names("?status=tasted,want_to_buy")).toEqual([
+      "Blended whisky",
+      "Buffalo Trace",
+    ]);
+    expect(await t.names("?status=finished")).toEqual([]);
+    expect(await t.names("?status=none")).toEqual([]);
+    await t.create({ name: "Catalogue only", category_id: t.cat("Gin") });
+    expect(await t.names("?status=none")).toEqual(["Catalogue only"]);
+    expect(await t.names("?status=none,tasted")).toEqual(["Buffalo Trace", "Catalogue only"]);
     expect(await t.names("?q=TRACE")).toEqual(["Buffalo Trace"]);
     expect(await t.names("?q=grant")).toEqual(["Hendrick's"]);
     expect(await t.names(`?category_id=${t.cat("Rum")}`)).toEqual([]);
@@ -259,7 +276,7 @@ describe("GET /products", () => {
     expect(await t.names("?country=JP")).toEqual(["Yamazaki"]);
   });
 
-  it.each(["?cursor=nope", "?in_bar=yes", "?category_id=nope", "?country=jp", "?country=Japan"])(
+  it.each(["?cursor=nope", "?status=yes", "?category_id=nope", "?country=jp", "?country=Japan"])(
     "refuses %s",
     async (query) => {
       const t = setup();
@@ -304,7 +321,7 @@ describe("PATCH /products/:id", () => {
       description: "Peaty",
       producer: null,
       abv: 45.8,
-      in_bar: true,
+      status: "owned",
     });
   });
 
@@ -352,22 +369,22 @@ describe("PATCH /products/:id", () => {
   });
 });
 
-describe("PATCH /products/:id/in-bar", () => {
-  it("sets whether the bottle is in the bar", async () => {
+describe("PATCH /products/:id/status", () => {
+  it("sets any status by hand", async () => {
     const t = setup();
     const { buffalo } = await stock(t);
-    const on = await t.send("PATCH", `/${buffalo.id}/in-bar`, { in_bar: true });
-    expect(on.status).toBe(200);
-    expect(await json(on)).toMatchObject({ id: buffalo.id, in_bar: true });
-    const off = await t.send("PATCH", `/${buffalo.id}/in-bar`, { in_bar: false });
-    expect(await json(off)).toMatchObject({ in_bar: false });
+    for (const status of ["want_to_try", "finished", "owned", null]) {
+      const res = await t.send("PATCH", `/${buffalo.id}/status`, { status });
+      expect(res.status).toBe(200);
+      expect(await json(res)).toMatchObject({ id: buffalo.id, status });
+    }
   });
 
   it("refuses a bad body and answers 404 for an unknown bottle", async () => {
     const t = setup();
     const { buffalo } = await stock(t);
-    expect((await t.send("PATCH", `/${buffalo.id}/in-bar`, {})).status).toBe(400);
-    expect((await t.send("PATCH", `/${UNKNOWN}/in-bar`, { in_bar: true })).status).toBe(404);
+    expect((await t.send("PATCH", `/${buffalo.id}/status`, {})).status).toBe(400);
+    expect((await t.send("PATCH", `/${UNKNOWN}/status`, { status: "owned" })).status).toBe(404);
   });
 });
 
@@ -430,6 +447,7 @@ describe("cross-bar isolation", () => {
         bar_id: t.bob.barId,
         created_by: t.bob.userId,
         name: "Talisker 10",
+        status: "owned",
         category_id: t.cat("Scotch", t.bob.barId),
       })
       .returning({ id: products.id })
@@ -437,7 +455,7 @@ describe("cross-bar isolation", () => {
     // Through Alice's bar, Bob's bottle does not exist.
     expect((await t.send("GET", `/${bobs}`)).status).toBe(404);
     expect((await t.send("PATCH", `/${bobs}`, { name: "Mine" })).status).toBe(404);
-    expect((await t.send("PATCH", `/${bobs}/in-bar`, { in_bar: true })).status).toBe(404);
+    expect((await t.send("PATCH", `/${bobs}/status`, { status: "tasted" })).status).toBe(404);
     expect((await t.send("DELETE", `/${bobs}`)).status).toBe(404);
     // Through Bob's bar, Alice is not a member.
     expect((await t.app.request(bobsUrl)).status).toBe(403);
@@ -447,6 +465,6 @@ describe("cross-bar isolation", () => {
     expect(await t.names(`?category_id=${t.cat("Scotch", t.bob.barId)}`)).toEqual([]);
     expect(t.count(t.bob.barId)).toBe(1);
     const row = t.db.select().from(products).where(eq(products.id, bobs)).get();
-    expect(row).toMatchObject({ name: "Talisker 10", in_bar: false });
+    expect(row).toMatchObject({ name: "Talisker 10", status: "owned" });
   });
 });

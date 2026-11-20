@@ -388,7 +388,7 @@ it("backfills the starter catalogue once, reuses existing entries and honors ano
     .values({
       ...audit,
       name: "CAMPARI",
-      in_bar: true,
+      status: "owned",
       abv: 21,
       category_id: liqueur?.id as string,
     })
@@ -494,7 +494,9 @@ it("backfills the starter catalogue once, reuses existing entries and honors ano
     image_id: expect.any(String),
   });
   const bottleRows = db.select().from(products).where(eq(products.bar_id, alice.barId)).all();
-  expect(bottleRows.filter(({ in_bar }) => in_bar)).toMatchObject([{ name: "CAMPARI", abv: 21 }]);
+  expect(bottleRows.filter(({ status }) => status === "owned")).toMatchObject([
+    { name: "CAMPARI", abv: 21 },
+  ]);
   expect(bottleRows.filter(({ name }) => name.toLowerCase() === "campari")).toHaveLength(1);
   expect(db.select().from(tags).all()).toMatchObject([{ name: "House" }]);
   expect(db.select().from(cocktailTags).all()).toMatchObject([

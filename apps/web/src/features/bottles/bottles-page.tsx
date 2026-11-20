@@ -4,7 +4,9 @@ import {
   countrySchema,
   hasRole,
   idSchema,
+  NO_STATUS,
   PRODUCT_NAME_MAX,
+  PRODUCT_STATUSES,
 } from "@larder/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
@@ -19,17 +21,23 @@ import { CountryPicker } from "@/components/country-picker.tsx";
 import { SearchInput } from "@/components/search-input.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Thumbnail } from "@/components/thumbnail.tsx";
+import { toggleChip } from "@/components/toggle-chip.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { bottleCategoryOptions } from "@/features/categories/category-options.tsx";
 import { useDebouncedSearch } from "@/lib/debounced-search.ts";
-import { InBarToggle } from "./in-bar-toggle.tsx";
+import { statusLabel } from "./bottle-status.tsx";
 import { ProductSheet, type ProductTarget } from "./product-sheet.tsx";
+import { StockAction } from "./stock-action.tsx";
+
+/** The status chips, in order: every status, then bottles without one. */
+const STATUS_FILTERS = [...PRODUCT_STATUSES, NO_STATUS] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 /** List filters live in the URL, so they survive a visit to a bottle and back. Bad values are dropped. */
 export const bottlesSearchSchema = z.object({
   q: z.string().max(PRODUCT_NAME_MAX).optional().catch(undefined),
   category: idSchema.optional().catch(undefined),
-  in_bar: z.boolean().optional().catch(undefined),
+  status: z.array(z.enum(STATUS_FILTERS)).min(1).optional().catch(undefined),
   country: countrySchema.optional().catch(undefined),
 });
 export type BottlesSearch = z.infer<typeof bottlesSearchSchema>;
@@ -56,14 +64,12 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
     productListQuery(bar.id, {
       q: search.q?.trim() || undefined,
       category_id: search.category,
-      in_bar: search.in_bar,
+      status: search.status,
       country: search.country,
     }),
   );
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
-  const filtered = Boolean(
-    search.q || search.category || search.country || search.in_bar !== undefined,
-  );
+  const filtered = Boolean(search.q || search.category || search.country || search.status);
 
   let content: ReactNode;
   if (list.isPending) {
@@ -94,17 +100,24 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
                 >
                   {product.name}
                 </Link>
-                <p className="truncate text-muted-foreground text-sm">
-                  {[
-                    product.category_name,
-                    product.producer,
-                    product.country && countryName(product.country),
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate text-muted-foreground text-sm">
+                    {[
+                      product.category_name,
+                      product.producer,
+                      product.country && countryName(product.country),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
               </div>
-              <InBarToggle barId={bar.id} product={product} canEdit={canEdit} />
+              <StockAction
+                barId={bar.id}
+                currency={bar.currency}
+                product={product}
+                canEdit={canEdit}
+              />
             </li>
           ))}
         </ul>
@@ -133,9 +146,9 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
         )}
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-[1fr_auto_auto_auto]">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto]">
         <SearchInput
-          className="sm:col-span-3 lg:col-span-1"
+          className="sm:col-span-2 lg:col-span-1"
           maxLength={PRODUCT_NAME_MAX}
           aria-label="Search bottles"
           placeholder="Search name or producer"
@@ -158,18 +171,30 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
           onChange={(value) => setSearch({ country: countrySchema.safeParse(value).data })}
           clearLabel="All countries"
         />
-        <Combobox
-          aria-label="In the bar"
-          className="lg:w-44"
-          value={search.in_bar === undefined ? "" : String(search.in_bar)}
-          onChange={(value) => setSearch({ in_bar: value ? value === "true" : undefined })}
-          options={[
-            { value: "true", label: "In the bar" },
-            { value: "false", label: "Not in the bar" },
-          ]}
-          clearLabel="In the bar or not"
-        />
       </div>
+      <fieldset className="flex flex-wrap gap-2">
+        <legend className="sr-only">Status</legend>
+        {STATUS_FILTERS.map((status) => {
+          const selected: StatusFilter[] = search.status ?? [];
+          const checked = selected.includes(status);
+          return (
+            <label key={status} className={toggleChip({ size: "sm" })}>
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={checked}
+                onChange={() => {
+                  const next = checked
+                    ? selected.filter((s) => s !== status)
+                    : STATUS_FILTERS.filter((s) => s === status || selected.includes(s));
+                  setSearch({ status: next.length > 0 ? next : undefined });
+                }}
+              />
+              {statusLabel(status === NO_STATUS ? null : status)}
+            </label>
+          );
+        })}
+      </fieldset>
 
       {content}
 

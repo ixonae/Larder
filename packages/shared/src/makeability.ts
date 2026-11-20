@@ -13,7 +13,7 @@ export const missingIngredientSchema = z.object({
 });
 export type MissingIngredient = z.infer<typeof missingIngredientSchema>;
 
-/** An in-bar product that can pour a generic category line. */
+/** An owned product that can pour a generic category line. */
 export const matchingBottleSchema = z.object({ id: idSchema, name: z.string() });
 export type MatchingBottle = z.infer<typeof matchingBottleSchema>;
 
@@ -38,7 +38,7 @@ interface StockBottle extends MatchingBottle {
 /** What the bar can pour from, indexed for repeated lookups. */
 export interface Inventory {
   products: ReadonlySet<string>;
-  /** In-bar bottles by category, listed under their own category and every one above it. */
+  /** Owned bottles by category, listed under their own category and every one above it. */
   categories: ReadonlyMap<string, MatchingBottle[]>;
   pantry: ReadonlySet<string>;
 }
@@ -98,7 +98,7 @@ export function makeability(
     }));
 }
 
-/** The in-bar bottles that can pour a category source; empty for other sources. */
+/** The owned bottles that can pour a category source; empty for other sources. */
 export function matchingBottles(source: StockSource, inventory: Inventory): MatchingBottle[] {
   return (source.category_id !== null && inventory.categories.get(source.category_id)) || [];
 }

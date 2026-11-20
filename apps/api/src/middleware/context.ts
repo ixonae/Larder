@@ -9,7 +9,14 @@ export const barAccess = createMiddleware<AppEnv>(async (c, next) => {
   const { db, storage, user } = c.var;
   const bar = resolveBarAccess(db, c.req.param("barId"), user.id);
   c.set("bar", bar);
-  c.set("ctx", { db, storage, userId: user.id, barId: bar.id, role: bar.role });
+  c.set("ctx", {
+    db,
+    storage,
+    userId: user.id,
+    barId: bar.id,
+    role: bar.role,
+    currency: bar.currency,
+  });
   await next();
 });
 

@@ -2,8 +2,9 @@ import { z } from "zod";
 import { DESCRIPTION_MAX } from "./categories.ts";
 import { countrySchema } from "./countries.ts";
 import { idSchema } from "./id.ts";
-import { booleanQuerySchema, paginationQuerySchema } from "./pagination.ts";
+import { listOf, paginationQuerySchema } from "./pagination.ts";
 import { optionalText } from "./text.ts";
+import { isoDateSchema } from "./time.ts";
 
 export const PRODUCT_NAME_MAX = 200;
 export const PRODUCT_TEXT_MAX = 100;
@@ -11,7 +12,35 @@ export const VINTAGE_MIN = 1800;
 export const VINTAGE_MAX = 2200;
 export const AGE_YEARS_MAX = 100;
 
-/** A real bottle, whether it is in the bar or was only tasted. */
+/**
+ * Where a bottle stands, or null for a bottle that is only in the catalogue. `owned` is the only
+ * status that counts as "in the bar"; purchases move a bottle between `owned` and `finished`, and
+ * every status can also be set by hand. `want_to_buy` means you want to own it, `want_to_try` that
+ * you want to taste it without necessarily buying it, `tasted` that you tasted it and don't own it.
+ */
+export const PRODUCT_STATUSES = [
+  "owned",
+  "finished",
+  "want_to_buy",
+  "want_to_try",
+  "tasted",
+] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
+export const productStatusSchema = z.enum(PRODUCT_STATUSES);
+/** `?status=none` matches bottles that have no status. */
+export const NO_STATUS = "none";
+
+/** The bottle's purchase records, summed up. */
+export const productStockSchema = z.object({
+  /** Physical bottles bought and not finished yet. */
+  open_count: z.number().int(),
+  total_count: z.number().int(),
+  last_bought_on: isoDateSchema.nullable(),
+  last_finished_on: isoDateSchema.nullable(),
+});
+export type ProductStock = z.infer<typeof productStockSchema>;
+
+/** A real bottle, whether it is in the bar, finished, wanted or only tasted. */
 export const productSchema = z.object({
   id: idSchema,
   name: z.string(),
@@ -29,8 +58,9 @@ export const productSchema = z.object({
   description: z.string().nullable(),
   /** The picture (`imageUrl(image_id)`), set through `PUT /:id/image`. */
   image_id: idSchema.nullable(),
-  /** The bottle is in the bar right now. */
-  in_bar: z.boolean(),
+  /** `owned` means the bottle is in the bar right now; null when it has no status. */
+  status: productStatusSchema.nullable(),
+  stock: productStockSchema,
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -46,10 +76,10 @@ const fields = {
   vintage: z.number().int().min(VINTAGE_MIN).max(VINTAGE_MAX).nullable(),
   age_years: z.number().int().min(0).max(AGE_YEARS_MAX).nullable(),
   description: optionalText(DESCRIPTION_MAX),
-  in_bar: z.boolean(),
+  status: productStatusSchema.nullable(),
 };
 
-/** `POST /products` */
+/** `POST /products`: a bottle created without a `status` has none. */
 export const createProductSchema = z
   .object(fields)
   .partial()
@@ -63,8 +93,9 @@ export const updateProductSchema = z
   .refine((patch) => Object.keys(patch).length > 0, "Send at least one field to change");
 export type UpdateProduct = z.infer<typeof updateProductSchema>;
 
-/** `PATCH /products/:id/in-bar` */
-export const setProductInBarSchema = z.object({ in_bar: z.boolean() });
+/** `PATCH /products/:id/status`: sets any status (or null) by hand; purchases are left untouched. */
+export const setProductStatusSchema = z.object({ status: productStatusSchema.nullable() });
+export type SetProductStatus = z.infer<typeof setProductStatusSchema>;
 
 /** `GET /products`: a page sorted by name. */
 export const listProductsQuerySchema = paginationQuerySchema.extend({
@@ -72,7 +103,8 @@ export const listProductsQuerySchema = paginationQuerySchema.extend({
   q: z.string().trim().min(1).max(PRODUCT_NAME_MAX).optional(),
   /** The category or any of its sub-categories. */
   category_id: idSchema.optional(),
-  in_bar: booleanQuerySchema.optional(),
+  /** Any of these statuses, `none` for no status: `?status=owned,none`. */
+  status: listOf(z.enum([...PRODUCT_STATUSES, NO_STATUS])).optional(),
   /** Bottles from this country. */
   country: countrySchema.optional(),
 });

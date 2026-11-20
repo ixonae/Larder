@@ -1,4 +1,4 @@
-import { CATEGORY_KINDS, COUNTRY_CODES, UTENSIL_KINDS } from "@larder/shared";
+import { CATEGORY_KINDS, COUNTRY_CODES, PRODUCT_STATUSES, UTENSIL_KINDS } from "@larder/shared";
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -145,7 +145,8 @@ export const products = sqliteTable(
     age_years: integer("age_years"),
     description: text("description"),
     image_id: imageId(),
-    in_bar: integer("in_bar", { mode: "boolean" }).notNull().default(false),
+    /** `owned` is the only status that counts as in the bar; null means none. */
+    status: text("status", { enum: PRODUCT_STATUSES }),
     created_by: text("created_by")
       .notNull()
       .references(() => users.id),
@@ -164,6 +165,7 @@ export const products = sqliteTable(
       foreignColumns: [categories.bar_id, categories.id],
     }),
     index("products_bar_id_category_id_idx").on(t.bar_id, t.category_id),
+    index("products_bar_id_status_idx").on(t.bar_id, t.status),
     // The same name is allowed once per vintage, and once without one: two indexes, because
     // SQLite treats every NULL vintage as distinct.
     uniqueIndex("products_vintage_name_unique")
@@ -175,6 +177,10 @@ export const products = sqliteTable(
     check(
       "products_country_check",
       sql`${t.country} IS NULL OR ${t.country} IN (${sqlList(COUNTRY_CODES)})`,
+    ),
+    check(
+      "products_status_check",
+      sql`${t.status} IS NULL OR ${t.status} IN (${sqlList(PRODUCT_STATUSES)})`,
     ),
     check("products_abv_check", sql`${t.abv} IS NULL OR ${t.abv} BETWEEN 0 AND 100`),
     check("products_age_years_check", sql`${t.age_years} IS NULL OR ${t.age_years} >= 0`),

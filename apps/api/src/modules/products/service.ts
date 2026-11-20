@@ -16,6 +16,7 @@ import { findCategory, listAllCategories } from "../categories/repo.ts";
 import { requireCategoryRef } from "../categories/service.ts";
 import { listIngredientUsage } from "../cocktails/ingredients-repo.ts";
 import { deleteWithImage } from "../images/service.ts";
+import { listPurchaseUsage } from "./purchases-repo.ts";
 import * as repo from "./repo.ts";
 
 /** `GET /products`: a page sorted by name. A category filter includes its sub-categories. */
@@ -27,7 +28,7 @@ export function listProducts(ctx: Ctx, query: ListProductsQuery): Page<Product> 
   const rows = repo.listProducts(ctx.db, ctx.barId, {
     q: query.q,
     categoryIds,
-    in_bar: query.in_bar,
+    statuses: query.status,
     country: query.country,
     after: query.cursor === undefined ? undefined : decodeCursor(query.cursor),
     limit: query.limit + 1,
@@ -35,7 +36,7 @@ export function listProducts(ctx: Ctx, query: ListProductsQuery): Page<Product> 
   return toPage(rows, query.limit);
 }
 
-function requireProduct(db: Executor, barId: string, id: string | undefined): Product {
+export function requireProduct(db: Executor, barId: string, id: string | undefined): Product {
   const product = repo.findProduct(db, barId, parseId(id, "Product"));
   if (!product) throw notFound("Product");
   return product;
@@ -69,7 +70,7 @@ function requireBottleCategory(db: Executor, barId: string, categoryId: string) 
 export function createProduct(ctx: Ctx, input: CreateProduct): Product {
   return ctx.db.transaction((tx) => {
     requireBottleCategory(tx, ctx.barId, input.category_id);
-    // Fields left out take the column defaults (null, or false for in_bar).
+    // Fields left out take the column defaults: null, including the status.
     const id = onUniqueViolation(
       () => repo.insertProduct(tx, { ...input, bar_id: ctx.barId, created_by: ctx.userId }),
       duplicateName(input.name, input.vintage ?? null),
@@ -94,7 +95,7 @@ export function updateProduct(ctx: Ctx, id: string | undefined, patch: UpdatePro
   });
 }
 
-/** Deletes the bottle if no cocktail uses it. */
+/** Deletes the bottle if no cocktail uses it and it has no purchase records. */
 export async function deleteProduct(ctx: Ctx, id: string | undefined): Promise<void> {
   await deleteWithImage(ctx, (tx) => {
     const existing = requireProduct(tx, ctx.barId, id);
@@ -103,6 +104,11 @@ export async function deleteProduct(ctx: Ctx, id: string | undefined): Promise<v
         type: "cocktail",
         label: "cocktails",
         rows: listIngredientUsage(tx, ctx.barId, "product_id", existing.id),
+      },
+      {
+        type: "purchase",
+        label: "purchases",
+        rows: listPurchaseUsage(tx, ctx.barId, existing.id),
       },
     ]);
     repo.deleteProduct(tx, ctx.barId, existing.id);

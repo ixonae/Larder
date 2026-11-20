@@ -10,8 +10,9 @@ import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { InBarToggle } from "./in-bar-toggle.tsx";
 import { ProductSheet, type ProductTarget } from "./product-sheet.tsx";
+import { PurchaseHistory } from "./purchase-history.tsx";
+import { StockAction } from "./stock-action.tsx";
 
 const route = getRouteApi("/bottles/$productId");
 
@@ -75,7 +76,7 @@ function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Pr
     <>
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="min-w-0 flex-1 text-3xl">{product.name}</h1>
-        <InBarToggle barId={bar.id} product={product} canEdit={canEdit} />
+        <StockAction barId={bar.id} currency={bar.currency} product={product} canEdit={canEdit} />
         {canEdit && (
           <>
             <Button
@@ -117,6 +118,8 @@ function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Pr
           ))}
       </dl>
       {product.description && <p className="whitespace-pre-line">{product.description}</p>}
+
+      <PurchaseHistory bar={bar} product={product} canEdit={canEdit} />
 
       <ProductSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
       <ConfirmDialog
