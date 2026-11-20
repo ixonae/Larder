@@ -1,5 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import {
+  barSummarySchema,
+  categorySchema,
   cocktailDetailSchema,
   imageSchema,
   newId,
@@ -27,8 +29,8 @@ import {
 import { type Catalogue, categoryPictureKey, importCatalogue } from "./import.ts";
 import { migrateStarterCatalogues, seedStarterCatalogue, skipStarterCatalogue } from "./starter.ts";
 
-it("bundles a transparent original and thumbnail for each utensil icon", async () => {
-  for (const directory of ["glassware-icons", "tool-icons"]) {
+it("bundles a transparent original and thumbnail for each catalogue icon", async () => {
+  for (const directory of ["category-icons", "glassware-icons", "tool-icons"]) {
     const root = new URL(`./${directory}/`, import.meta.url);
     const originals = (await readdir(root)).filter((name) => name.endsWith(".webp")).sort();
     const thumbnails = (await readdir(new URL("thumbnails/", root))).sort();
@@ -49,6 +51,88 @@ it("bundles a transparent original and thumbnail for each utensil icon", async (
       }
     }
   }
+});
+
+it("seeds and serves all ten top-level category icons when creating a starter bar", async () => {
+  const { app, db } = createTestApp();
+  const response = await app.request(
+    "/api/bars",
+    jsonRequest("POST", { name: "Starter bar", seed_data: true }),
+  );
+  expect(response.status).toBe(201);
+  const { id } = barSummarySchema.parse(await response.json());
+  const rows = db.select().from(categories).where(eq(categories.bar_id, id)).all();
+  const illustrated = rows.filter(({ image_id }) => image_id !== null);
+  expect(illustrated.map(({ name }) => name).sort()).toEqual([
+    "Beer",
+    "Bitters",
+    "Garnish",
+    "Juice",
+    "Liqueur",
+    "Mixer",
+    "Pantry",
+    "Spirit",
+    "Syrup",
+    "Wine",
+  ]);
+  expect(illustrated.every(({ parent_id }) => parent_id === null)).toBe(true);
+  for (const { image_id } of illustrated) {
+    const icon = await app.request(`/api/images/${image_id}/thumb`);
+    expect(icon.status).toBe(200);
+    expect(await sharp(Buffer.from(await icon.arrayBuffer())).metadata()).toMatchObject({
+      width: 256,
+      height: 256,
+      hasAlpha: true,
+    });
+  }
+});
+
+it("backfills only matching roots in a previously seeded bar and preserves custom images", async () => {
+  const { app, db, storage, alice } = createTestApp();
+  const base = `/api/bars/${alice.barId}/categories`;
+  const rows = () => db.select().from(categories).where(eq(categories.bar_id, alice.barId)).all();
+  const beer = rows().find(({ name }) => name === "Beer");
+  const spirit = rows().find(({ name }) => name === "Spirit");
+  const custom = new FormData();
+  const bytes = await sharp({ create: { width: 10, height: 10, channels: 3, background: "red" } })
+    .png()
+    .toBuffer();
+  custom.append("file", new File([new Uint8Array(bytes)], "custom.png", { type: "image/png" }));
+  const upload = await app.request(`${base}/${beer?.id}/image`, { method: "PUT", body: custom });
+  expect(upload.status).toBe(200);
+  const { id: customId } = imageSchema.parse(await upload.json());
+  const add = async (body: unknown) => {
+    const res = await app.request(base, jsonRequest("POST", body));
+    expect(res.status).toBe(201);
+    return categorySchema.parse(await res.json());
+  };
+  const child = await add({ name: "Spirit", parent_id: spirit?.id, kind: "spirit" });
+  const wine = rows().find(({ name }) => name === "Wine");
+  expect(
+    (await app.request(`${base}/${wine?.id}`, jsonRequest("PATCH", { name: "House wine" }))).status,
+  ).toBe(200);
+  const otherWine = await add({ name: "Wine", kind: "other" });
+  const mixer = rows().find(({ name }) => name === "Mixer");
+  expect(
+    (await app.request(`${base}/${mixer?.id}`, jsonRequest("PATCH", { name: "House mixers" })))
+      .status,
+  ).toBe(200);
+  db.insert(barDataMigrations)
+    .values({ bar_id: alice.barId, migration: "starter-catalogue-v1" })
+    .run();
+
+  await seedStarterCatalogue(db, storage, alice.barId);
+  const after = rows();
+  expect(after.find(({ id }) => id === beer?.id)?.image_id).toBe(customId);
+  expect(after.find(({ id }) => id === spirit?.id)?.image_id).toEqual(expect.any(String));
+  expect(after.find(({ id }) => id === child.id)?.image_id).toBeNull();
+  expect(after.find(({ id }) => id === otherWine.id)?.image_id).toBeNull();
+  expect(after.some(({ name }) => name === "Mixer")).toBe(false);
+  expect(db.select().from(cocktails).all()).toEqual([]);
+  const imageRows = db.select().from(images).all();
+  await seedStarterCatalogue(db, storage, alice.barId);
+  expect(rows()).toEqual(after);
+  expect(db.select().from(images).all()).toEqual(imageRows);
 });
 
 it("leaves no bar or image files when seeded bar creation fails while staging icons", async () => {

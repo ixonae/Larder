@@ -1,5 +1,6 @@
 import {
   type Category,
+  type CategoryKind,
   categoryKindSchema,
   createCocktailSchema,
   createPantryIngredientSchema,
@@ -94,6 +95,8 @@ export interface Catalogue {
    * Other examples are "product:Campari", "glass:Coupe", "tool:Shaker" and "cocktail:negroni".
    */
   pictures?: ReadonlyMap<string, Uint8Array | ProcessedImage>;
+  /** Match picture keys to existing roots of the expected kind without creating categories. */
+  existingRootPictureKinds?: ReadonlyMap<string, CategoryKind>;
 }
 
 export function categoryPictureKey(path: readonly string[]): string {
@@ -149,6 +152,14 @@ function insertCatalogue(
   };
   const audit = { bar_id: barId, created_by: userId };
   const catalogueCategories = listAllCategories(tx, barId);
+  if (catalogue.existingRootPictureKinds) {
+    for (const { id, name, kind, parent_id } of catalogueCategories) {
+      const key = categoryPictureKey([name]);
+      if (parent_id === null && catalogue.existingRootPictureKinds.get(key) === kind) {
+        trackImage(key, "categories", id);
+      }
+    }
+  }
   const categoriesByParent = new Map(
     catalogueCategories.map((row) => [scopedCategoryKey(row.parent_id, row.name), row]),
   );
