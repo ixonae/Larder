@@ -81,12 +81,12 @@ type Source = Pick<
 >;
 
 function sourceDefaults({ category_id, product_id, pantry_ingredient_id, name, note }: Source) {
-  const source = category_id
-    ? sourceOption("category_id", category_id, name)
-    : product_id
-      ? sourceOption("product_id", product_id, name)
-      : sourceOption("pantry_ingredient_id", pantry_ingredient_id as string, name);
-  return { source, note };
+  if (category_id) return { source: sourceOption("category_id", category_id, name), note };
+  if (product_id) return { source: sourceOption("product_id", product_id, name), note };
+  return {
+    source: sourceOption("pantry_ingredient_id", pantry_ingredient_id as string, name),
+    note,
+  };
 }
 
 /** Recipe lists are replaced wholesale by the API, so omit every unchanged list and field. */

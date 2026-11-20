@@ -17,7 +17,7 @@ const bar = api.api.bars[":barId"];
 
 const fetchUtensilPage = (
   barId: string,
-  query: { limit: string; cursor?: string | undefined; kind?: UtensilKind | undefined },
+  query: { limit: string; cursor?: string; kind?: UtensilKind },
   signal: AbortSignal,
 ) => bar.utensils.$get({ param: { barId }, query }, { init: { signal } }).then(unwrap);
 

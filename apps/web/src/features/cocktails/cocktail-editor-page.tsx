@@ -60,11 +60,11 @@ function EditorPage({
   bar,
   id,
   search,
-}: {
+}: Readonly<{
   bar: BarSummary;
   id?: string;
   search: CocktailFilters;
-}) {
+}>) {
   return (
     <section className="mx-auto grid max-w-5xl gap-4">
       <h1 className="text-3xl">{id ? "Edit cocktail" : "New cocktail"}</h1>
@@ -83,11 +83,11 @@ function EditorLoader({
   barId,
   id,
   search,
-}: {
+}: Readonly<{
   barId: string;
   id: string | undefined;
   search: CocktailFilters;
-}) {
+}>) {
   const recipe = useQuery({ ...cocktailQuery(barId, id ?? ""), enabled: id !== undefined });
   const categories = useQuery(categoryTreeQuery(barId));
   const utensils = useQuery(utensilOptionsQuery(barId));
@@ -123,13 +123,13 @@ function CocktailFormView({
   categories,
   utensils,
   search,
-}: {
+}: Readonly<{
   barId: string;
   recipe: CocktailDetail | undefined;
   categories: SourceOption[];
   utensils: Utensil[];
   search: CocktailFilters;
-}) {
+}>) {
   const [defaultValues] = useState(() => cocktailDefaults(recipe));
   const [initial] = useState(() => recipe && cocktailEditorSchema.parse(defaultValues));
   const form = useZodForm(cocktailEditorSchema, { defaultValues });
@@ -282,7 +282,7 @@ function CocktailFormView({
   );
 }
 
-function FormSection({ title, children }: { title?: string; children: ReactNode }) {
+function FormSection({ title, children }: Readonly<{ title?: string; children: ReactNode }>) {
   return (
     <section className="@container grid min-w-0 gap-4 rounded-xl border bg-card p-4 shadow-xs sm:p-5">
       {title && <h2 className="font-semibold">{title}</h2>}
@@ -291,7 +291,7 @@ function FormSection({ title, children }: { title?: string; children: ReactNode 
   );
 }
 
-function StepsField({ form }: { form: CocktailForm }) {
+function StepsField({ form }: Readonly<{ form: CocktailForm }>) {
   const steps = useFieldArray({ control: form.control, name: "steps" });
   return (
     <fieldset className="grid gap-2">
@@ -348,7 +348,7 @@ function StepsField({ form }: { form: CocktailForm }) {
   );
 }
 
-function ToolsField({ form, utensils }: { form: CocktailForm; utensils: Utensil[] }) {
+function ToolsField({ form, utensils }: Readonly<{ form: CocktailForm; utensils: Utensil[] }>) {
   const tools = utensils.filter(({ kind }) => kind === "tool");
   return (
     <fieldset className="grid gap-2">
@@ -387,7 +387,7 @@ function ToolsField({ form, utensils }: { form: CocktailForm; utensils: Utensil[
   );
 }
 
-function TagsField({ form }: { form: CocktailForm }) {
+function TagsField({ form }: Readonly<{ form: CocktailForm }>) {
   const tags = useFieldArray({ control: form.control, name: "tags" });
   const [draft, setDraft] = useState("");
   const errors = form.formState.errors.tags;
