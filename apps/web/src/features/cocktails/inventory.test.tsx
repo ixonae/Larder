@@ -147,7 +147,7 @@ it("shows what is missing on the recipe and lets you pick an owned bottle for a 
     .closest("li") as HTMLElement;
   expect(within(lemon).getByText("Missing")).toBeInTheDocument();
   const availability = within(ingredients).getByText("Missing ingredients: 1");
-  expect(availability).toHaveAttribute("role", "status");
+  expect(availability).toHaveRole("status");
   expect(availability).toHaveClass("sr-only");
   expect(within(ingredients).queryByText("Can make now")).toBeNull();
   expect(screen.queryByRole("combobox", { name: /for Lemon/ })).toBeNull();
@@ -188,7 +188,7 @@ it("updates the same live availability status when stock changes while viewing a
   const { queryClient } = renderWithProviders(`/cocktails/${recipe.id}`);
   const ingredients = await screen.findByRole("region", { name: "Ingredients" });
   const availability = within(ingredients).getByText("Can make now");
-  expect(availability).toHaveAttribute("role", "status");
+  expect(availability).toHaveRole("status");
 
   missing = [{ ...lemonMissing, alternatives: [] }];
   await act(() => queryClient.invalidateQueries({ queryKey: cocktailsKey(BAR_ID) }));

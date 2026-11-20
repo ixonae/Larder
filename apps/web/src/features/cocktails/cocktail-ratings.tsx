@@ -5,7 +5,10 @@ import { useSetRating } from "@/api/feedback.ts";
 import { RatingStars } from "@/components/rating-stars.tsx";
 
 /** The community average and count next to the stars, or "No ratings yet". */
-function Caption({ average, count }: { average: number | null; count: number }): ReactElement {
+function Caption({
+  average,
+  count,
+}: Readonly<{ average: number | null; count: number }>): ReactElement {
   if (average === null) return <p className="text-muted-foreground text-sm">No ratings yet</p>;
   return (
     <p
@@ -17,7 +20,7 @@ function Caption({ average, count }: { average: number | null; count: number }):
   );
 }
 
-function RaterRow({ name, score }: { name: string; score: number }): ReactElement {
+function RaterRow({ name, score }: Readonly<{ name: string; score: number }>): ReactElement {
   return (
     <li className="flex items-center justify-between gap-3">
       <span className="min-w-0 truncate">{name}</span>
@@ -32,10 +35,10 @@ function RaterRow({ name, score }: { name: string; score: number }): ReactElemen
 export function RatingSummary({
   barId,
   recipe,
-}: {
+}: Readonly<{
   barId: string;
   recipe: CocktailDetail;
-}): ReactElement {
+}>): ReactElement {
   const rate: UseMutationResult<unknown, Error, RatingInput | null> = useSetRating(
     barId,
     recipe.id,
@@ -55,7 +58,9 @@ export function RatingSummary({
 }
 
 /** Who else rated what, by name. Hidden when nobody else has rated. */
-export function CocktailRaters({ recipe }: { recipe: CocktailDetail }): ReactElement | null {
+export function CocktailRaters({
+  recipe,
+}: Readonly<{ recipe: CocktailDetail }>): ReactElement | null {
   const others: OtherRating[] = recipe.other_ratings;
   if (others.length === 0) return null;
   return (

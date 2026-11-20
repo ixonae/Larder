@@ -19,9 +19,9 @@ Element.prototype.setPointerCapture ??= vi.fn();
 // The combobox (cmdk in a Radix popover) scrolls the active option into view and measures its trigger.
 Element.prototype.scrollIntoView ??= vi.fn();
 globalThis.ResizeObserver ??= class {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
 };
 
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));

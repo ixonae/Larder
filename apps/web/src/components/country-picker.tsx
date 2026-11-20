@@ -12,6 +12,6 @@ export const countryPicker = {
 };
 
 /** A searchable country dropdown ("jap" finds Japan, "reunion" finds Réunion). */
-export function CountryPicker(props: Omit<ComboboxProps, "options">) {
+export function CountryPicker(props: Readonly<Omit<ComboboxProps, "options">>) {
   return <Combobox {...countryPicker} {...props} />;
 }

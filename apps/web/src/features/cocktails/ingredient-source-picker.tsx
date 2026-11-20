@@ -90,9 +90,9 @@ export function IngredientSourcePicker({
         (loading || failed.length > 0 || hasMore) && (
           <>
             {loading && (
-              <p role="status" className="px-1 text-muted-foreground text-sm">
+              <output className="px-1 text-muted-foreground text-sm">
                 Loading ingredient choices…
-              </p>
+              </output>
             )}
             {failed.length > 0 ? (
               <div role="alert" className="flex items-center justify-between gap-2 px-1 text-sm">

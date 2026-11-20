@@ -1,6 +1,6 @@
 import type { BarSummary, Me } from "@larder/shared";
 import { useNavigate } from "@tanstack/react-router";
-import { createContext, type ReactNode, useContext } from "react";
+import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { useStoredState } from "@/lib/stored-state.ts";
 
 type SignedIn = {
@@ -29,11 +29,16 @@ export function ActiveBarProvider({ me, children }: Readonly<{ me: Me; children:
   );
   const bar = me.bars.find(({ id }) => id === selected) ?? me.bars[0];
   const navigate = useNavigate();
-  const enterBar = (id: string) => {
-    select(id);
-    return navigate({ to: "/cocktails" });
-  };
-  return (
-    <ActiveBarContext.Provider value={{ me, bar, enterBar }}>{children}</ActiveBarContext.Provider>
+  const value = useMemo(
+    () => ({
+      me,
+      bar,
+      enterBar: (id: string) => {
+        select(id);
+        return navigate({ to: "/cocktails" });
+      },
+    }),
+    [me, bar, select, navigate],
   );
+  return <ActiveBarContext.Provider value={value}>{children}</ActiveBarContext.Provider>;
 }

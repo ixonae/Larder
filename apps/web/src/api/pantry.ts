@@ -19,10 +19,7 @@ const bar = api.api.bars[":barId"];
 export const pantryKey = (barId: string) => ["bars", barId, "pantry"] as const;
 
 /** Pantry ingredients sorted by name. The Pantry screen uses larger pages than the recipe picker. */
-export const pantryListQuery = (
-  barId: string,
-  filters?: { q?: string | undefined; limit?: number },
-) =>
+export const pantryListQuery = (barId: string, filters?: { q?: string; limit?: number }) =>
   infiniteQueryOptions({
     queryKey: [...pantryKey(barId), "list", filters],
     queryFn: async ({ pageParam, signal }) => {
