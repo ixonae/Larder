@@ -4,5 +4,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["*.config.ts", "e2e"]
+  "include": ["*.config.ts"]
 }

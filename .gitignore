@@ -8,8 +8,6 @@ coverage/
 /data/
 # Older development installations may still use this data directory.
 apps/api/data/
-test-results/
-playwright-report/
 .DS_Store
 
 # Local planning notes, not committed
