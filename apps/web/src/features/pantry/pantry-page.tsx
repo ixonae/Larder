@@ -115,7 +115,7 @@ function PantryView({ bar }: Readonly<{ bar: BarSummary }>) {
   }
 
   return (
-    <section className="mx-auto flex max-w-3xl flex-col gap-4">
+    <section className="mx-auto flex max-w-5xl flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-3xl">Pantry</h1>
         {canEdit && (

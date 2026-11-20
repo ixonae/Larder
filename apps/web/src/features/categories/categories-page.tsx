@@ -17,7 +17,7 @@ export function CategoriesPage() {
   return (
     <BarGate title="Categories">
       {(bar) => (
-        <section className="mx-auto flex max-w-3xl flex-col gap-4">
+        <section className="mx-auto flex max-w-5xl flex-col gap-4">
           <CategoriesView barId={bar.id} canEdit={hasRole(bar.role, "editor")} />
         </section>
       )}
