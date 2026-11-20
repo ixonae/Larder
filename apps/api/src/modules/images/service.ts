@@ -36,11 +36,11 @@ export async function removeImageFiles(
 }
 
 /**
- * Deletes the image row `imageId` (after its owner stopped pointing at it, in the same transaction)
- * and returns its files, to remove once the transaction has committed.
+ * Deletes the image row after its last owner stops pointing at it and returns its files for
+ * cleanup once the transaction commits.
  */
 function dropImage(tx: Executor, barId: string, imageId: string | null): Files | undefined {
-  if (imageId === null) return undefined;
+  if (imageId === null || repo.imageInUse(tx, barId, imageId)) return undefined;
   const image = repo.findImage(tx, barId, imageId);
   repo.deleteImage(tx, barId, imageId);
   return image;

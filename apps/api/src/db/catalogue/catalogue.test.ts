@@ -54,7 +54,7 @@ it("bundles a transparent original and thumbnail for each catalogue icon", async
   }
 });
 
-it("seeds and serves all ten top-level category icons when creating a starter bar", async () => {
+it("seeds and serves compact pictures throughout the starter category tree", async () => {
   const { app, db } = createTestApp();
   const response = await app.request(
     "/api/bars",
@@ -63,7 +63,7 @@ it("seeds and serves all ten top-level category icons when creating a starter ba
   expect(response.status).toBe(201);
   const { id } = barSummarySchema.parse(await response.json());
   const rows = db.select().from(categories).where(eq(categories.bar_id, id)).all();
-  const illustrated = rows.filter(({ image_id }) => image_id !== null);
+  const illustrated = rows.filter(({ parent_id }) => parent_id === null);
   expect(illustrated.map(({ name }) => name).sort()).toEqual([
     "Beer",
     "Bitters",
@@ -76,7 +76,7 @@ it("seeds and serves all ten top-level category icons when creating a starter ba
     "Syrup",
     "Wine",
   ]);
-  expect(illustrated.every(({ parent_id }) => parent_id === null)).toBe(true);
+
   for (const { image_id } of illustrated) {
     const icon = await app.request(`/api/images/${image_id}/thumb`);
     expect(icon.status).toBe(200);
@@ -86,6 +86,62 @@ it("seeds and serves all ten top-level category icons when creating a starter ba
       hasAlpha: true,
     });
   }
+
+  const children = rows.filter(({ parent_id }) => parent_id !== null);
+  expect(children).toHaveLength(633);
+  expect(children.every(({ image_id }) => image_id !== null)).toBe(true);
+  const imageIds = new Set(children.map(({ image_id }) => image_id));
+  expect(imageIds.size).toBe(52);
+
+  for (const id of imageIds) {
+    const response = await app.request(`/api/images/${id}/thumb`);
+    expect(response.status).toBe(200);
+    const bytes = await response.arrayBuffer();
+    expect(bytes.byteLength).toBeLessThanOrEqual(6_000);
+    expect(await sharp(Buffer.from(bytes)).metadata()).toMatchObject({
+      format: "webp",
+      width: 160,
+      height: 160,
+      hasAlpha: true,
+    });
+  }
+
+  const categoryImage = (...path: string[]) => {
+    let parent: string | null = null;
+    let category: (typeof rows)[number] | undefined;
+    for (const name of path) {
+      category = rows.find((row) => row.parent_id === parent && row.name === name);
+      parent = category?.id ?? null;
+    }
+    return category?.image_id;
+  };
+  const gin = categoryImage("Spirit", "Gin");
+  expect(categoryImage("Spirit", "Gin", "Dry gin", "London dry gin")).toBe(gin);
+  expect(categoryImage("Spirit", "Vodka")).not.toBe(gin);
+  const red = categoryImage("Wine", "Red wine", "France", "Bordeaux");
+  const white = categoryImage("Wine", "White wine", "Dry white wine", "France", "Bordeaux");
+  expect(red).toBe(categoryImage("Wine", "Red wine"));
+  expect(white).toBe(categoryImage("Wine", "White wine"));
+  expect(red).not.toBe(white);
+  const orangeLiqueur = categoryImage("Liqueur", "Orange liqueur");
+  expect(orangeLiqueur).not.toBe(categoryImage("Juice", "Orange juice"));
+  expect(categoryImage("Liqueur", "Orange liqueur", "Orange curaçao")).toBe(orangeLiqueur);
+  expect(categoryImage("Liqueur", "Orange liqueur", "Blue curaçao")).not.toBe(orangeLiqueur);
+  expect(categoryImage("Bitters", "Orange bitters")).toBe(
+    categoryImage("Bitters", "Aromatic bitters"),
+  );
+
+  const pantry = db.select().from(pantryIngredients).where(eq(pantryIngredients.bar_id, id)).all();
+  const pantryImages = new Set(pantry.map(({ image_id }) => image_id));
+  const alcohol = new Set(["beer", "bitters", "liqueur", "spirit", "wine"]);
+  expect(
+    children.filter(
+      (category) => alcohol.has(category.kind) && pantryImages.has(category.image_id),
+    ),
+  ).toEqual([]);
+  expect(categoryImage("Syrup", "Orgeat")).toBe(
+    pantry.find(({ name }) => name === "Orgeat")?.image_id,
+  );
 });
 
 it("gives every starter pantry ingredient a compact picture on new bars", async () => {
@@ -356,6 +412,9 @@ it("backfills the starter catalogue once, reuses existing entries and honors ano
   expect(db.select().from(cocktails).where(eq(cocktails.bar_id, bob.barId)).all()).toEqual([]);
 
   const categoryRows = db.select().from(categories).where(eq(categories.bar_id, alice.barId)).all();
+  expect(categoryRows.filter(({ parent_id, image_id }) => parent_id !== null && !image_id)).toEqual(
+    [],
+  );
   function hasPath(...names: string[]) {
     let parent: string | null = null;
     for (const name of names) {
@@ -644,6 +703,42 @@ it("can use a separate catalogue to import into a single bar and serve its bundl
   }
   await importCatalogue(db, storage, alice.barId, { ...pack, id: "sample-v2" });
   expect(db.select().from(images).all()).toEqual(saved);
+});
+
+it("keeps shared catalogue images until their last owner removes them", async () => {
+  const { app, db, storage, uploads, alice } = createTestApp();
+  const bytes = await sharp({ create: { width: 10, height: 10, channels: 3, background: "red" } })
+    .webp()
+    .toBuffer();
+  const picture = { full: bytes, thumb: bytes, width: 10, height: 10 };
+  const paths = [
+    ["Wine", "House red"],
+    ["Wine", "House rosé"],
+  ] as const;
+  await importCatalogue(db, storage, alice.barId, {
+    id: "shared-category-pictures",
+    categories: paths.map((path) => ({ kind: "wine", path: [...path] })),
+    recipes: [],
+    sources: [],
+    pictures: new Map(paths.map((path) => [categoryPictureKey(path), picture])),
+  });
+
+  const rows = db.select().from(categories).where(eq(categories.bar_id, alice.barId)).all();
+  const first = rows.find(({ name }) => name === "House red");
+  const second = rows.find(({ name }) => name === "House rosé");
+  const imageId = first?.image_id;
+  expect(imageId).toEqual(expect.any(String));
+  expect(second?.image_id).toBe(imageId);
+  expect(db.select().from(images).all()).toHaveLength(1);
+  const image = `/api/images/${imageId}/thumb`;
+
+  const base = `/api/bars/${alice.barId}/categories`;
+  expect((await app.request(`${base}/${first?.id}`, { method: "DELETE" })).status).toBe(204);
+  expect((await app.request(image)).status).toBe(200);
+  expect((await app.request(`${base}/${second?.id}/image`, { method: "DELETE" })).status).toBe(204);
+  expect((await app.request(image)).status).toBe(404);
+  expect(db.select().from(images).all()).toEqual([]);
+  expect(await readdir(`${uploads}/${alice.barId}`)).toEqual([]);
 });
 
 it("validates pantry and bottle categories before marking a catalogue as imported", async () => {

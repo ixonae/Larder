@@ -13,7 +13,7 @@ import {
 import { createdAt, id, nocaseText, sqlList, timestamps } from "./columns.ts";
 import { bars, users } from "./tenancy.ts";
 
-/** An uploaded picture, re-encoded to WebP, with its thumbnail. One per item: items hold `image_id`. */
+/** An uploaded picture, re-encoded to WebP, with its thumbnail. Items hold `image_id`; bundled pictures can have multiple owners. */
 export const images = sqliteTable(
   "images",
   {

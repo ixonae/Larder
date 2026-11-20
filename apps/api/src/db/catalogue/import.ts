@@ -327,9 +327,9 @@ function insertCatalogue(
   for (const [key, image] of staged) {
     const target = targets.get(key);
     if (target && findOwnerImage(tx, target.entity, barId, target.id)?.image_id === null) {
-      const { id } = insertImage(tx, image);
-      setOwnerImage(tx, target.entity, barId, target.id, id);
-      used.add(key);
+      if (!used.has(image.id)) insertImage(tx, image);
+      setOwnerImage(tx, target.entity, barId, target.id, image.id);
+      used.add(image.id);
     }
   }
   return used;
@@ -348,28 +348,31 @@ export function applyCatalogue(
   return attached;
 }
 
-/** Stage files before the database writes and clean up any files the transaction did not attach. */
+/** Reuse staged files for shared prepared artwork and clean up unattached images. */
 export async function withCataloguePictures(
   ctx: Pick<Ctx, "barId" | "userId" | "storage">,
   pictures: Catalogue["pictures"],
   apply: (staged: ReadonlyMap<string, StagedImage>) => ReadonlySet<string>,
 ) {
   const staged = new Map<string, StagedImage>();
+  const preparedPictures = new Map<ProcessedImage, StagedImage>();
   let used: ReadonlySet<string> = new Set();
   try {
     for (const [key, picture] of pictures ?? []) {
-      const image =
-        picture instanceof Uint8Array
-          ? await stageImage(ctx, picture)
-          : await stagePreparedImage(ctx, picture);
-      staged.set(key, image);
+      if (picture instanceof Uint8Array) {
+        staged.set(key, await stageImage(ctx, picture));
+      } else {
+        const image = preparedPictures.get(picture) ?? (await stagePreparedImage(ctx, picture));
+        preparedPictures.set(picture, image);
+        staged.set(key, image);
+      }
     }
     used = apply(staged);
   } finally {
     await Promise.all(
-      [...staged]
-        .filter(([key]) => !used.has(key))
-        .map(([, image]) => removeImageFiles(ctx.storage, image)),
+      [...new Set(staged.values())]
+        .filter(({ id }) => !used.has(id))
+        .map((image) => removeImageFiles(ctx.storage, image)),
     );
   }
 }

@@ -71,6 +71,19 @@ export function findImageInAnyBar(db: Executor, id: string): StoredImage | undef
   return db.select().from(images).where(eq(images.id, id)).get();
 }
 
+/** A bundled image may still belong to another item in the bar. */
+export function imageInUse(db: Executor, barId: string, id: string): boolean {
+  return Object.values(owners).some((table) =>
+    Boolean(
+      db
+        .select({ id: table.id })
+        .from(table)
+        .where(and(eq(table.bar_id, barId), eq(table.image_id, id)))
+        .get(),
+    ),
+  );
+}
+
 export function deleteImage(db: Executor, barId: string, id: string): void {
   db.delete(images)
     .where(and(eq(images.bar_id, barId), eq(images.id, id)))

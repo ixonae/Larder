@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { type CategoryKind, createUtensilSchema, nameKey, type UtensilKind } from "@larder/shared";
+import type { ProcessedImage } from "../../storage/process.ts";
 import type { ImageStorage } from "../../storage/storage.ts";
 import type { Ctx } from "../../types.ts";
 import type { Db, Executor, Tx } from "../client.ts";
 import { barDataMigrations, bars } from "../schema/index.ts";
+import { starterCategoryPictures } from "./category-art.ts";
 import {
   applyCatalogue,
   type Catalogue,
@@ -82,21 +84,29 @@ function pantryIconSlug(name: string) {
     .replaceAll(" ", "-");
 }
 
-const pantryIconSide = 160;
-function readPantryIcon(name: string) {
-  const icon = readFileSync(
-    new URL(`./pantry-icons/${pantryIconSlug(name)}.webp`, import.meta.url),
-  );
-  return { full: icon, thumb: icon, width: pantryIconSide, height: pantryIconSide };
+const compactIcons = new Map<string, ProcessedImage>();
+
+function readCompactIcon(path: string): ProcessedImage {
+  const cached = compactIcons.get(path);
+  if (cached) return cached;
+  const bytes = readFileSync(new URL(`./${path}.webp`, import.meta.url));
+  const image = { full: bytes, thumb: bytes, width: 160, height: 160 };
+  compactIcons.set(path, image);
+  return image;
 }
 
 const cataloguePantryPictures = new Map(
   sources
     .filter((source) => source.type === "pantry")
     .map(
-      ({ kind, path, name }) => [pantryPictureKey(kind, path, name), readPantryIcon(name)] as const,
+      ({ kind, path, name }) =>
+        [
+          pantryPictureKey(kind, path, name),
+          readCompactIcon(`pantry-icons/${pantryIconSlug(name)}`),
+        ] as const,
     ),
 );
+
 function utensilPicture(kind: UtensilKind, name: string) {
   const directory = { glass: "glassware-icons", tool: "tool-icons" }[kind];
   const slug = name
@@ -113,20 +123,30 @@ const utensilPictures = new Map([
   ...tools.map((name) => utensilPicture("tool", name)),
 ]);
 
-const cataloguePictures = new Map([...utensilPictures, ...cataloguePantryPictures]);
+const categories = lines("./categories.txt")
+  .slice(1)
+  .flatMap((line) => {
+    const [kind, parent, children] = line.split("|");
+    return (children as string)
+      .split(", ")
+      .map((child) =>
+        catalogueCategorySchema.parse({ kind, path: `${parent}/${child}`.split("/") }),
+      );
+  });
+
+const categoryPictures = starterCategoryPictures(
+  [...categories, ...sources].map(({ path }) => path),
+  readCompactIcon,
+);
+const cataloguePictures = new Map([
+  ...utensilPictures,
+  ...cataloguePantryPictures,
+  ...categoryPictures,
+]);
 
 const catalogue: Catalogue = {
   id: "starter-catalogue-v1",
-  categories: lines("./categories.txt")
-    .slice(1)
-    .flatMap((line) => {
-      const [kind, parent, children] = line.split("|");
-      return (children as string)
-        .split(", ")
-        .map((child) =>
-          catalogueCategorySchema.parse({ kind, path: `${parent}/${child}`.split("/") }),
-        );
-    }),
+  categories,
   sources,
   recipes,
   glassware,
