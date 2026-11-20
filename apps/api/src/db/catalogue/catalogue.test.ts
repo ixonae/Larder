@@ -6,9 +6,10 @@ import {
   imageSchema,
   newId,
   pageSchema,
+  pantryIngredientSchema,
   utensilSchema,
 } from "@larder/shared";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import sharp from "sharp";
 import { expect, it, vi } from "vitest";
 import { createTestApp, jsonRequest } from "../../test/app.ts";
@@ -85,6 +86,60 @@ it("seeds and serves all ten top-level category icons when creating a starter ba
       hasAlpha: true,
     });
   }
+});
+
+it("gives every starter pantry ingredient a compact picture on new bars", async () => {
+  const { app } = createTestApp();
+  const response = await app.request(
+    "/api/bars",
+    jsonRequest("POST", { name: "Stocked bar", seed_data: true }),
+  );
+  const { id } = barSummarySchema.parse(await response.json());
+  const list = await app.request(`/api/bars/${id}/pantry-ingredients?limit=100`);
+  const { items } = pageSchema(pantryIngredientSchema).parse(await list.json());
+  expect(items).toHaveLength(59);
+  expect(items.every(({ image_id }) => image_id !== null)).toBe(true);
+  const directory = new URL("./pantry-icons/", import.meta.url);
+  expect(await readdir(directory)).toHaveLength(items.length);
+  for (const { image_id } of items) {
+    const response = await app.request(`/api/images/${image_id}/thumb`);
+    expect(response.status).toBe(200);
+    const bytes = await response.arrayBuffer();
+    expect(bytes.byteLength).toBeLessThanOrEqual(6_000);
+    expect(await sharp(Buffer.from(bytes)).metadata()).toMatchObject({
+      format: "webp",
+      width: 160,
+      height: 160,
+      hasAlpha: true,
+    });
+  }
+});
+
+it("offers bottled alternatives for every fresh juice line in the starter catalogue", async () => {
+  const { app, db, storage, alice } = createTestApp();
+  await seedStarterCatalogue(db, storage, alice.barId);
+  const base = `/api/bars/${alice.barId}/cocktails`;
+  const recipes = db.select().from(cocktails).where(eq(cocktails.bar_id, alice.barId)).all();
+  let freshJuiceLines = 0;
+  const fruits = new Set(["Lemon", "Lime", "Orange", "Pineapple"]);
+
+  for (const { id, name } of recipes) {
+    const response = await app.request(`${base}/${id}`);
+    const { ingredients } = cocktailDetailSchema.parse(await response.json());
+    for (const line of ingredients) {
+      if (!line.pantry_ingredient_id || !fruits.has(line.name)) continue;
+
+      const bottled = line.alternatives.find(({ name }) => name === `${line.name} juice`);
+      if (line.unit === "ml") {
+        freshJuiceLines++;
+        expect(bottled, name).toMatchObject({ category_id: expect.any(String) });
+      } else {
+        expect(bottled, name).toBeUndefined();
+      }
+    }
+  }
+
+  expect(freshJuiceLines).toBe(79);
 });
 
 it("backfills only matching roots in a previously seeded bar and preserves custom images", async () => {
@@ -191,9 +246,50 @@ it("backfills the starter catalogue once, reuses existing entries and honors ano
     })
     .run();
 
+  const garnish = db
+    .select()
+    .from(categories)
+    .where(and(eq(categories.bar_id, alice.barId), eq(categories.name, "Garnish")))
+    .get();
+  const citrusResponse = await app.request(
+    `${base}/categories`,
+    jsonRequest("POST", { name: "Citrus", parent_id: garnish?.id, kind: "garnish" }),
+  );
+  const citrus = categorySchema.parse(await citrusResponse.json());
+  const custom = new FormData();
+  const bytes = await sharp({ create: { width: 10, height: 10, channels: 3, background: "red" } })
+    .png()
+    .toBuffer();
+  custom.append("file", new File([new Uint8Array(bytes)], "custom.png", { type: "image/png" }));
+  const pantryBase = `${base}/pantry-ingredients`;
+  const added = await app.request(
+    pantryBase,
+    jsonRequest("POST", { name: "Lemon", category_id: citrus.id }),
+  );
+  const nestedLemon = pantryIngredientSchema.parse(await added.json());
+  const egg = db
+    .select()
+    .from(pantryIngredients)
+    .where(and(eq(pantryIngredients.bar_id, alice.barId), eq(pantryIngredients.name, "Egg")))
+    .get();
+  const eggUpload = await app.request(`${pantryBase}/${egg?.id}/image`, {
+    method: "PUT",
+    body: custom,
+  });
+  const eggImage = imageSchema.parse(await eggUpload.json());
   skipStarterCatalogue(db, bob.barId);
   skipStarterCatalogue(db, bob.barId);
   await migrateStarterCatalogues(db, storage);
+  const pantryRows = db
+    .select()
+    .from(pantryIngredients)
+    .where(eq(pantryIngredients.bar_id, alice.barId))
+    .all();
+  expect(pantryRows).toHaveLength(60);
+  expect(pantryRows.find(({ id }) => id === egg?.id)?.image_id).toBe(eggImage.id);
+  expect(pantryRows.filter(({ image_id }) => image_id === null).map(({ id }) => id)).toEqual([
+    nestedLemon.id,
+  ]);
   const imported = db.select().from(cocktails).where(eq(cocktails.bar_id, alice.barId)).all();
   expect(imported).toHaveLength(134);
   expect(imported.find(({ name }) => name === "NEGRONI")).toMatchObject({

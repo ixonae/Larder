@@ -15,6 +15,7 @@ import type { Ctx } from "../../types.ts";
 import { listAllCategories } from "../categories/repo.ts";
 import { requireCategoryRef } from "../categories/service.ts";
 import { listIngredientUsage } from "../cocktails/ingredients-repo.ts";
+import { deleteWithImage } from "../images/service.ts";
 import * as repo from "./repo.ts";
 
 /** `GET /pantry-ingredients`: a page sorted by name. A category filter includes its sub-categories. */
@@ -92,8 +93,8 @@ export function updatePantryIngredient(
 }
 
 /** Deletes the ingredient if no cocktail uses it. */
-export function deletePantryIngredient(ctx: Ctx, id: string | undefined): void {
-  ctx.db.transaction((tx) => {
+export async function deletePantryIngredient(ctx: Ctx, id: string | undefined): Promise<void> {
+  await deleteWithImage(ctx, (tx) => {
     const existing = requireIngredient(tx, ctx.barId, id);
     refuseDeleteIfUsed(existing.name, [
       {
@@ -103,5 +104,6 @@ export function deletePantryIngredient(ctx: Ctx, id: string | undefined): void {
       },
     ]);
     repo.deletePantryIngredient(tx, ctx.barId, existing.id);
+    return existing.image_id;
   });
 }

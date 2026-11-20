@@ -358,6 +358,7 @@ describe("schema", () => {
       pantryIngredients,
       [
         ["bar_id", "bars"],
+        ["image_id", "images"],
         ["created_by", "users"],
         ["bar_id", "categories"],
       ],

@@ -91,7 +91,8 @@ export interface Catalogue {
   glassware?: readonly string[];
   tools?: readonly string[];
   /**
-   * Image bytes or prepared WebP pairs by target key. Use categoryPictureKey for categories.
+   * Image bytes or prepared WebP pairs by target key. Use categoryPictureKey for categories and
+   * pantryPictureKey for pantry ingredients.
    * Other examples are "product:Campari", "glass:Coupe", "tool:Shaker" and "cocktail:negroni".
    */
   pictures?: ReadonlyMap<string, Uint8Array | ProcessedImage>;
@@ -101,6 +102,14 @@ export interface Catalogue {
 
 export function categoryPictureKey(path: readonly string[]): string {
   return `category:${JSON.stringify(path.map(nameKey))}`;
+}
+
+export function pantryPictureKey(
+  kind: CategoryKind,
+  path: readonly string[],
+  name: string,
+): string {
+  return `pantry:${JSON.stringify([kind, path.map(nameKey), nameKey(name)])}`;
 }
 
 const scopedCategoryKey = (parentId: string | null, name: string) =>
@@ -244,6 +253,7 @@ function insertCatalogue(
       const key = scopedCategoryKey(category_id, name);
       const id = pantry.get(key) ?? insertPantryIngredient(tx, { ...audit, name, category_id });
       pantry.set(key, id);
+      trackImage(pantryPictureKey(source.kind, source.path, name), "pantry-ingredients", id);
       sources.set(source.key, { pantry_ingredient_id: id });
     }
   }

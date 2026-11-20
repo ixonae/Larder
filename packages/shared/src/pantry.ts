@@ -14,6 +14,7 @@ export const pantryIngredientSchema = z.object({
   in_stock: z.boolean(),
   /** A staple that is always there (water, ice…), whatever `in_stock` says. */
   always_available: z.boolean(),
+  image_id: idSchema.nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });

@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import type { Category, Image, Product, Utensil } from "@larder/shared";
+import type { Category, Image, PantryIngredient, Product, Utensil } from "@larder/shared";
 import { and, count, eq } from "drizzle-orm";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
@@ -81,6 +81,24 @@ describe("PUT /:entity/:id/image", () => {
     const image = await json<Image>(await t.upload(`/categories/${gin.id}`, await png()));
     const saved = await json<Category>(await t.app.request(`${t.bar}/categories/${gin.id}`));
     expect(saved.image_id).toBe(image.id);
+  });
+
+  it("supports pantry pictures and cleans up files when their ingredient is deleted", async () => {
+    const t = setup();
+    const ingredient = await t.post<PantryIngredient>("/pantry-ingredients", {
+      name: "Basil",
+      category_id: t.cat("Garnish").id,
+    });
+    const path = `/pantry-ingredients/${ingredient.id}`;
+    expect(ingredient.image_id).toBeNull();
+
+    const image = await json<Image>(await t.upload(path, await png(100, 100)));
+    const saved = await json<PantryIngredient>(await t.app.request(`${t.bar}${path}`));
+    expect(saved.image_id).toBe(image.id);
+    expect((await t.app.request(`/api/images/${image.id}/thumb`)).status).toBe(200);
+    expect((await t.app.request(`${t.bar}${path}`, { method: "DELETE" })).status).toBe(204);
+    expect((await t.app.request(`/api/images/${image.id}`)).status).toBe(404);
+    expect(t.files()).toEqual([]);
   });
 
   it.each([

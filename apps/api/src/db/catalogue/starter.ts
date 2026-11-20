@@ -13,6 +13,7 @@ import {
   catalogueSourceSchema,
   categoryPictureKey,
   importCatalogue,
+  pantryPictureKey,
   withCataloguePictures,
 } from "./import.ts";
 
@@ -22,6 +23,9 @@ function lines(file: string) {
     .split(/\r?\n/);
 }
 
+const sources = lines("./sources.jsonl").map((line) =>
+  catalogueSourceSchema.parse(JSON.parse(line)),
+);
 const recipes = [...lines("./classic-recipes.jsonl"), ...lines("./basic-recipes.jsonl")].map(
   (line) => catalogueRecipeSchema.parse(JSON.parse(line)),
 );
@@ -70,6 +74,29 @@ const rootCategoryCatalogue: Catalogue = {
   ),
 };
 
+function pantryIconSlug(name: string) {
+  return nameKey(name)
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replaceAll("’", "")
+    .replaceAll(" ", "-");
+}
+
+const pantryIconSide = 160;
+function readPantryIcon(name: string) {
+  const icon = readFileSync(
+    new URL(`./pantry-icons/${pantryIconSlug(name)}.webp`, import.meta.url),
+  );
+  return { full: icon, thumb: icon, width: pantryIconSide, height: pantryIconSide };
+}
+
+const cataloguePantryPictures = new Map(
+  sources
+    .filter((source) => source.type === "pantry")
+    .map(
+      ({ kind, path, name }) => [pantryPictureKey(kind, path, name), readPantryIcon(name)] as const,
+    ),
+);
 function utensilPicture(kind: UtensilKind, name: string) {
   const directory = { glass: "glassware-icons", tool: "tool-icons" }[kind];
   const slug = name
@@ -86,6 +113,8 @@ const utensilPictures = new Map([
   ...tools.map((name) => utensilPicture("tool", name)),
 ]);
 
+const cataloguePictures = new Map([...utensilPictures, ...cataloguePantryPictures]);
+
 const catalogue: Catalogue = {
   id: "starter-catalogue-v1",
   categories: lines("./categories.txt")
@@ -98,14 +127,14 @@ const catalogue: Catalogue = {
           catalogueCategorySchema.parse({ kind, path: `${parent}/${child}`.split("/") }),
         );
     }),
-  sources: lines("./sources.jsonl").map((line) => catalogueSourceSchema.parse(JSON.parse(line))),
+  sources,
   recipes,
   glassware,
   tools,
-  pictures: utensilPictures,
+  pictures: cataloguePictures,
 };
 const optedOut = `${catalogue.id}-opt-out`;
-const newBarPictures = new Map([...utensilPictures, ...rootCategoryPictures]);
+const newBarPictures = new Map([...cataloguePictures, ...rootCategoryPictures]);
 
 /** Stage the icons, then create the bar and its full starter catalogue in one transaction. */
 export async function addStarterCatalogue(

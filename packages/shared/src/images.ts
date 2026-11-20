@@ -11,7 +11,13 @@ export const IMAGE_MIME_TYPES = [
 ] as const;
 
 /** The items that can have a picture, as named in their URL (`PUT /:entity/:id/image`). */
-export const IMAGE_ENTITIES = ["categories", "products", "utensils", "cocktails"] as const;
+export const IMAGE_ENTITIES = [
+  "categories",
+  "products",
+  "utensils",
+  "cocktails",
+  "pantry-ingredients",
+] as const;
 export type ImageEntity = (typeof IMAGE_ENTITIES)[number];
 
 /** Longest side of the stored picture and of its thumbnail, in pixels. */

@@ -12,6 +12,7 @@ const LABEL: Record<ImageEntity, string> = {
   products: "Product",
   utensils: "Utensil",
   cocktails: "Cocktail",
+  "pantry-ingredients": "Ingredient",
 };
 
 const toImage = ({ id, mime, width, height, size_bytes, created_at }: repo.StoredImage): Image => ({

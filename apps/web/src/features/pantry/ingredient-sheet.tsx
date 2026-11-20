@@ -7,6 +7,7 @@ import {
 } from "@larder/shared";
 import { useMemo } from "react";
 import { usePantryMutations } from "@/api/pantry.ts";
+import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -74,6 +75,7 @@ function IngredientForm({
   tree,
 }: FormProps & { tree: CategoryTreeNode[] }) {
   const { create, update } = usePantryMutations(barId);
+  const picture = useImageField(barId, "pantry-ingredients");
   const currentCategoryId = editing?.category_id;
   const categories = useMemo(
     () =>
@@ -97,9 +99,10 @@ function IngredientForm({
 
   const submit = form.handleSubmit(async (json) => {
     try {
-      if (editing) await update.mutateAsync({ id: editing.id, json });
-      else await create.mutateAsync(json);
-      toast(editing ? "Ingredient saved" : "Ingredient added");
+      const saved = editing
+        ? await update.mutateAsync({ id: editing.id, json })
+        : await create.mutateAsync(json);
+      await picture.apply(saved.id, editing ? "Ingredient saved" : "Ingredient added");
       onDone();
     } catch (err) {
       if (applyServerErrors(form, err)) return;
@@ -132,6 +135,12 @@ function IngredientForm({
         <input type="checkbox" className="size-4" {...form.register("always_available")} />
         <span>Always available (a staple such as water or ice)</span>
       </label>
+
+      <ImageUpload
+        imageId={editing?.image_id ?? null}
+        value={picture.change}
+        onChange={picture.setChange}
+      />
 
       <SheetFooter className="px-0">
         <Button type="submit" disabled={form.formState.isSubmitting}>

@@ -1,10 +1,23 @@
 import type { ImageEntity } from "@larder/shared";
 import { and, eq } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
-import { categories, cocktails, images, products, utensils } from "../../db/schema/index.ts";
+import {
+  categories,
+  cocktails,
+  images,
+  pantryIngredients,
+  products,
+  utensils,
+} from "../../db/schema/index.ts";
 
 /** The tables whose rows can hold a picture, by the name used in their URL. */
-const owners = { categories, cocktails, products, utensils } as const;
+const owners = {
+  categories,
+  cocktails,
+  products,
+  utensils,
+  "pantry-ingredients": pantryIngredients,
+} as const;
 
 export type StoredImage = typeof images.$inferSelect;
 export type NewImage = typeof images.$inferInsert;

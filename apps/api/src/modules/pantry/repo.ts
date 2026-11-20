@@ -12,6 +12,7 @@ const columns = {
   category_name: categories.name,
   in_stock: pantryIngredients.in_stock,
   always_available: pantryIngredients.always_available,
+  image_id: pantryIngredients.image_id,
   created_at: pantryIngredients.created_at,
   updated_at: pantryIngredients.updated_at,
 };

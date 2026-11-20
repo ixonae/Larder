@@ -7,13 +7,14 @@ import {
   type PantryIngredient,
 } from "@larder/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Apple, Pencil, Plus, Trash2 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { pantryListQuery, usePantryMutations } from "@/api/pantry.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
+import { Thumbnail } from "@/components/thumbnail.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { IngredientSheet, type IngredientTarget } from "./ingredient-sheet.tsx";
@@ -160,6 +161,7 @@ function IngredientRow({
 }>) {
   return (
     <li className="flex items-center gap-2 p-3">
+      <Thumbnail imageId={ingredient.image_id} icon={Apple} />
       <p className="min-w-0 flex-1 truncate font-medium">{ingredient.name}</p>
       <StockToggle barId={barId} ingredient={ingredient} canEdit={canEdit} />
       {canEdit && (

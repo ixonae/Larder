@@ -27,7 +27,7 @@ export const pantryRoutes = new Hono<AppEnv>()
   .patch("/:id", requireRole("editor"), validate("json", updatePantryIngredientSchema), (c) =>
     c.json(updatePantryIngredient(c.var.ctx, c.req.param("id"), c.req.valid("json"))),
   )
-  .delete("/:id", requireRole("editor"), (c) => {
-    deletePantryIngredient(c.var.ctx, c.req.param("id"));
+  .delete("/:id", requireRole("editor"), async (c) => {
+    await deletePantryIngredient(c.var.ctx, c.req.param("id"));
     return c.body(null, 204);
   });

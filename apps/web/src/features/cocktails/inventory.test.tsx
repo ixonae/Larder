@@ -272,6 +272,7 @@ it("restocking a lemon in the Pantry updates the cocktails on return", async () 
     name: "Lemon",
     category_id: garnish,
     category_name: "Garnish",
+    image_id: null,
     in_stock: false,
     always_available: false,
   };

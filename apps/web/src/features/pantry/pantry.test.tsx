@@ -1,4 +1,4 @@
-import type { Category, PantryIngredient } from "@larder/shared";
+import { type Category, imageUrl, type PantryIngredient } from "@larder/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { delay, HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -33,6 +33,7 @@ const ingredient = (
   name,
   category_id: group.id,
   category_name: group.name,
+  image_id: null,
   in_stock: false,
   always_available: false,
   ...timestamps,
@@ -123,6 +124,32 @@ describe("PantryPage", () => {
     expect(stockButton("Mint")).toHaveAttribute("aria-pressed", "true");
     expect(stockButton("Lemon")).toHaveAttribute("aria-pressed", "false");
     expect(screen.queryByRole("button", { name: "Ice in stock" })).not.toBeInTheDocument();
+  });
+
+  it("shows the saved picture by default and lets editors remove it", async () => {
+    const lemon = byName("Lemon");
+    const imageId = nextId();
+    lemon.image_id = imageId;
+    server.use(
+      http.delete(`${url}/${lemon.id}/image`, () => {
+        byName("Lemon").image_id = null;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await open();
+    const garnishList = screen.getByRole("list", { name: "Garnish" });
+    const thumbnail = garnishList.querySelector("img");
+    expect(thumbnail).toHaveAttribute("src", imageUrl(imageId, "thumb"));
+    expect(thumbnail).toHaveAttribute("loading", "lazy");
+
+    await user.click(screen.getByRole("button", { name: "Edit Lemon" }));
+    expect(await screen.findByRole("img", { name: "Preview" })).toHaveAttribute(
+      "src",
+      imageUrl(imageId),
+    );
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(garnishList.querySelector("img")).toBeNull());
   });
 
   it("heads each group with its category path, keeping same-named sub-categories apart", async () => {

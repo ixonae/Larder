@@ -98,6 +98,7 @@ export const pantryIngredients = sqliteTable(
     name: nocaseText("name").notNull(),
     in_stock: integer("in_stock", { mode: "boolean" }).notNull().default(false),
     always_available: integer("always_available", { mode: "boolean" }).notNull().default(false),
+    image_id: imageId(),
     created_by: text("created_by")
       .notNull()
       .references(() => users.id),
@@ -105,6 +106,7 @@ export const pantryIngredients = sqliteTable(
   },
   (t) => [
     index("pantry_ingredients_created_by_idx").on(t.created_by),
+    index("pantry_ingredients_image_id_idx").on(t.image_id),
 
     // Target for cocktail lines (S17); also serves every `bar_id` lookup.
     uniqueIndex("pantry_ingredients_bar_id_id_unique").on(t.bar_id, t.id),
