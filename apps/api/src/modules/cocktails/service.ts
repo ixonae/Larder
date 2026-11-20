@@ -30,12 +30,13 @@ import { onUniqueViolation } from "../../db/errors.ts";
 import { conflict, invalid, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { listAllCategories } from "../categories/repo.ts";
+import { favouriteIds } from "../favourites/repo.ts";
 import { deleteWithImage } from "../images/service.ts";
 import { listAvailablePantryIngredientIds } from "../pantry/repo.ts";
 import { listOwnedProducts } from "../products/repo.ts";
 import { findUtensil } from "../utensils/repo.ts";
 import { type PersonalSummary, personalSummaries } from "./feedback.ts";
-import { favouriteIds, listRatings } from "./feedback-repo.ts";
+import { listRatings } from "./feedback-repo.ts";
 import {
   addAlternatives,
   getAlternatives,
@@ -190,7 +191,7 @@ function ratingDetail(
     my_rating: mine ? { score: mine.score, updated_at: mine.updated_at } : null,
     avg_rating: all[0]?.avg ?? null,
     rating_count: all.length,
-    is_favourite: favouriteIds(db, barId, userId, [cocktailId]).has(cocktailId),
+    is_favourite: favouriteIds(db, barId, userId, "cocktail_id", [cocktailId]).has(cocktailId),
     other_ratings: all
       .filter(({ user }) => user.id !== userId)
       .map(({ avg: _, ...rating }) => rating),

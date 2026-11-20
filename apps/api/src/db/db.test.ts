@@ -12,6 +12,7 @@ import {
   barInvitations,
   barMembers,
   bars,
+  bottleComments,
   categories,
   cocktailIngredientAlternatives,
   cocktailIngredients,
@@ -30,6 +31,7 @@ import {
   ratings,
   sessions,
   tags,
+  tastings,
   users,
   utensils,
 } from "./schema/index.ts";
@@ -322,6 +324,76 @@ describe("0005 bottle status migration", () => {
   });
 });
 
+describe("0006 bottle activity migration", () => {
+  it("keeps cocktail favourites, giving each an id", () => {
+    const dir = mkdtempSync(join(tmpdir(), "larder-migrations-"));
+    try {
+      cpSync(MIGRATIONS_DIR, dir, { recursive: true });
+      const journalPath = join(dir, "meta", "_journal.json");
+      const journal = JSON.parse(readFileSync(journalPath, "utf8")) as { entries: unknown[] };
+      writeFileSync(
+        journalPath,
+        JSON.stringify({ ...journal, entries: journal.entries.slice(0, 6) }),
+      );
+      const db = openDb(":memory:");
+      migrate(db, { migrationsFolder: dir });
+      const { barId, userId } = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
+      const cocktail = db
+        .insert(cocktails)
+        .values({ bar_id: barId, created_by: userId, name: "Negroni", method: "stirred" })
+        .returning()
+        .get();
+      db.$client
+        .prepare(
+          "INSERT INTO favourites (bar_id, created_by, created_at, updated_at, cocktail_id) VALUES (?, ?, '2026-11-20T12:00:00.000Z', '', ?)",
+        )
+        .run(barId, userId, cocktail.id);
+      runMigrations(db);
+      const [row, ...rest] = db.select().from(favourites).all();
+      expect(rest).toEqual([]);
+      expect(row).toMatchObject({ cocktail_id: cocktail.id, product_id: null, created_by: userId });
+      expect(row?.id).toMatch(/^01a1f8d3-ea00-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      expect(db.$client.pragma("foreign_key_check")).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("favourites table", () => {
+  it("holds exactly one bottle or one cocktail, once per user", () => {
+    const db = freshDb();
+    const { barId, userId } = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
+    const category = db.select().from(categories).where(eq(categories.bar_id, barId)).get();
+    const row = { bar_id: barId, created_by: userId };
+    const product = db
+      .insert(products)
+      .values({ ...row, name: "Gin", category_id: category?.id as string })
+      .returning()
+      .get();
+    const cocktail = db
+      .insert(cocktails)
+      .values({ ...row, name: "Negroni", method: "stirred" })
+      .returning()
+      .get();
+    const add = (target: { product_id?: string; cocktail_id?: string }) =>
+      db
+        .insert(favourites)
+        .values({ ...row, ...target })
+        .run();
+    expect(() => add({})).toThrow(/CHECK constraint failed/);
+    expect(() => add({ product_id: product.id, cocktail_id: cocktail.id })).toThrow(
+      /CHECK constraint failed/,
+    );
+    add({ product_id: product.id });
+    add({ cocktail_id: cocktail.id });
+    expect(() => add({ product_id: product.id })).toThrow(/UNIQUE constraint failed/);
+    expect(() => add({ cocktail_id: cocktail.id })).toThrow(/UNIQUE constraint failed/);
+    db.delete(products).where(eq(products.id, product.id)).run();
+    expect(db.select().from(favourites).all()).toMatchObject([{ cocktail_id: cocktail.id }]);
+  });
+});
+
 describe("pantry_ingredients table", () => {
   function setup() {
     const db = freshDb();
@@ -504,7 +576,32 @@ describe("schema", () => {
         ["created_by", "users"],
       ],
     ],
-    ...[favourites, ratings, comments].map(
+    [
+      bottleComments,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+        ["bar_id", "products"],
+      ],
+    ],
+    [
+      tastings,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+        ["bar_id", "products"],
+      ],
+    ],
+    [
+      favourites,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+        ["bar_id", "products"],
+        ["bar_id", "cocktails"],
+      ],
+    ],
+    ...[ratings, comments].map(
       (table) =>
         [
           table,

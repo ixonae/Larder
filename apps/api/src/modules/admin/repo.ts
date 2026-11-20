@@ -5,6 +5,7 @@ import type { Tx } from "../../db/client.ts";
 import {
   barInvitations,
   bars,
+  bottleComments,
   categories,
   cocktailIngredientAlternatives,
   cocktailIngredients,
@@ -17,6 +18,7 @@ import {
   productPurchases,
   products,
   tags,
+  tastings,
   users,
   utensils,
 } from "../../db/schema/index.ts";
@@ -24,6 +26,7 @@ import {
 /** Shared bar data a user is credited on. Their personal feedback is deleted with them instead. */
 const attributedTables = [
   barInvitations,
+  bottleComments,
   categories,
   cocktailIngredientAlternatives,
   cocktailIngredients,
@@ -36,6 +39,7 @@ const attributedTables = [
   productPurchases,
   products,
   tags,
+  tastings,
   utensils,
 ];
 

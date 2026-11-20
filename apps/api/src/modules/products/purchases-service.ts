@@ -12,8 +12,8 @@ import type { Executor } from "../../db/client.ts";
 import { invalid, notFound, parseId } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import * as repo from "./purchases-repo.ts";
-import { updateProduct } from "./repo.ts";
-import { requireProduct } from "./service.ts";
+import { updateProduct, type Viewer } from "./repo.ts";
+import { requireProduct, requireProductRef } from "./service.ts";
 
 function requirePurchase(db: Executor, barId: string, productId: string, id: string | undefined) {
   const purchase = repo.findPurchase(db, barId, productId, parseId(id, "Purchase"));
@@ -33,10 +33,10 @@ const setStatus = (db: Executor, barId: string, id: string, status: Product["sta
   updateProduct(db, barId, id, { status });
 
 /** After a bottle ran out or was removed: with purchases left but none open, it is finished. */
-function finishIfNoneOpen(db: Executor, barId: string, productId: string) {
-  const { stock } = requireProduct(db, barId, productId);
+function finishIfNoneOpen(db: Executor, viewer: Viewer, productId: string) {
+  const { stock } = requireProduct(db, viewer, productId);
   if (stock.total_count > 0 && stock.open_count === 0) {
-    setStatus(db, barId, productId, "finished");
+    setStatus(db, viewer.barId, productId, "finished");
   }
 }
 
@@ -53,7 +53,7 @@ function price(
 }
 
 export function listPurchases(ctx: Ctx, productId: string | undefined): PurchaseList {
-  const product = requireProduct(ctx.db, ctx.barId, productId);
+  const product = requireProductRef(ctx.db, ctx.barId, productId);
   return { items: repo.listPurchases(ctx.db, ctx.barId, product.id) };
 }
 
@@ -64,7 +64,7 @@ export function createPurchases(
   { count, price_minor, currency, ...input }: CreatePurchase,
 ): PurchaseList {
   return ctx.db.transaction((tx) => {
-    const product = requireProduct(tx, ctx.barId, productId);
+    const product = requireProductRef(tx, ctx.barId, productId);
     const row = {
       ...input,
       ...price(price_minor, currency, ctx.currency),
@@ -89,7 +89,7 @@ export function updatePurchase(
   patch: UpdatePurchase,
 ): Purchase {
   return ctx.db.transaction((tx) => {
-    const product = requireProduct(tx, ctx.barId, productId);
+    const product = requireProductRef(tx, ctx.barId, productId);
     const existing = requirePurchase(tx, ctx.barId, product.id, id);
     const { price_minor, currency, ...rest } = patch;
     const merged = { ...existing, ...rest };
@@ -106,7 +106,7 @@ export function updatePurchase(
     if (existing.finished_on !== null && merged.finished_on === null) {
       setStatus(tx, ctx.barId, product.id, "owned");
     } else if (existing.finished_on === null && merged.finished_on !== null) {
-      finishIfNoneOpen(tx, ctx.barId, product.id);
+      finishIfNoneOpen(tx, ctx, product.id);
     }
     return saved;
   });
@@ -118,10 +118,10 @@ export function updatePurchase(
  */
 export function deletePurchase(ctx: Ctx, productId: string | undefined, id: string | undefined) {
   ctx.db.transaction((tx) => {
-    const product = requireProduct(tx, ctx.barId, productId);
+    const product = requireProductRef(tx, ctx.barId, productId);
     const existing = requirePurchase(tx, ctx.barId, product.id, id);
     repo.deletePurchase(tx, ctx.barId, existing.id);
-    if (existing.finished_on === null) finishIfNoneOpen(tx, ctx.barId, product.id);
+    if (existing.finished_on === null) finishIfNoneOpen(tx, ctx, product.id);
   });
 }
 
@@ -135,15 +135,15 @@ export function finishProduct(
   { finished_on = todayIso() }: FinishProduct,
 ): Product {
   return ctx.db.transaction((tx) => {
-    const product = requireProduct(tx, ctx.barId, productId);
+    const product = requireProductRef(tx, ctx.barId, productId);
     const oldest = repo.findOldestOpenPurchase(tx, ctx.barId, product.id);
     if (oldest) {
       requireFinishAfterPurchase(oldest.bought_on, finished_on);
       repo.updatePurchase(tx, ctx.barId, oldest.id, { finished_on });
-      finishIfNoneOpen(tx, ctx.barId, product.id);
+      finishIfNoneOpen(tx, ctx, product.id);
     } else {
       setStatus(tx, ctx.barId, product.id, "finished");
     }
-    return requireProduct(tx, ctx.barId, product.id);
+    return requireProduct(tx, ctx, product.id);
   });
 }

@@ -372,6 +372,9 @@ it("running out of the last bottle changes availability on the Cocktails page", 
     image_id: null,
     status: "owned",
     stock: { open_count: 1, total_count: 1, last_bought_on: "2026-11-01", last_finished_on: null },
+    tasting_summary: { count: 0, avg_score: null, last_tasted_on: null },
+    is_favourite: false,
+    comment_count: 0,
   };
   const finished: { finished_on?: string }[] = [];
   server.use(

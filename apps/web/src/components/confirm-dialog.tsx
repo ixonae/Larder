@@ -19,6 +19,7 @@ const TYPE_LABEL: Record<UsedBy["used_by"][number]["type"], string> = {
   category: "Category",
   product: "Bottle",
   purchase: "Purchase",
+  tasting: "Tasting",
   pantry_ingredient: "Ingredient",
   cocktail: "Cocktail",
   utensil: "Utensil",

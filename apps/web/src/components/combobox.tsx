@@ -1,6 +1,6 @@
 import { searchKey } from "@larder/shared";
 import { cn } from "cn";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { type ReactNode, type Ref, useState } from "react";
 import {
   Command,
@@ -60,6 +60,8 @@ export interface ComboboxProps {
   searchPlaceholder?: string;
   /** Server-side search: the caller controls the text and filters `options` itself. */
   search?: { text: string; onChange: (text: string) => void };
+  /** A last row creating a new entry from the search text ("Add “Talisker”"). */
+  create?: { label: (text: string) => string; onSelect: (text: string) => void };
   /** Extra content under the list, such as a loading line or a "load more" button. */
   footer?: ReactNode;
   disabled?: boolean;
@@ -80,6 +82,7 @@ export function Combobox({
   fallbackLabel,
   searchPlaceholder = "Search…",
   search,
+  create,
   footer,
   className,
   ...trigger
@@ -166,6 +169,21 @@ export function Combobox({
                 ))}
               </CommandGroup>
             ))}
+            {create && searching && (
+              <CommandGroup forceMount>
+                <CommandItem
+                  forceMount
+                  value={"\u0000create"}
+                  onSelect={() => {
+                    create.onSelect(text.trim());
+                    close();
+                  }}
+                >
+                  <Plus className="size-4" aria-hidden />
+                  {create.label(text.trim())}
+                </CommandItem>
+              </CommandGroup>
+            )}
           </CommandList>
           {footer && <div className="grid gap-2 border-t p-2">{footer}</div>}
         </Command>

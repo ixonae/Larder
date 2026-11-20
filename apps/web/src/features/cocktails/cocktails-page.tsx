@@ -21,6 +21,7 @@ import { BarGate } from "@/components/bar-gate.tsx";
 import type { ChipOption } from "@/components/chip-radio-group.tsx";
 import { ChoiceMenu } from "@/components/choice-menu.tsx";
 import type { ComboboxOption } from "@/components/combobox.tsx";
+import { FavouriteButton } from "@/components/favourite-button.tsx";
 import { MultiCombobox } from "@/components/multi-combobox.tsx";
 import { SearchInput } from "@/components/search-input.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
@@ -30,7 +31,6 @@ import { Button } from "@/components/ui/button.tsx";
 import { categoryOptions } from "@/features/categories/category-options.tsx";
 import { useDebouncedSearch } from "@/lib/debounced-search.ts";
 import { useStoredState } from "@/lib/stored-state.ts";
-import { FavouriteButton } from "./favourite-button.tsx";
 import { missingLabel } from "./missing-label.ts";
 
 const route = getRouteApi("/cocktails");

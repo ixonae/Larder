@@ -4,7 +4,8 @@ import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { cocktails, cocktailTags } from "../../db/schema/index.ts";
 import { invalid } from "../../errors.ts";
-import { avgRatingSort, isFavourite } from "./feedback-repo.ts";
+import { isFavourite } from "../favourites/repo.ts";
+import { avgRatingSort } from "./feedback-repo.ts";
 import { usesCategories } from "./ingredients-repo.ts";
 
 const { bar_id: _barId, created_by: _createdBy, ...columns } = getTableColumns(cocktails);
@@ -80,7 +81,7 @@ export function listCocktails(
               ),
           ),
         ),
-        favourite === true ? isFavourite(db, barId, userId) : undefined,
+        favourite === true ? isFavourite("cocktail_id", userId) : undefined,
         ...ingredientCategories.map((ids) => usesCategories(db, barId, ids)),
         byRating ? afterRating(after) : afterName(nameKey, cocktails.id, after),
       ),

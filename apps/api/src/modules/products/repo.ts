@@ -3,7 +3,15 @@ import { and, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { SelectedFields } from "drizzle-orm/sqlite-core";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
-import { categories, productPurchases, products } from "../../db/schema/index.ts";
+import {
+  bottleComments,
+  categories,
+  productPurchases,
+  products,
+  tastings,
+} from "../../db/schema/index.ts";
+import { visibleFeedback } from "../../db/visibility.ts";
+import { isFavourite } from "../favourites/repo.ts";
 
 const columns = {
   id: products.id,
@@ -26,6 +34,12 @@ const columns = {
 const nameKey = sql<string>`larder_name_key(${products.name})`;
 
 export type NewProduct = typeof products.$inferInsert;
+
+/** Who is looking: rows carry personal favourites and summaries of visible feedback. */
+export interface Viewer {
+  barId: string;
+  userId: string;
+}
 export type ProductChanges = Partial<
   Pick<
     NewProduct,
@@ -49,6 +63,8 @@ export interface ProductFilter {
   /** Any of these statuses; `none` matches bottles without one. */
   statuses?: (ProductStatus | typeof NO_STATUS)[];
   country?: CountryCode;
+  /** Only the viewer's favourites. */
+  favourite?: boolean;
   after?: NameCursor;
   limit: number;
 }
@@ -71,9 +87,43 @@ const ofPurchases = <T>(aggregate: SQL, filter?: SQL) =>
     filter,
   )})`;
 
-/** Products joined with their category (same bar, enforced by the foreign key) and their stock. */
-const selectProducts = <E extends SelectedFields>(db: Executor, extra: E) =>
+/**
+ * Each bottle's tasting count, average score and last day, in one grouped query: over the bar for
+ * lists, over the one bottle for a single lookup.
+ */
+const tastingStats = (db: Executor, { barId, userId }: Viewer, productId: string | undefined) =>
   db
+    .select({
+      product_id: tastings.product_id,
+      count: sql<number>`count(*)`.as("tasting_count"),
+      // avg ignores NULL: unscored tastings count but are not averaged.
+      avg_score: sql<number | null>`round(avg(${tastings.score}), 1)`.as("tasting_avg_score"),
+      last_tasted_on: sql<string | null>`max(${tastings.tasted_on})`.as("tasting_last_on"),
+    })
+    .from(tastings)
+    .where(
+      and(
+        eq(tastings.bar_id, barId),
+        visibleFeedback(tastings, userId),
+        productId === undefined ? undefined : eq(tastings.product_id, productId),
+      ),
+    )
+    .groupBy(tastings.product_id)
+    .as("tasting_stats");
+
+/**
+ * Products joined with their category (same bar, enforced by the foreign key), their stock and
+ * their tasting summary.
+ */
+const selectProducts = <E extends SelectedFields>(
+  db: Executor,
+  { barId, userId }: Viewer,
+  extra: E,
+  /** Set for a single lookup, so the tasting summary only groups that bottle's tastings. */
+  productId?: string,
+) => {
+  const stats = tastingStats(db, { barId, userId }, productId);
+  return db
     .select({
       ...columns,
       stock: {
@@ -82,25 +132,39 @@ const selectProducts = <E extends SelectedFields>(db: Executor, extra: E) =>
         last_bought_on: ofPurchases<string | null>(sql`max(${productPurchases.bought_on})`),
         last_finished_on: ofPurchases<string | null>(sql`max(${productPurchases.finished_on})`),
       },
+      // Wrapped in sql so a bottle without tastings keeps the object, with zero and nulls.
+      tasting_summary: {
+        count: sql<number>`coalesce(${stats.count}, 0)`,
+        avg_score: sql<number | null>`${stats.avg_score}`,
+        last_tasted_on: sql<string | null>`${stats.last_tasted_on}`,
+      },
+      is_favourite: isFavourite("product_id", userId),
+      comment_count: sql<number>`(SELECT count(*) FROM ${bottleComments} WHERE ${and(
+        eq(bottleComments.bar_id, products.bar_id),
+        eq(bottleComments.product_id, products.id),
+        visibleFeedback(bottleComments, userId),
+      )})`,
       ...extra,
     })
     .from(products)
     .innerJoin(
       categories,
       and(eq(categories.bar_id, products.bar_id), eq(categories.id, products.category_id)),
-    );
+    )
+    .leftJoin(stats, eq(stats.product_id, products.id));
+};
 
 /** One page of the bar's products sorted by name; each row carries its name `key` for the cursor. */
 export function listProducts(
   db: Executor,
-  barId: string,
-  { q, categoryIds, statuses, country, after, limit }: ProductFilter,
+  viewer: Viewer,
+  { q, categoryIds, statuses, country, favourite, after, limit }: ProductFilter,
 ): (Product & { key: string })[] {
   const needle = sql`larder_name_key(${q})`;
-  return selectProducts(db, { key: nameKey })
+  return selectProducts(db, viewer, { key: nameKey })
     .where(
       and(
-        eq(products.bar_id, barId),
+        eq(products.bar_id, viewer.barId),
         q === undefined
           ? undefined
           : or(
@@ -110,6 +174,7 @@ export function listProducts(
         categoryIds === undefined ? undefined : inArray(products.category_id, categoryIds),
         statusFilter(statuses),
         country === undefined ? undefined : eq(products.country, country),
+        favourite === true ? isFavourite("product_id", viewer.userId) : undefined,
         afterName(nameKey, products.id, after),
       ),
     )
@@ -118,8 +183,17 @@ export function listProducts(
     .all();
 }
 
-export function findProduct(db: Executor, barId: string, id: string): Product | undefined {
-  return selectProducts(db, {})
+export function findProduct(db: Executor, viewer: Viewer, id: string): Product | undefined {
+  return selectProducts(db, viewer, {}, id)
+    .where(and(eq(products.bar_id, viewer.barId), eq(products.id, id)))
+    .get();
+}
+
+/** The bottle's id and name, when it is in the bar. */
+export function findProductRef(db: Executor, barId: string, id: string) {
+  return db
+    .select({ id: products.id, name: products.name })
+    .from(products)
     .where(and(eq(products.bar_id, barId), eq(products.id, id)))
     .get();
 }

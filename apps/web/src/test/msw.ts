@@ -26,6 +26,8 @@ export const handlers = [
   http.get("/api/bars/:barId/categories/tree", () => HttpResponse.json({ items: [] })),
   http.get("/api/bars/:barId/pantry-ingredients", () => page([])),
   http.get("/api/bars/:barId/utensils", () => page([])),
+  http.get("/api/bars/:barId/tastings", () => page([])),
+  http.get("/api/bars/:barId/products/:id/tastings", () => page([])),
 ];
 
 export const server = setupServer(...handlers);

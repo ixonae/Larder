@@ -12,19 +12,41 @@ describe("AppShell", () => {
     expect(router.state.location.pathname).toBe("/cocktails");
   });
 
-  it("renders both navigations with every section", async () => {
+  it("renders both navigations, keeping Tastings out of the phone's five tabs", async () => {
     renderWithProviders("/cocktails");
-    for (const name of ["Sidebar", "Bottom navigation"]) {
-      const nav = await screen.findByRole("navigation", { name });
-      const links = within(nav).getAllByRole("link");
-      expect(links.map((l) => l.textContent)).toEqual([
-        "Cocktails",
-        "Bottles",
-        "Pantry",
-        "Utensils",
-        "Categories",
-      ]);
-    }
+    const names = async (name: string) =>
+      within(await screen.findByRole("navigation", { name }))
+        .getAllByRole("link")
+        .map((l) => l.textContent);
+    expect(await names("Sidebar")).toEqual([
+      "Cocktails",
+      "Bottles",
+      "Tastings",
+      "Pantry",
+      "Utensils",
+      "Categories",
+    ]);
+    expect(await names("Bottom navigation")).toEqual([
+      "Cocktails",
+      "Bottles",
+      "Pantry",
+      "Utensils",
+      "Categories",
+    ]);
+  });
+
+  it("keeps the Bottles tab current on phones while Tastings is open", async () => {
+    const { user } = renderWithProviders("/bottles");
+    const tabs = await screen.findByRole("navigation", { name: "Bottles section" });
+    await user.click(within(tabs).getByRole("link", { name: "Tastings" }));
+    expect(await screen.findByRole("heading", { name: "Tastings" })).toBeInTheDocument();
+    const current = (name: string, link: string) =>
+      within(screen.getByRole("navigation", { name })).getByRole("link", { name: link });
+    expect(current("Bottom navigation", "Bottles")).toHaveAttribute("aria-current", "page");
+    expect(current("Sidebar", "Tastings")).toHaveAttribute("aria-current", "page");
+    expect(current("Sidebar", "Bottles")).not.toHaveAttribute("aria-current");
+    // The Tastings page has its own copy of the tabs.
+    expect(current("Bottles section", "Tastings")).toHaveAttribute("aria-current", "page");
   });
 
   it("shows the current bar name from the API", async () => {

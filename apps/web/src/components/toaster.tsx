@@ -8,6 +8,13 @@ export interface ToastItem {
   title: string;
   description?: string;
   variant: "default" | "error";
+  /** A button in the toast, such as "Undo"; the toast closes once it is used. */
+  action?: ToastAction | undefined;
+}
+
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
 }
 
 let items: ToastItem[] = [];
@@ -23,10 +30,11 @@ export function toast(
   {
     description,
     variant = "default",
-  }: { description?: string; variant?: ToastItem["variant"] } = {},
+    action,
+  }: { description?: string; variant?: ToastItem["variant"]; action?: ToastAction } = {},
 ): number {
   const id = nextId++;
-  items = [...items, { id, title, description, variant }];
+  items = [...items, { id, title, description, variant, action }];
   emit();
   return id;
 }
@@ -73,6 +81,17 @@ export function Toaster() {
               </Toast.Description>
             )}
           </div>
+          {t.action && (
+            <Toast.Action altText={t.action.label} asChild>
+              <button
+                type="button"
+                className="shrink-0 rounded-md border px-2 py-1 font-medium text-sm hover:bg-muted"
+                onClick={t.action.onClick}
+              >
+                {t.action.label}
+              </button>
+            </Toast.Action>
+          )}
           <Toast.Close aria-label="Dismiss" className="text-muted-foreground hover:text-foreground">
             <X className="size-4" aria-hidden />
           </Toast.Close>

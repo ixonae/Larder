@@ -19,31 +19,12 @@ import {
 import { toast } from "@/components/toaster.tsx";
 import { api, unwrap } from "./client.ts";
 import { cocktailDetailKey, cocktailListKey, cocktailsKey } from "./cocktails.ts";
+import { isFavouritesList, patchQueries, restoreQueries, type Snapshot } from "./query-cache.ts";
 
 const bar = api.api.bars[":barId"];
 const routes = (): (typeof bar.cocktails)[":id"] => bar.cocktails[":id"];
 
 type QueryKeyPrefix = readonly unknown[];
-/** What a set of cached queries held before an optimistic change, for rolling it back. */
-type Snapshot<T> = [QueryKeyPrefix, T][];
-
-const isCached = <T>(entry: [QueryKeyPrefix, T | undefined]): entry is [QueryKeyPrefix, T] =>
-  entry[1] !== undefined;
-
-/** Applies `update` to every cached query under `prefix`; returns the previous data. */
-function patchQueries<T>(
-  client: QueryClient,
-  prefix: QueryKeyPrefix,
-  update: (data: T) => T,
-): Snapshot<T> {
-  const snapshot: Snapshot<T> = client.getQueriesData<T>({ queryKey: prefix }).filter(isCached);
-  for (const [key, data] of snapshot) client.setQueryData<T>(key, update(data));
-  return snapshot;
-}
-
-function restoreQueries<T>(client: QueryClient, snapshot: Snapshot<T>): void {
-  for (const [key, data] of snapshot) client.setQueryData<T>(key, data);
-}
 
 /**
  * Sets (or, with null, clears) the caller's rating. Your rating shows at once and rolls back with
@@ -253,9 +234,7 @@ export function useSetFavourite(
     onSettled: (): Promise<void> =>
       client.invalidateQueries({
         queryKey: cocktailListKey(barId),
-        predicate: ({ queryKey }): boolean =>
-          // A list key ends with its filters.
-          (queryKey.at(-1) as { favourite?: boolean }).favourite === true,
+        predicate: isFavouritesList,
       }),
   });
 }

@@ -9,6 +9,7 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
+import { products } from "./catalogue.ts";
 import { auditColumns, cocktails } from "./cocktails.ts";
 import { id } from "./columns.ts";
 import { users } from "./tenancy.ts";
@@ -24,23 +25,42 @@ const personalColumns = () => ({
     .references(() => users.id, { onDelete: "cascade" }),
 });
 
-/** A user's personal favourite cocktail; `created_by` is the same user. */
+/**
+ * A user's personal favourite: exactly one bottle or one cocktail. `created_by` is the user, and
+ * only they see it. It goes with the user's account and with the bottle or cocktail.
+ */
 export const favourites = sqliteTable(
   "favourites",
   {
+    id: id(),
     ...personalColumns(),
-    cocktail_id: text("cocktail_id").notNull(),
+    product_id: text("product_id"),
+    cocktail_id: text("cocktail_id"),
   },
   (t) => [
     index("favourites_created_by_idx").on(t.created_by),
 
-    uniqueIndex("favourites_user_cocktail_unique").on(t.bar_id, t.created_by, t.cocktail_id),
+    // Two partial indexes: SQLite treats every NULL as distinct.
+    uniqueIndex("favourites_user_product_unique")
+      .on(t.bar_id, t.created_by, t.product_id)
+      .where(sql`${t.product_id} IS NOT NULL`),
+    uniqueIndex("favourites_user_cocktail_unique")
+      .on(t.bar_id, t.created_by, t.cocktail_id)
+      .where(sql`${t.cocktail_id} IS NOT NULL`),
+    // Child keys of the foreign keys below; they also serve every `bar_id` lookup.
+    index("favourites_bar_id_product_id_idx").on(t.bar_id, t.product_id),
     index("favourites_bar_id_cocktail_id_idx").on(t.bar_id, t.cocktail_id),
+    foreignKey({
+      name: "favourites_product_fk",
+      columns: [t.bar_id, t.product_id],
+      foreignColumns: [products.bar_id, products.id],
+    }).onDelete("cascade"),
     foreignKey({
       name: "favourites_cocktail_fk",
       columns: [t.bar_id, t.cocktail_id],
       foreignColumns: [cocktails.bar_id, cocktails.id],
     }).onDelete("cascade"),
+    check("favourites_target_check", sql`(${t.product_id} IS NULL) <> (${t.cocktail_id} IS NULL)`),
   ],
 );
 

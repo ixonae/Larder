@@ -125,6 +125,9 @@ describe("productSchema", () => {
         last_bought_on: "2026-11-01",
         last_finished_on: null,
       },
+      tasting_summary: { count: 2, avg_score: 4.5, last_tasted_on: "2026-11-02" },
+      is_favourite: false,
+      comment_count: 1,
       created_at: "2026-01-01T00:00:00.000Z",
       updated_at: "2026-01-01T00:00:00.000Z",
     };

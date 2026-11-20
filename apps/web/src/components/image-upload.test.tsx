@@ -33,6 +33,9 @@ const bottle = (id: number, name: string, image_id: string | null): Product => (
   image_id,
   status: "tasted",
   stock: { open_count: 0, total_count: 0, last_bought_on: null, last_finished_on: null },
+  tasting_summary: { count: 0, avg_score: null, last_tasted_on: null },
+  is_favourite: false,
+  comment_count: 0,
   ...timestamps,
 });
 

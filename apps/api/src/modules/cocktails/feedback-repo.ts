@@ -1,8 +1,9 @@
 import { newId, nowIso, type OtherRating, type Rating, type RatingInput } from "@larder/shared";
-import { and, desc, eq, exists, inArray, lt, or, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
-import type { NameCursor } from "../../db/cursor.ts";
-import { cocktails, comments, favourites, ratings, users } from "../../db/schema/index.ts";
+import { beforeKey, type NameCursor, newestFirst } from "../../db/cursor.ts";
+import { comments, ratings, users } from "../../db/schema/index.ts";
+import { visibleFeedback } from "../../db/visibility.ts";
 
 /**
  * The rounded average score of a cocktail's ratings; -1 when unrated.
@@ -185,16 +186,11 @@ export function listComments(
       and(
         eq(comments.bar_id, barId),
         eq(comments.cocktail_id, cocktailId),
-        or(eq(comments.is_private, false), eq(comments.created_by, userId)),
-        after === undefined
-          ? undefined
-          : or(
-              lt(comments.created_at, after.key),
-              and(eq(comments.created_at, after.key), lt(comments.id, after.id)),
-            ),
+        visibleFeedback(comments, userId),
+        beforeKey(comments.created_at, comments.id, after),
       ),
     )
-    .orderBy(desc(comments.created_at), desc(comments.id))
+    .orderBy(...newestFirst(comments.created_at, comments.id))
     .limit(limit)
     .all();
 }
@@ -253,73 +249,5 @@ export function updateComment(
 export function deleteComment(db: Executor, barId: string, id: string): void {
   db.delete(comments)
     .where(and(eq(comments.bar_id, barId), eq(comments.id, id)))
-    .run();
-}
-
-/** Whether the cocktail row in scope is one of `userId`'s favourites. */
-export function isFavourite(db: Executor, barId: string, userId: string): SQL {
-  return exists(
-    db
-      .select({ id: favourites.cocktail_id })
-      .from(favourites)
-      .where(
-        and(
-          eq(favourites.bar_id, barId),
-          eq(favourites.created_by, userId),
-          eq(favourites.cocktail_id, cocktails.id),
-        ),
-      ),
-  );
-}
-
-/** Which of `cocktailIds` are `userId`'s favourites. */
-export function favouriteIds(
-  db: Executor,
-  barId: string,
-  userId: string,
-  cocktailIds: string[],
-): Set<string> {
-  return new Set<string>(
-    db
-      .select({ id: favourites.cocktail_id })
-      .from(favourites)
-      .where(
-        and(
-          eq(favourites.bar_id, barId),
-          eq(favourites.created_by, userId),
-          inArray(favourites.cocktail_id, cocktailIds),
-        ),
-      )
-      .all()
-      .map(({ id }: { id: string }): string => id),
-  );
-}
-
-export function addFavourite(
-  db: Executor,
-  barId: string,
-  userId: string,
-  cocktailId: string,
-): void {
-  db.insert(favourites)
-    .values({ bar_id: barId, created_by: userId, cocktail_id: cocktailId })
-    .onConflictDoNothing()
-    .run();
-}
-
-export function removeFavourite(
-  db: Executor,
-  barId: string,
-  userId: string,
-  cocktailId: string,
-): void {
-  db.delete(favourites)
-    .where(
-      and(
-        eq(favourites.bar_id, barId),
-        eq(favourites.created_by, userId),
-        eq(favourites.cocktail_id, cocktailId),
-      ),
-    )
     .run();
 }

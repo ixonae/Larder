@@ -23,6 +23,7 @@ import {
 import {
   barMembers,
   bars,
+  bottleComments,
   categories,
   cocktails,
   comments,
@@ -32,6 +33,7 @@ import {
   productPurchases,
   ratings,
   sessions,
+  tastings,
   users,
 } from "../../db/schema/index.ts";
 import { ALICE, BOB, cookieFor, createTestApp, errorOf, jsonRequest } from "../../test/app.ts";
@@ -337,6 +339,18 @@ describe("user administration", () => {
     const feedback = `${drinks}/${((await drink.json()) as { id: string }).id}`;
     expect((await t.request(`${feedback}/rating`, "PUT", { score: 4 }, session)).status).toBe(200);
     expect((await t.request(`${feedback}/favourite`, "PUT", undefined, session)).status).toBe(204);
+    const bottles = `/api/bars/${t.bob.barId}/products`;
+    const category = t.db.select().from(categories).where(eq(categories.bar_id, t.bob.barId)).get();
+    const bottle = await t.request(
+      bottles,
+      "POST",
+      { name: "Gin X", category_id: category?.id },
+      t.member,
+    );
+    const bottleId = ((await bottle.json()) as { id: string }).id;
+    expect(
+      (await t.request(`${bottles}/${bottleId}/favourite`, "PUT", undefined, session)).status,
+    ).toBe(204);
     for (const is_private of [false, true]) {
       const res = await t.request(
         `${feedback}/comments`,
@@ -444,6 +458,78 @@ describe("user administration", () => {
       used_by: [{ type: "bar", id: t.alice.barId, name: "Alice's bar" }],
     });
     expect(t.db.select().from(productPurchases).all()).toMatchObject([{ created_by: userId }]);
+  });
+
+  it("refuses to delete the author of a bottle comment and keeps the comment", async () => {
+    const t = setup();
+    const userId = newId();
+    t.db
+      .insert(users)
+      .values({ id: userId, email: account.email, display_name: account.display_name })
+      .run();
+    t.db
+      .insert(barMembers)
+      .values({ bar_id: t.alice.barId, user_id: userId, role: "editor" })
+      .run();
+    const bottles = `/api/bars/${t.alice.barId}/products`;
+    const category = t.db
+      .select()
+      .from(categories)
+      .where(eq(categories.bar_id, t.alice.barId))
+      .get();
+    const created = await t.request(bottles, "POST", { name: "Gin X", category_id: category?.id });
+    const { id } = (await created.json()) as { id: string };
+    const posted = await t.request(
+      `${bottles}/${id}/comments`,
+      "POST",
+      { body: "Lovely" },
+      t.cookie(userId),
+    );
+    expect(posted.status).toBe(201);
+    const result = await t.request(`/api/admin/users/${userId}`, "DELETE", {
+      email: account.email,
+    });
+    expect(result.status).toBe(409);
+    expect(usedBySchema.parse((await errorOf(result)).details)).toEqual({
+      used_by: [{ type: "bar", id: t.alice.barId, name: "Alice's bar" }],
+    });
+    expect(t.db.select().from(bottleComments).all()).toMatchObject([{ created_by: userId }]);
+  });
+
+  it("refuses to delete the author of a tasting and keeps the tasting", async () => {
+    const t = setup();
+    const userId = newId();
+    t.db
+      .insert(users)
+      .values({ id: userId, email: account.email, display_name: account.display_name })
+      .run();
+    t.db
+      .insert(barMembers)
+      .values({ bar_id: t.alice.barId, user_id: userId, role: "editor" })
+      .run();
+    const bottles = `/api/bars/${t.alice.barId}/products`;
+    const category = t.db
+      .select()
+      .from(categories)
+      .where(eq(categories.bar_id, t.alice.barId))
+      .get();
+    const created = await t.request(bottles, "POST", { name: "Gin X", category_id: category?.id });
+    const { id } = (await created.json()) as { id: string };
+    const tasted = await t.request(
+      `${bottles}/${id}/tastings`,
+      "POST",
+      { tasted_on: "2026-11-01", score: 4 },
+      t.cookie(userId),
+    );
+    expect(tasted.status).toBe(201);
+    const result = await t.request(`/api/admin/users/${userId}`, "DELETE", {
+      email: account.email,
+    });
+    expect(result.status).toBe(409);
+    expect(usedBySchema.parse((await errorOf(result)).details)).toEqual({
+      used_by: [{ type: "bar", id: t.alice.barId, name: "Alice's bar" }],
+    });
+    expect(t.db.select().from(tastings).all()).toMatchObject([{ created_by: userId }]);
   });
 });
 

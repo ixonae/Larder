@@ -1,10 +1,11 @@
-import { Link, Outlet, useMatches } from "@tanstack/react-router";
+import { Link, Outlet, useLocation, useMatches } from "@tanstack/react-router";
 import { cn } from "cn";
 import {
   CircleUserRound,
   Citrus,
   FolderTree,
   Martini,
+  NotebookPen,
   ShieldCheck,
   UtensilsCrossed,
   Wine,
@@ -18,9 +19,14 @@ import { ActiveBarProvider, useActiveBar } from "@/features/bars/active-bar.tsx"
 import { ErrorState, LoadingState } from "./states.tsx";
 import { ThemeToggle } from "./theme.tsx";
 
+/**
+ * `sideOnly` entries stay out of the phone's bottom bar, which keeps five tabs: Tastings is reached
+ * from the tabs at the top of Bottles there, and Bottles stays highlighted while it is open.
+ */
 const NAV = [
   { to: "/cocktails", label: "Cocktails", icon: Martini },
   { to: "/bottles", label: "Bottles", icon: Wine },
+  { to: "/tastings", label: "Tastings", icon: NotebookPen, sideOnly: true },
   { to: "/pantry", label: "Pantry", icon: Citrus },
   { to: "/utensils", label: "Utensils", icon: UtensilsCrossed },
   { to: "/categories", label: "Categories", icon: FolderTree },
@@ -36,18 +42,27 @@ function NavLinks({ variant }: { variant: "side" | "bottom" }) {
     variant === "side"
       ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium [&>svg]:text-brand"
       : "text-brand font-medium";
-  return NAV.map(({ to, label, icon: Icon }) => (
-    <Link
-      key={to}
-      to={to}
-      className={base}
-      inactiveProps={{ className: "text-muted-foreground hover:text-foreground" }}
-      activeProps={{ className: active, "aria-current": "page" }}
-    >
-      <Icon className="size-5" aria-hidden />
-      {label}
-    </Link>
-  ));
+  const inTastings = useLocation({ select: (l) => l.pathname.startsWith("/tastings") });
+  const items = NAV.filter((item) => variant === "side" || !("sideOnly" in item));
+  return items.map(({ to, label, icon: Icon }) => {
+    const activeProps = { className: active, "aria-current": "page" } as const;
+    // On a phone, Tastings belongs to the Bottles tab.
+    const forced = variant === "bottom" && to === "/bottles" && inTastings;
+    return (
+      <Link
+        key={to}
+        to={to}
+        className={base}
+        inactiveProps={
+          forced ? activeProps : { className: "text-muted-foreground hover:text-foreground" }
+        }
+        activeProps={activeProps}
+      >
+        <Icon className="size-5" aria-hidden />
+        {label}
+      </Link>
+    );
+  });
 }
 
 function Brand({ className }: { className?: string }) {

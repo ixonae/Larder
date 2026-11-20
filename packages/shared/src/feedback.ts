@@ -4,6 +4,9 @@ import { authorSchema } from "./tenancy.ts";
 
 export const COMMENT_MAX = 2000;
 
+export const visibilitySchema = z.enum(["public", "private"]);
+export type Visibility = z.infer<typeof visibilitySchema>;
+
 const scoreSchema = z.number().int().min(1).max(5);
 
 export const ratingInputSchema = z.object({ score: scoreSchema });
@@ -24,7 +27,8 @@ export const ratingSummarySchema = z.object({
 });
 export type RatingSummary = z.infer<typeof ratingSummarySchema>;
 
-const commentBodySchema = z.string().trim().min(1).max(COMMENT_MAX);
+/** A comment's text: trimmed, 1 to `COMMENT_MAX` characters. */
+export const commentBodySchema = z.string().trim().min(1).max(COMMENT_MAX);
 
 export const commentInputSchema = z.object({
   body: commentBodySchema,

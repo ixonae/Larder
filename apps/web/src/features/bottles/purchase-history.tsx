@@ -134,12 +134,9 @@ export function PurchaseHistory({
   }
 
   return (
-    <section aria-labelledby="purchase-history" className="flex flex-col gap-3">
-      <h2 id="purchase-history" className="text-xl">
-        Stock
-      </h2>
+    <section aria-label="Stock" className="flex flex-col gap-3">
       <dl
-        aria-label="Stock"
+        aria-label="Stock summary"
         className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border bg-card p-4 text-sm shadow-xs sm:grid-cols-[auto_1fr_auto_1fr] sm:p-5"
       >
         {facts

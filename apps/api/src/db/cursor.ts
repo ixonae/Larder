@@ -1,5 +1,5 @@
 import type { Page } from "@larder/shared";
-import { and, asc, eq, gt, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lt, or, type SQL } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { invalid } from "../errors.ts";
 
@@ -23,6 +23,19 @@ export function afterName(
 
 /** The order `afterName` pages through: name key, then id to break ties. */
 export const byName = (nameKey: SQL<string>, id: SQLiteColumn) => [asc(nameKey), asc(id)];
+
+/** Rows after `after` in newest-first (key, id descending) order; no condition on the first page. */
+export function beforeKey(
+  key: SQLiteColumn,
+  id: SQLiteColumn,
+  after: NameCursor | undefined,
+): SQL | undefined {
+  if (after === undefined) return undefined;
+  return or(lt(key, after.key), and(eq(key, after.key), lt(id, after.id)));
+}
+
+/** The order `beforeKey` pages through: newest key first, then id to break ties. */
+export const newestFirst = (key: SQLiteColumn, id: SQLiteColumn) => [desc(key), desc(id)];
 
 export function encodeCursor({ key, id }: NameCursor): string {
   return Buffer.from(JSON.stringify([key, id])).toString("base64url");

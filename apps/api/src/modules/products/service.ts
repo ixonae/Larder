@@ -15,8 +15,15 @@ import type { Ctx } from "../../types.ts";
 import { findCategory, listAllCategories } from "../categories/repo.ts";
 import { requireCategoryRef } from "../categories/service.ts";
 import { listIngredientUsage } from "../cocktails/ingredients-repo.ts";
+import { setFavourite as saveFavourite } from "../favourites/repo.ts";
 import { deleteWithImage } from "../images/service.ts";
+import {
+  deleteHiddenOrphanedTastings,
+  hasTastingUsage,
+  listTastingUsage,
+} from "../tastings/repo.ts";
 import { listPurchaseUsage } from "./purchases-repo.ts";
+import type { Viewer } from "./repo.ts";
 import * as repo from "./repo.ts";
 
 /** `GET /products`: a page sorted by name. A category filter includes its sub-categories. */
@@ -25,19 +32,28 @@ export function listProducts(ctx: Ctx, query: ListProductsQuery): Page<Product> 
     query.category_id === undefined
       ? undefined
       : [...subtreeIds(listAllCategories(ctx.db, ctx.barId), query.category_id)];
-  const rows = repo.listProducts(ctx.db, ctx.barId, {
+  const rows = repo.listProducts(ctx.db, ctx, {
     q: query.q,
     categoryIds,
     statuses: query.status,
     country: query.country,
+    favourite: query.favourite,
     after: query.cursor === undefined ? undefined : decodeCursor(query.cursor),
     limit: query.limit + 1,
   });
   return toPage(rows, query.limit);
 }
 
-export function requireProduct(db: Executor, barId: string, id: string | undefined): Product {
-  const product = repo.findProduct(db, barId, parseId(id, "Product"));
+/** The bottle as shown to `viewer`; use `requireProductRef` when only its existence matters. */
+export function requireProduct(db: Executor, viewer: Viewer, id: string | undefined): Product {
+  const product = repo.findProduct(db, viewer, parseId(id, "Product"));
+  if (!product) throw notFound("Product");
+  return product;
+}
+
+/** The bottle's id and name, when it is in the bar: a cheap check for writes about the bottle. */
+export function requireProductRef(db: Executor, barId: string, id: string | undefined) {
+  const product = repo.findProductRef(db, barId, parseId(id, "Product"));
   if (!product) throw notFound("Product");
   return product;
 }
@@ -52,7 +68,7 @@ const duplicateName = (name: string, vintage: number | null) => () => {
 };
 
 export function getProduct(ctx: Ctx, id: string | undefined): Product {
-  return requireProduct(ctx.db, ctx.barId, id);
+  return requireProduct(ctx.db, ctx, id);
 }
 
 function requireBottleCategory(db: Executor, barId: string, categoryId: string) {
@@ -75,13 +91,13 @@ export function createProduct(ctx: Ctx, input: CreateProduct): Product {
       () => repo.insertProduct(tx, { ...input, bar_id: ctx.barId, created_by: ctx.userId }),
       duplicateName(input.name, input.vintage ?? null),
     );
-    return requireProduct(tx, ctx.barId, id);
+    return requireProduct(tx, ctx, id);
   });
 }
 
 export function updateProduct(ctx: Ctx, id: string | undefined, patch: UpdateProduct): Product {
   return ctx.db.transaction((tx) => {
-    const existing = requireProduct(tx, ctx.barId, id);
+    const existing = requireProduct(tx, ctx, id);
     if (patch.category_id && patch.category_id !== existing.category_id) {
       requireBottleCategory(tx, ctx.barId, patch.category_id);
     }
@@ -91,14 +107,17 @@ export function updateProduct(ctx: Ctx, id: string | undefined, patch: UpdatePro
       () => repo.updateProduct(tx, ctx.barId, existing.id, patch),
       duplicateName(name, vintage),
     );
-    return requireProduct(tx, ctx.barId, existing.id);
+    return requireProduct(tx, ctx, existing.id);
   });
 }
 
-/** Deletes the bottle if no cocktail uses it and it has no purchase records. */
+/**
+ * Deletes the bottle if no cocktail uses it and it has no purchase or tasting records. The owner's
+ * delete also removes private tastings by people who can no longer write in the bar.
+ */
 export async function deleteProduct(ctx: Ctx, id: string | undefined): Promise<void> {
   await deleteWithImage(ctx, (tx) => {
-    const existing = requireProduct(tx, ctx.barId, id);
+    const existing = requireProduct(tx, ctx, id);
     refuseDeleteIfUsed(existing.name, [
       {
         type: "cocktail",
@@ -110,8 +129,27 @@ export async function deleteProduct(ctx: Ctx, id: string | undefined): Promise<v
         label: "purchases",
         rows: listPurchaseUsage(tx, ctx.barId, existing.id),
       },
+      {
+        type: "tasting",
+        label: "tastings",
+        rows: listTastingUsage(tx, ctx.barId, ctx.userId, existing.id),
+      },
     ]);
+    // Hidden tastings by people who can no longer write would lock the bottle for good.
+    if (ctx.role === "owner") deleteHiddenOrphanedTastings(tx, ctx.barId, ctx.userId, existing.id);
+    // Other private tastings still protect the bottle without exposing their IDs or dates.
+    if (hasTastingUsage(tx, ctx.barId, existing.id)) {
+      throw conflict(`"${existing.name}" is still in use`);
+    }
     repo.deleteProduct(tx, ctx.barId, existing.id);
     return existing.image_id;
+  });
+}
+
+/** `PUT`/`DELETE /products/:id/favourite`: personal, so any member may set it. */
+export function setFavourite(ctx: Ctx, id: string | undefined, favourite: boolean): void {
+  ctx.db.transaction((tx) => {
+    const product = requireProductRef(tx, ctx.barId, id);
+    saveFavourite(tx, ctx.barId, ctx.userId, "product_id", product.id, favourite);
   });
 }

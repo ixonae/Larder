@@ -10,14 +10,16 @@ import {
 } from "@larder/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { Plus, Wine } from "lucide-react";
+import { Heart, Plus, Wine } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { z } from "zod";
 import { categoryTreeQuery } from "@/api/categories.ts";
-import { productListQuery } from "@/api/products.ts";
+import { productListQuery, useSetBottleFavourite } from "@/api/products.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { Combobox } from "@/components/combobox.tsx";
 import { CountryPicker } from "@/components/country-picker.tsx";
+import { FavouriteButton } from "@/components/favourite-button.tsx";
+import { Score } from "@/components/score.tsx";
 import { SearchInput } from "@/components/search-input.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Thumbnail } from "@/components/thumbnail.tsx";
@@ -25,7 +27,9 @@ import { toggleChip } from "@/components/toggle-chip.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { bottleCategoryOptions } from "@/features/categories/category-options.tsx";
 import { useDebouncedSearch } from "@/lib/debounced-search.ts";
+import { trueOnlyFlag } from "@/lib/search-params.ts";
 import { statusLabel } from "./bottle-status.tsx";
+import { BottlesTabs } from "./bottles-tabs.tsx";
 import { ProductSheet, type ProductTarget } from "./product-sheet.tsx";
 import { StockAction } from "./stock-action.tsx";
 
@@ -39,6 +43,7 @@ export const bottlesSearchSchema = z.object({
   category: idSchema.optional().catch(undefined),
   status: z.array(z.enum(STATUS_FILTERS)).min(1).optional().catch(undefined),
   country: countrySchema.optional().catch(undefined),
+  favourite: trueOnlyFlag,
 });
 export type BottlesSearch = z.infer<typeof bottlesSearchSchema>;
 
@@ -66,10 +71,14 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
       category_id: search.category,
       status: search.status,
       country: search.country,
+      favourite: search.favourite,
     }),
   );
+  const setFavourite = useSetBottleFavourite(bar.id);
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
-  const filtered = Boolean(search.q || search.category || search.country || search.status);
+  const filtered = Boolean(
+    search.q || search.category || search.country || search.status || search.favourite,
+  );
 
   let content: ReactNode;
   if (list.isPending) {
@@ -101,6 +110,9 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
                   {product.name}
                 </Link>
                 <div className="flex min-w-0 items-center gap-2">
+                  {product.tasting_summary.avg_score !== null && (
+                    <Score value={product.tasting_summary.avg_score} />
+                  )}
                   <p className="truncate text-muted-foreground text-sm">
                     {[
                       product.category_name,
@@ -112,6 +124,11 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
                   </p>
                 </div>
               </div>
+              <FavouriteButton
+                favourite={product.is_favourite}
+                disabled={setFavourite.pendingIds.includes(product.id)}
+                onToggle={(favourite) => setFavourite.mutate({ id: product.id, favourite })}
+              />
               <StockAction
                 barId={bar.id}
                 currency={bar.currency}
@@ -136,6 +153,7 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
 
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-4">
+      <BottlesTabs />
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-3xl">Bottles</h1>
         {canEdit && (
@@ -174,6 +192,16 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
       </div>
       <fieldset className="flex flex-wrap gap-2">
         <legend className="sr-only">Status</legend>
+        <label className={toggleChip({ size: "sm" })}>
+          <input
+            type="checkbox"
+            className="sr-only"
+            checked={search.favourite === true}
+            onChange={(event) => setSearch({ favourite: event.target.checked || undefined })}
+          />
+          <Heart className="size-3.5" aria-hidden />
+          Favourites
+        </label>
         {STATUS_FILTERS.map((status) => {
           const selected: StatusFilter[] = search.status ?? [];
           const checked = selected.includes(status);

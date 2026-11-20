@@ -12,6 +12,7 @@ import type { Executor } from "../../db/client.ts";
 import { decodeCursor, type NameCursor, toPage } from "../../db/cursor.ts";
 import { forbidden, notFound, parseId } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
+import { favouriteIds, setFavourite as saveFavourite } from "../favourites/repo.ts";
 import * as feedback from "./feedback-repo.ts";
 import { requireCocktail } from "./require-cocktail.ts";
 
@@ -28,7 +29,7 @@ export function personalSummaries(
   userId: string,
   ids: string[],
 ): (id: string) => PersonalSummary {
-  const favourites: Set<string> = feedback.favouriteIds(db, barId, userId, ids);
+  const favourites: Set<string> = favouriteIds(db, barId, userId, "cocktail_id", ids);
   const stats: Map<string, feedback.RatingStats> = feedback.ratingStats(db, barId, userId, ids);
   return (id: string): PersonalSummary => {
     const row: feedback.RatingStats | undefined = stats.get(id);
@@ -186,7 +187,6 @@ export function setFavourite(
 ): void {
   db.transaction((tx): void => {
     const cocktailId: string = requireCocktail(tx, barId, id).id;
-    if (favourite) feedback.addFavourite(tx, barId, userId, cocktailId);
-    else feedback.removeFavourite(tx, barId, userId, cocktailId);
+    saveFavourite(tx, barId, userId, "cocktail_id", cocktailId, favourite);
   });
 }

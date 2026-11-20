@@ -17,11 +17,11 @@ import { utensilQuery } from "@/api/utensils.ts";
 import { badge } from "@/components/badge.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { Combobox } from "@/components/combobox.tsx";
+import { FavouriteButton } from "@/components/favourite-button.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { CocktailComments } from "./cocktail-comments.tsx";
 import { CocktailRaters, RatingSummary } from "./cocktail-ratings.tsx";
-import { FavouriteButton } from "./favourite-button.tsx";
 
 const route = getRouteApi("/cocktails/$cocktailId");
 

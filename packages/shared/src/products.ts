@@ -2,7 +2,7 @@ import { z } from "zod";
 import { DESCRIPTION_MAX } from "./categories.ts";
 import { countrySchema } from "./countries.ts";
 import { idSchema } from "./id.ts";
-import { listOf, paginationQuerySchema } from "./pagination.ts";
+import { booleanQuerySchema, listOf, paginationQuerySchema } from "./pagination.ts";
 import { optionalText } from "./text.ts";
 import { isoDateSchema } from "./time.ts";
 
@@ -40,6 +40,15 @@ export const productStockSchema = z.object({
 });
 export type ProductStock = z.infer<typeof productStockSchema>;
 
+/** Summary of tastings visible to the caller. Unscored tastings count but are not averaged. */
+export const tastingSummarySchema = z.object({
+  count: z.number().int().nonnegative(),
+  /** Average of the scored tastings, one decimal; null when none has a score. */
+  avg_score: z.number().nullable(),
+  last_tasted_on: isoDateSchema.nullable(),
+});
+export type TastingSummary = z.infer<typeof tastingSummarySchema>;
+
 /** A real bottle, whether it is in the bar, finished, wanted or only tasted. */
 export const productSchema = z.object({
   id: idSchema,
@@ -61,6 +70,12 @@ export const productSchema = z.object({
   /** `owned` means the bottle is in the bar right now; null when it has no status. */
   status: productStatusSchema.nullable(),
   stock: productStockSchema,
+  /** The bottle's overall rating is `tasting_summary.avg_score`. */
+  tasting_summary: tastingSummarySchema,
+  /** Whether the current user favourited this bottle; favourites are personal. */
+  is_favourite: z.boolean(),
+  /** Bottle comments visible to the caller. */
+  comment_count: z.number().int().nonnegative(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -107,5 +122,7 @@ export const listProductsQuerySchema = paginationQuerySchema.extend({
   status: listOf(z.enum([...PRODUCT_STATUSES, NO_STATUS])).optional(),
   /** Bottles from this country. */
   country: countrySchema.optional(),
+  /** `true` lists only the caller's favourites. */
+  favourite: booleanQuerySchema.optional(),
 });
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;

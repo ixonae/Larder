@@ -23,6 +23,7 @@ import {
   deleteProduct,
   getProduct,
   listProducts,
+  setFavourite,
   updateProduct,
 } from "./service.ts";
 
@@ -45,6 +46,15 @@ export const productRoutes = new Hono<AppEnv>()
   .post("/:id/finish", requireRole("editor"), validate("json", finishProductSchema), (c) =>
     c.json(finishProduct(c.var.ctx, c.req.param("id"), c.req.valid("json"))),
   )
+  // Favourites are personal: viewers may set their own.
+  .put("/:id/favourite", (c) => {
+    setFavourite(c.var.ctx, c.req.param("id"), true);
+    return c.body(null, 204);
+  })
+  .delete("/:id/favourite", (c) => {
+    setFavourite(c.var.ctx, c.req.param("id"), false);
+    return c.body(null, 204);
+  })
   .get("/:id/purchases", (c) => c.json(listPurchases(c.var.ctx, c.req.param("id"))))
   .post("/:id/purchases", requireRole("editor"), validate("json", createPurchaseSchema), (c) =>
     c.json(createPurchases(c.var.ctx, c.req.param("id"), c.req.valid("json")), 201),

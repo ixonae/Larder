@@ -15,14 +15,16 @@ import { SignUpPage } from "@/features/account/sign-up.tsx";
 import { AdminPage } from "@/features/admin/admin-page.tsx";
 import { BarsPage } from "@/features/bars/bars-page.tsx";
 import { InvitePage } from "@/features/bars/invite-page.tsx";
-import { BottleDetailPage } from "@/features/bottles/bottle-detail-page.tsx";
+import { BottleDetailPage, bottleSearchSchema } from "@/features/bottles/bottle-detail-page.tsx";
 import { BottlesPage, bottlesSearchSchema } from "@/features/bottles/bottles-page.tsx";
 import { CategoriesPage } from "@/features/categories/categories-page.tsx";
 import { CocktailDetailPage } from "@/features/cocktails/cocktail-detail-page.tsx";
 import { EditCocktailPage, NewCocktailPage } from "@/features/cocktails/cocktail-editor-page.tsx";
 import { CocktailsPage } from "@/features/cocktails/cocktails-page.tsx";
 import { PantryPage } from "@/features/pantry/pantry-page.tsx";
+import { TastingsPage, tastingsSearchSchema } from "@/features/tastings/tastings-page.tsx";
 import { UtensilsPage } from "@/features/utensils/utensils-page.tsx";
+import { trueOnlyFlag } from "@/lib/search-params.ts";
 
 declare module "@tanstack/react-router" {
   interface StaticDataRouteOption {
@@ -68,12 +70,7 @@ const cocktailsSearchSchema = z.object({
   tag: listOf(idSchema),
   missing: z.number().int().nonnegative().optional().catch(undefined),
   sort: z.enum(COCKTAIL_SORTS).optional().catch(undefined),
-  // Only `true` filters; `false` means the same as leaving it out.
-  favourite: z
-    .boolean()
-    .optional()
-    .catch(undefined)
-    .transform((value: boolean | undefined): true | undefined => value || undefined),
+  favourite: trueOnlyFlag,
 });
 
 export const routeTree = rootRoute.addChildren([
@@ -126,7 +123,14 @@ export const routeTree = rootRoute.addChildren([
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/bottles/$productId",
+    validateSearch: bottleSearchSchema,
     component: BottleDetailPage,
+  }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/tastings",
+    validateSearch: tastingsSearchSchema,
+    component: TastingsPage,
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/pantry", component: PantryPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/categories", component: CategoriesPage }),

@@ -8,12 +8,14 @@ import { Hono } from "hono";
 import { barAccess, requireRole } from "../../middleware/context.ts";
 import { validate } from "../../middleware/validate.ts";
 import type { AppEnv } from "../../types.ts";
+import { bottleCommentRoutes } from "../bottle-comments/routes.ts";
 import { categoryRoutes } from "../categories/routes.ts";
 import { cocktailRoutes, tagRoutes } from "../cocktails/routes.ts";
 import { entityImageRoutes } from "../images/routes.ts";
 import { invite, pendingInvitations, revokeInvitation } from "../invitations/service.ts";
 import { pantryRoutes } from "../pantry/routes.ts";
 import { productRoutes } from "../products/routes.ts";
+import { productTastingRoutes, tastingRoutes } from "../tastings/routes.ts";
 import { utensilRoutes } from "../utensils/routes.ts";
 
 import { barMembers, createOwnedBar, removeBar, updateBar } from "./service.ts";
@@ -54,6 +56,9 @@ export const barRoutes = new Hono<AppEnv>()
   .route("/categories", entityImageRoutes("categories"))
   .route("/products", productRoutes)
   .route("/products", entityImageRoutes("products"))
+  .route("/products", productTastingRoutes)
+  .route("/products", bottleCommentRoutes)
+  .route("/tastings", tastingRoutes)
   .route("/pantry-ingredients", pantryRoutes)
   .route("/pantry-ingredients", entityImageRoutes("pantry-ingredients"))
   .route("/utensils", utensilRoutes)

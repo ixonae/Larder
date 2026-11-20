@@ -3,18 +3,37 @@ import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
+import { z } from "zod";
 import { ApiError } from "@/api/client.ts";
-import { productQuery, useProductMutations } from "@/api/products.ts";
+import { productQuery, useProductMutations, useSetBottleFavourite } from "@/api/products.ts";
+import { badge } from "@/components/badge.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
+import { FavouriteButton } from "@/components/favourite-button.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
+import { BottleTastings } from "@/features/tastings/bottle-tastings.tsx";
+import { BottleComments } from "./bottle-comments.tsx";
 import { ProductSheet, type ProductTarget } from "./product-sheet.tsx";
 import { PurchaseHistory } from "./purchase-history.tsx";
 import { StockAction } from "./stock-action.tsx";
 
 const route = getRouteApi("/bottles/$productId");
+
+/** The bottle page's tabs; the open one lives in the URL so going back returns to it. */
+const BOTTLE_TABS = ["details", "tastings", "stock", "comments"] as const;
+type BottleTab = (typeof BOTTLE_TABS)[number];
+export const bottleSearchSchema = z.object({
+  tab: z.enum(BOTTLE_TABS).optional().catch(undefined),
+});
+
+/** A small count next to a tab label; nothing for zero. */
+const Count = ({ value }: { value: number }) =>
+  value > 0 ? (
+    <span className={badge({ tone: "muted", className: "tabular-nums" })}>{value}</span>
+  ) : null;
 
 export function BottleDetailPage() {
   const { productId } = route.useParams();
@@ -58,7 +77,9 @@ function BottleView({ bar, productId }: Readonly<{ bar: BarSummary; productId: s
 function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Product }>) {
   const canEdit = hasRole(bar.role, "editor");
   const navigate = useNavigate();
+  const tab = route.useSearch({ select: (search) => search.tab ?? "details" });
   const { remove } = useProductMutations(bar.id);
+  const setFavourite = useSetBottleFavourite(bar.id);
   const [target, setTarget] = useState<ProductTarget>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -76,6 +97,11 @@ function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Pr
     <>
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="min-w-0 flex-1 text-3xl">{product.name}</h1>
+        <FavouriteButton
+          favourite={product.is_favourite}
+          disabled={setFavourite.pendingIds.includes(product.id)}
+          onToggle={(favourite) => setFavourite.mutate({ id: product.id, favourite })}
+        />
         <StockAction barId={bar.id} currency={bar.currency} product={product} canEdit={canEdit} />
         {canEdit && (
           <>
@@ -99,27 +125,58 @@ function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Pr
         )}
       </div>
 
-      {product.image_id && (
-        <img
-          src={imageUrl(product.image_id)}
-          alt={product.name}
-          className="max-h-80 w-full rounded-lg object-cover sm:w-auto sm:self-start"
-        />
-      )}
-
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border bg-card p-4 text-sm shadow-xs sm:p-5">
-        {facts
-          .filter(([, value]) => value !== null)
-          .map(([label, value]) => (
-            <div key={label} className="contents">
-              <dt className="text-muted-foreground">{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-      </dl>
-      {product.description && <p className="whitespace-pre-line">{product.description}</p>}
-
-      <PurchaseHistory bar={bar} product={product} canEdit={canEdit} />
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          navigate({
+            to: ".",
+            search: { tab: value === "details" ? undefined : (value as BottleTab) },
+            replace: true,
+          })
+        }
+      >
+        <TabsList aria-label="Bottle sections">
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="tastings">
+            Tastings <Count value={product.tasting_summary.count} />
+          </TabsTrigger>
+          <TabsTrigger value="stock">
+            Stock <Count value={product.stock.open_count} />
+          </TabsTrigger>
+          <TabsTrigger value="comments">
+            Comments <Count value={product.comment_count} />
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="details">
+          {product.image_id && (
+            <img
+              src={imageUrl(product.image_id)}
+              alt={product.name}
+              className="max-h-80 w-full rounded-lg object-cover sm:w-auto sm:self-start"
+            />
+          )}
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border bg-card p-4 text-sm shadow-xs sm:p-5">
+            {facts
+              .filter(([, value]) => value !== null)
+              .map(([label, value]) => (
+                <div key={label} className="contents">
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+          </dl>
+          {product.description && <p className="whitespace-pre-line">{product.description}</p>}
+        </TabsContent>
+        <TabsContent value="tastings">
+          <BottleTastings bar={bar} product={product} canEdit={canEdit} />
+        </TabsContent>
+        <TabsContent value="stock">
+          <PurchaseHistory bar={bar} product={product} canEdit={canEdit} />
+        </TabsContent>
+        <TabsContent value="comments">
+          <BottleComments bar={bar} product={product} canEdit={canEdit} />
+        </TabsContent>
+      </Tabs>
 
       <ProductSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
       <ConfirmDialog

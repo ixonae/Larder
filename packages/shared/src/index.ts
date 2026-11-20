@@ -1,5 +1,6 @@
 export * from "./auth.ts";
 
+export * from "./bottle-comments.ts";
 export * from "./categories.ts";
 export * from "./cocktail-ingredients.ts";
 export * from "./cocktail-math.ts";
@@ -16,6 +17,7 @@ export * from "./pagination.ts";
 export * from "./pantry.ts";
 export * from "./products.ts";
 export * from "./purchases.ts";
+export * from "./tastings.ts";
 export * from "./tenancy.ts";
 export * from "./text.ts";
 export * from "./time.ts";

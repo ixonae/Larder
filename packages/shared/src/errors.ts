@@ -43,6 +43,7 @@ export const USAGE_TYPES = [
   "category",
   "product",
   "purchase",
+  "tasting",
   "pantry_ingredient",
   "cocktail",
   "utensil",

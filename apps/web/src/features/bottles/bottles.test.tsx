@@ -43,6 +43,9 @@ const product = (name: string, cat: Category, extra: Partial<Product> = {}): Pro
   image_id: null,
   status: "tasted",
   stock: { open_count: 0, total_count: 0, last_bought_on: null, last_finished_on: null },
+  tasting_summary: { count: 0, avg_score: null, last_tasted_on: null },
+  is_favourite: false,
+  comment_count: 0,
   ...timestamps,
   ...extra,
 });
@@ -609,8 +612,8 @@ describe("ProductSheet without categories", () => {
 });
 
 describe("BottleDetailPage", () => {
-  async function openDetail(name = "Talisker 10") {
-    const view = renderWithProviders(`/bottles/${byName(name).id}`);
+  async function openDetail(name = "Talisker 10", tab?: string) {
+    const view = renderWithProviders(`/bottles/${byName(name).id}${tab ? `?tab=${tab}` : ""}`);
     await screen.findByRole("heading", { name });
     return view;
   }
@@ -621,6 +624,20 @@ describe("BottleDetailPage", () => {
     expect(await screen.findByRole("heading", { name: "Hendrick's" })).toBeInTheDocument();
     await user.click(screen.getByRole("link", { name: "All bottles" }));
     expect(await screen.findByRole("list", { name: "Bottles" })).toBeInTheDocument();
+  });
+
+  it("switches between tabs, keeping the open one in the URL", async () => {
+    const { user, router } = await openDetail();
+    expect(screen.getByRole("tab", { name: "Details" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("region", { name: "Stock" })).toBeNull();
+    await user.click(screen.getByRole("tab", { name: "Stock" }));
+    expect(await screen.findByRole("region", { name: "Stock" })).toBeInTheDocument();
+    expect(router.state.location.search).toEqual({ tab: "stock" });
+    await user.click(screen.getByRole("tab", { name: "Tastings" }));
+    expect(await screen.findByText("Not tasted yet.")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Details" }));
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
+    expect(screen.getByText("45.8%")).toBeInTheDocument();
   });
 
   it("lists only the facts that are set", async () => {
@@ -657,7 +674,7 @@ describe("BottleDetailPage", () => {
       }),
       purchase(talisker.id, { bought_on: "2026-01-01", price_minor: 4500, currency: "JPY" }),
     ];
-    await openDetail();
+    await openDetail("Talisker 10", "stock");
     expect(await screen.findByText("¥9,000 + $19.99")).toBeInTheDocument();
     const stock = screen
       .getAllByRole("term")
@@ -689,7 +706,7 @@ describe("BottleDetailPage", () => {
     purchases = [
       purchase(talisker.id, { finished_on: "2026-11-05", price_minor: 2500, currency: "USD" }),
     ];
-    const { user } = await openDetail();
+    const { user } = await openDetail("Talisker 10", "stock");
     const history = await screen.findByRole("list", { name: "Purchases" });
     await user.click(within(history).getByRole("button", { name: "Edit purchase of Nov 1, 2026" }));
     const sheet = await screen.findByRole("dialog", { name: "Edit purchase" });
@@ -737,7 +754,7 @@ describe("BottleDetailPage", () => {
       }),
       http.post(`${url}/:id/finish`, () => failure("INTERNAL", 500, "Down")),
     );
-    const { user } = await openDetail();
+    const { user } = await openDetail("Talisker 10", "stock");
     const history = await screen.findByRole("list", { name: "Purchases" });
     await user.click(within(history).getByRole("button", { name: "Edit purchase of Nov 1, 2026" }));
     const sheet = await screen.findByRole("dialog", { name: "Edit purchase" });
@@ -788,7 +805,9 @@ describe("BottleDetailPage", () => {
         fail ? failure("INTERNAL", 500, "Down") : HttpResponse.json({ items: [] }),
       ),
     );
-    const { user, queryClient } = renderWithProviders(`/bottles/${byName("Talisker 10").id}`);
+    const { user, queryClient } = renderWithProviders(
+      `/bottles/${byName("Talisker 10").id}?tab=stock`,
+    );
     queryClient.setDefaultOptions({ queries: { retry: false } });
     const history = await screen.findByRole("region", { name: "Stock" });
     expect(await within(history).findByRole("alert")).toHaveTextContent("Down");
@@ -870,7 +889,7 @@ describe("BottleDetailPage", () => {
   it("hides edit actions from viewers", async () => {
     asViewer();
     purchases = [purchase(byName("Talisker 10").id)];
-    await openDetail();
+    await openDetail("Talisker 10", "stock");
     expect(screen.getByText("Owned")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Status of/ })).not.toBeInTheDocument();
     expect(await screen.findByRole("list", { name: "Purchases" })).toBeInTheDocument();

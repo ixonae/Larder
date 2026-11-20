@@ -11,12 +11,12 @@ import type { Executor } from "../../db/client.ts";
 import { invalid } from "../../errors.ts";
 import { findCategory } from "../categories/repo.ts";
 import { findPantryIngredient } from "../pantry/repo.ts";
-import { findProduct } from "../products/repo.ts";
+import { findProductRef } from "../products/repo.ts";
 import * as repo from "./ingredients-repo.ts";
 
 function findSource(db: Executor, barId: string, source: IngredientSource) {
   if (source.category_id != null) return findCategory(db, barId, source.category_id);
-  if (source.product_id != null) return findProduct(db, barId, source.product_id);
+  if (source.product_id != null) return findProductRef(db, barId, source.product_id);
   return findPantryIngredient(db, barId, source.pantry_ingredient_id);
 }
 

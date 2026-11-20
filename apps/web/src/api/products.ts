@@ -16,9 +16,12 @@ import {
   keepPreviousData,
   queryOptions,
   useMutation,
+  useMutationState,
   useQueryClient,
 } from "@tanstack/react-query";
+import { toast } from "@/components/toaster.tsx";
 import { api, unwrap } from "./client.ts";
+import { isFavouritesList } from "./query-cache.ts";
 import { stockMeta } from "./stock.ts";
 
 const bar = api.api.bars[":barId"];
@@ -31,6 +34,8 @@ export interface ProductFilters {
   /** Any of these statuses; `none` for bottles without one. */
   status?: (ProductStatus | typeof NO_STATUS)[];
   country?: CountryCode;
+  /** Only the viewer's favourites. */
+  favourite?: true | undefined;
   limit?: number;
 }
 
@@ -44,6 +49,7 @@ export const productListQuery = (barId: string, filters: ProductFilters) =>
         ...(filters.q && { q: filters.q }),
         ...(filters.category_id && { category_id: filters.category_id }),
         ...(filters.country && { country: filters.country }),
+        ...(filters.favourite && { favourite: "true" }),
         ...(filters.status?.length && { status: filters.status.join(",") }),
         ...(pageParam && { cursor: pageParam }),
       };
@@ -105,12 +111,12 @@ export const purchasesQuery = (barId: string, productId: string) =>
 type ListData = InfiniteData<Page<Product>, string>;
 
 /**
- * Cache helpers shared by the stock mutations. A returned bottle is written straight into the
+ * Cache helpers for bottle mutations. Changes are written straight into the
  * cached detail and lists, so the shown row changes at once without refetching every loaded page
  * (a filtered list keeps the row until it refetches). Cocktails refresh through `stockMeta`, since
  * stock drives what can be made.
  */
-function useStockCache(barId: string) {
+function useProductCache(barId: string) {
   const queryClient = useQueryClient();
   const write = (id: string, change: (product: Product) => Product) => {
     queryClient.setQueryData<Product>(productQuery(barId, id).queryKey, (p) => p && change(p));
@@ -141,7 +147,7 @@ const product = (barId: string, id: string) => ({ param: { barId, id } });
 
 /** "Bought": records `count` bottles; buying always puts the bottle in the bar. */
 export function useBuyBottle(barId: string) {
-  const { write, refresh } = useStockCache(barId);
+  const { write, refresh } = useProductCache(barId);
   return useMutation({
     meta: stockMeta(barId),
     mutationFn: async ({ id, json }: { id: string; json: CreatePurchase }) =>
@@ -155,7 +161,7 @@ export function useBuyBottle(barId: string) {
 
 /** "Ran out": closes the oldest open bottle. */
 export function useFinishBottle(barId: string) {
-  const { write, settled } = useStockCache(barId);
+  const { write, settled } = useProductCache(barId);
   return useMutation({
     meta: stockMeta(barId),
     mutationFn: async ({ id, finished_on }: { id: string; finished_on: string }) =>
@@ -171,7 +177,7 @@ export function useFinishBottle(barId: string) {
 
 /** Sets the status by hand; purchases are left untouched. */
 export function useSetBottleStatus(barId: string) {
-  const { write, settled } = useStockCache(barId);
+  const { write, settled } = useProductCache(barId);
   return useMutation({
     meta: stockMeta(barId),
     mutationFn: async ({ id, status }: { id: string; status: ProductStatus | null }) =>
@@ -185,7 +191,7 @@ export function useSetBottleStatus(barId: string) {
 
 /** Editing and removing a purchase, which can reopen or finish the bottle. */
 export function usePurchaseMutations(barId: string) {
-  const { refresh } = useStockCache(barId);
+  const { refresh } = useProductCache(barId);
   const purchase = (id: string, purchaseId: string) => ({ param: { barId, id, purchaseId } });
   return {
     update: useMutation({
@@ -208,4 +214,47 @@ export function usePurchaseMutations(barId: string) {
       onSuccess: refresh,
     }),
   };
+}
+
+type BottleFavouriteChange = { id: string; favourite: boolean };
+
+/**
+ * Adds or removes a bottle from the viewer's favourites. The heart changes at once in the detail
+ * and the lists, and rolls back with a toast if the request fails.
+ */
+export function useSetBottleFavourite(barId: string) {
+  const queryClient = useQueryClient();
+  const { write } = useProductCache(barId);
+  const listKey = [...productsKey(barId), "list"];
+  const mutationKey = [...productsKey(barId), "favourite"];
+  const pendingIds = useMutationState({
+    filters: { mutationKey, status: "pending" },
+    select: ({ state }) => (state.variables as BottleFavouriteChange).id,
+  });
+  const mark = (id: string, favourite: boolean) =>
+    write(id, (bottle) => ({ ...bottle, is_favourite: favourite }));
+  const { mutate } = useMutation({
+    mutationKey,
+    mutationFn: async ({ id, favourite }: BottleFavouriteChange) =>
+      favourite
+        ? unwrap(await bar.products[":id"].favourite.$put(product(barId, id)))
+        : unwrap(await bar.products[":id"].favourite.$delete(product(barId, id))),
+    onMutate: async ({ id, favourite }) => {
+      const detailKey = productQuery(barId, id).queryKey;
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: detailKey }),
+        queryClient.cancelQueries({ queryKey: listKey }),
+      ]);
+      mark(id, favourite);
+    },
+    onSuccess: (_, { id, favourite }) => mark(id, favourite),
+    onError: (error, { id, favourite }) => {
+      mark(id, !favourite);
+      toast("Could not update your favourites", { description: error.message, variant: "error" });
+    },
+    // The optimistic change is already right; only favourites-only lists may differ.
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: listKey, predicate: isFavouritesList }),
+  });
+  return { mutate, pendingIds };
 }
