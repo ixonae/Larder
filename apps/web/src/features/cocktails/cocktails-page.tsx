@@ -241,7 +241,7 @@ function CocktailCard({ cocktail }: { cocktail: Cocktail }) {
       <Thumbnail
         imageId={cocktail.image_id}
         icon={Martini}
-        className="aspect-[5/2] h-auto w-full rounded-none"
+        className="aspect-[5/2] h-auto w-full rounded-none object-contain"
       />
       <div className="flex flex-1 flex-col gap-1.5 p-4">
         <div className="flex items-start justify-between gap-3">

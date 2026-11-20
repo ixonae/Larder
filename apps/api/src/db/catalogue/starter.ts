@@ -50,12 +50,12 @@ const rootCategories = [
   ["Wine", "wine"],
 ] as const satisfies readonly (readonly [string, CategoryKind])[];
 
-function readIcon(directory: string, slug: string) {
+function readIcon(directory: string, slug: string, side = 512) {
   return {
     full: readFileSync(new URL(`./${directory}/${slug}.webp`, import.meta.url)),
     thumb: readFileSync(new URL(`./${directory}/thumbnails/${slug}.webp`, import.meta.url)),
-    width: 512,
-    height: 512,
+    width: side,
+    height: side,
   };
 }
 
@@ -138,10 +138,19 @@ const categoryPictures = starterCategoryPictures(
   [...categories, ...sources].map(({ path }) => path),
   readCompactIcon,
 );
+const cocktailPictures = lines("./cocktail-art.txt")
+  .slice(1)
+  .flatMap((line) => {
+    const [path, , , recipeIds] = line.split("|") as [string, string, string, string];
+    const picture = readIcon("cocktail-icons", path.slice("cocktail-icons/".length), 768);
+    return recipeIds.split(" ").map((id) => [`cocktail:${id}`, picture] as const);
+  });
+
 const cataloguePictures = new Map([
   ...utensilPictures,
   ...cataloguePantryPictures,
   ...categoryPictures,
+  ...cocktailPictures,
 ]);
 
 const catalogue: Catalogue = {

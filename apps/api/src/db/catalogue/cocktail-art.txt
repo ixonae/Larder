@@ -1,0 +1,91 @@
+# Artwork path | Glass | Ice | Starter recipe IDs sharing the illustration
+cocktail-icons/coupe-pale-twist|Coupe|none|corpse-reviver-2 vesper
+cocktail-icons/coupe-citrus|Coupe|none|daiquiri hemingway-special illegal white-lady
+cocktail-icons/coupe-lime-wheel|Coupe|none|gimlet kamikaze
+cocktail-icons/coupe-gold-clean|Coupe|none|angel-face between-the-sheets lemon-drop-martini sidecar spicy-fifty
+cocktail-icons/coupe-gold|Coupe|none|bees-knees brown-derby
+cocktail-icons/brandy-crusta|Coupe|none|brandy-crusta
+cocktail-icons/old-cuban|Coupe|none|old-cuban
+cocktail-icons/coupe-orange|Coupe|none|monkey-gland naked-and-famous paper-plane paradise
+cocktail-icons/coupe-red-twist|Coupe|none|boulevardier cardinale hanky-panky martinez remember-the-maine vieux-carre old-pal
+cocktail-icons/manhattan|Coupe|none|manhattan rob-roy
+cocktail-icons/trinidad-sour|Coupe|none|trinidad-sour
+cocktail-icons/cosmopolitan|Coupe|none|cosmopolitan
+cocktail-icons/clover-club|Coupe|none|clover-club
+cocktail-icons/coupe-pink-foam|Coupe|none|french-martini mary-pickford
+cocktail-icons/aviation|Coupe|none|aviation
+cocktail-icons/coupe-green|Coupe|none|gin-basil-smash last-word
+cocktail-icons/grasshopper|Coupe|none|grasshopper
+cocktail-icons/missionarys-downfall|Coupe|none|missionarys-downfall
+cocktail-icons/south-side|Coupe|none|south-side
+cocktail-icons/espresso-martini|Coupe|none|espresso-martini
+cocktail-icons/coupe-cream|Coupe|none|alexander porto-flip
+cocktail-icons/margarita|Coupe|none|margarita
+cocktail-icons/passion-fruit-martini-with-shot|Coupe|none|porn-star-martini
+cocktail-icons/old-fashioned|Rocks glass|cubes,large_cube|french-connection rusty-nail godfather godmother rum-old-fashioned
+cocktail-icons/old-fashioned-cherry|Rocks glass|cubes|old-fashioned
+cocktail-icons/rocks-up-amber|Rocks glass|none|planters-punch sazerac
+cocktail-icons/negroni|Rocks glass|cubes|americano negroni rabo-de-galo
+cocktail-icons/rocks-sour-cherry|Rocks glass|cubes|casino amaretto-sour
+cocktail-icons/penicillin|Rocks glass|cubes|penicillin
+cocktail-icons/ve-n-to|Rocks glass|cubes|ve-n-to
+cocktail-icons/gold-rush|Rocks glass|large_cube|gold-rush
+cocktail-icons/whiskey-sour|Cobbler glass|none|whiskey-sour
+cocktail-icons/rocks-margarita|Rocks glass|cubes|grand-margarita
+cocktail-icons/tommys-margarita|Rocks glass|cubes|tommys-margarita
+cocktail-icons/black-russian|Rocks glass|cubes|black-russian
+cocktail-icons/rocks-dark|Double rocks glass|cubes|fernandito
+cocktail-icons/white-russian|Rocks glass|cubes|white-russian
+cocktail-icons/bloody-mary-up|Rocks glass|none|bloody-mary
+cocktail-icons/bramble|Rocks glass|crushed|bramble
+cocktail-icons/rocks-layered|Rocks glass|cubes|new-york-sour
+cocktail-icons/gin-fizz|Highball glass|none|gin-fizz
+cocktail-icons/collins|Highball glass|cubes|john-collins tom-collins
+cocktail-icons/highball-clear|Highball glass|cubes|gin-and-tonic gin-rickey vodka-soda ranch-water
+cocktail-icons/highball-mint|Highball glass|crushed|chartreuse-swizzle
+cocktail-icons/mojito|Highball glass|cubes|mojito
+cocktail-icons/suffering-bastard|Highball glass|cubes|suffering-bastard
+cocktail-icons/highball-cream|Highball glass|none|ramos-fizz
+cocktail-icons/dark-n-stormy|Highball glass|cubes|dark-n-stormy
+cocktail-icons/horses-neck|Highball glass|cubes|horses-neck whisky-highball
+cocktail-icons/long-island-iced-tea|Highball glass|cubes|long-island-iced-tea
+cocktail-icons/zombie|Highball glass|crushed|zombie
+cocktail-icons/highball-amber|Highball glass|cubes|chilcano
+cocktail-icons/pimms-cup|Highball glass|cubes|pimms-cup
+cocktail-icons/highball-cola|Highball glass|cubes|cuba-libre whiskey-and-cola
+cocktail-icons/roy-rogers|Highball glass|cubes|roy-rogers
+cocktail-icons/highball-orange|Highball glass|cubes|garibaldi screwdriver
+cocktail-icons/tequila-sunrise|Highball glass|cubes|tequila-sunrise
+cocktail-icons/sex-on-the-beach|Highball glass|cubes|sex-on-the-beach
+cocktail-icons/highball-pink|Highball glass|cubes|paloma greyhound
+cocktail-icons/salty-dog|Highball glass|cubes|salty-dog
+cocktail-icons/russian-spring-punch|Highball glass|cubes|russian-spring-punch
+cocktail-icons/highball-cherry|Highball glass|cubes|sea-breeze shirley-temple
+cocktail-icons/highball-red|Highball glass|cubes|cape-codder
+cocktail-icons/highball-blue|Highball glass|cubes|blue-lagoon
+cocktail-icons/champagne-orange|Champagne flute|none|bellini mimosa
+cocktail-icons/champagne-cocktail|Champagne flute|none|champagne-cocktail
+cocktail-icons/sparkling-wine|Champagne flute|none|french-75
+cocktail-icons/martini-clear|Martini glass|none|dry-martini vodka-martini
+cocktail-icons/tuxedo|Martini glass|none|tuxedo
+cocktail-icons/dirty-martini|Martini glass|none|dirty-martini
+cocktail-icons/gibson|Martini glass|none|gibson
+cocktail-icons/stinger|Martini glass|none|stinger
+cocktail-icons/martini-amber|Martini glass|none|tipperary
+cocktail-icons/caipirinha|Double rocks glass|crushed|caipirinha caipiroska
+cocktail-icons/mai-tai|Double rocks glass|crushed|mai-tai
+cocktail-icons/jungle-bird|Rocks glass|cubes|jungle-bird
+cocktail-icons/canchanchara|Terracotta cup|crushed|canchanchara
+cocktail-icons/footed-passion-fruit|Footed copo glass|crushed|dons-special-daiquiri
+cocktail-icons/three-dots-and-a-dash|Footed copo glass|crushed|three-dots-and-a-dash
+cocktail-icons/havana-tiki|Tiki mug|crushed|havana-tiki
+cocktail-icons/irish-coffee|Irish coffee glass|none|irish-coffee
+cocktail-icons/rose-wine|Wine glass|none|kir
+cocktail-icons/spritz|Wine glass|cubes|spritz negroni-sbagliato
+cocktail-icons/mint-julep|Julep cup|crushed|mint-julep
+cocktail-icons/sherry-cobbler|Julep cup|crushed|sherry-cobbler
+cocktail-icons/moscow-mule|Mule mug|cubes|moscow-mule
+cocktail-icons/pina-colada|Hurricane glass|crushed|pina-colada
+cocktail-icons/singapore-sling-up|Hurricane glass|none|singapore-sling
+cocktail-icons/pisco-punch|Goblet|none|pisco-punch
+cocktail-icons/pisco-sour|Goblet|none|pisco-sour

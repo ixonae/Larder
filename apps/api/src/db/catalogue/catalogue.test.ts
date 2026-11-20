@@ -176,6 +176,93 @@ it("gives every starter pantry ingredient a compact picture on new bars", async 
   }
 });
 
+it("seeds high-resolution cocktail illustrations with lightweight thumbnails", async () => {
+  const { app, db } = createTestApp();
+  const response = await app.request(
+    "/api/bars",
+    jsonRequest("POST", { name: "Illustrated bar", seed_data: true }),
+  );
+  expect(response.status).toBe(201);
+  const { id } = barSummarySchema.parse(await response.json());
+  const recipes = db.select().from(cocktails).where(eq(cocktails.bar_id, id)).all();
+  expect(recipes).toHaveLength(134);
+  expect(recipes.every(({ image_id }) => image_id !== null)).toBe(true);
+
+  const folder = new URL("./cocktail-icons/", import.meta.url);
+  const thumbnailFolder = new URL("thumbnails/", folder);
+  const thumbnails = (await readdir(thumbnailFolder)).sort();
+  const files = (await readdir(folder)).filter((name) => name.endsWith(".webp")).sort();
+  expect(thumbnails).toEqual(files);
+  const manifest = await readFile(new URL("./cocktail-art.txt", import.meta.url), "utf8");
+  const groups = manifest
+    .trim()
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => line.split("|") as [string, string, string, string]);
+  expect(files.map((file) => `cocktail-icons/${file}`)).toEqual(
+    groups.map(([path]) => `${path}.webp`).sort(),
+  );
+  const recipeIds = groups.flatMap(([, , , group]) => group.split(" "));
+  expect(recipeIds).toHaveLength(recipes.length);
+  expect(new Set(recipeIds).size).toBe(recipes.length);
+
+  const starterRecipes = new Map<string, { glass: string; ice: string; name: string }>();
+  for (const filename of ["classic-recipes.jsonl", "basic-recipes.jsonl"]) {
+    const content = await readFile(new URL(filename, import.meta.url), "utf8");
+    for (const line of content.trim().split(/\r?\n/)) {
+      const recipe = JSON.parse(line);
+      starterRecipes.set(recipe.id, recipe);
+    }
+  }
+  const cocktailsByName = new Map(recipes.map((recipe) => [recipe.name, recipe]));
+  const imageIds = new Set<string>();
+  let fullSize = 0;
+  for (const [path, glass, ice, group] of groups) {
+    const groupIds = new Set(
+      group.split(" ").map((recipeId) => {
+        const recipe = starterRecipes.get(recipeId);
+        expect(recipe?.glass, `${path} → ${recipeId}`).toBe(glass);
+        expect(ice.split(","), `${path} → ${recipeId}`).toContain(recipe?.ice);
+        return cocktailsByName.get(recipe?.name ?? "")?.image_id;
+      }),
+    );
+    expect(groupIds.size, path).toBe(1);
+    const [imageId] = groupIds;
+    expect(imageId, path).toEqual(expect.any(String));
+    imageIds.add(imageId as string);
+    const full = await app.request(`/api/images/${imageId}`);
+    const thumb = await app.request(`/api/images/${imageId}/thumb`);
+    expect(full.status).toBe(200);
+    expect(thumb.status).toBe(200);
+    const fullBytes = Buffer.from(await full.arrayBuffer());
+    const thumbBytes = Buffer.from(await thumb.arrayBuffer());
+    expect(fullBytes).toEqual(await readFile(new URL(`./${path}.webp`, import.meta.url)));
+    expect(thumbBytes).toEqual(
+      await readFile(new URL(`${path.slice("cocktail-icons/".length)}.webp`, thumbnailFolder)),
+    );
+    expect(thumbBytes.byteLength).toBeLessThanOrEqual(16_000);
+    fullSize += fullBytes.byteLength;
+    expect(await sharp(fullBytes).metadata()).toMatchObject({
+      format: "webp",
+      hasAlpha: true,
+      width: 768,
+      height: 768,
+    });
+    expect(await sharp(thumbBytes).metadata()).toMatchObject({
+      format: "webp",
+      hasAlpha: true,
+      width: 384,
+      height: 384,
+    });
+  }
+
+  expect(fullSize).toBeLessThanOrEqual(5_500_000);
+  expect(imageIds.size).toBe(groups.length);
+  const imageFor = (name: string) => cocktailsByName.get(name)?.image_id;
+  expect(imageFor("Daiquiri")).toBe(imageFor("White Lady"));
+  expect(imageFor("Espresso Martini")).not.toBe(imageFor("Daiquiri"));
+});
+
 it("offers bottled alternatives for every fresh juice line in the starter catalogue", async () => {
   const { app, db, storage, alice } = createTestApp();
   await seedStarterCatalogue(db, storage, alice.barId);
@@ -508,6 +595,7 @@ it("imports preparation tools and numbered actions without default tags or sourc
   await seedStarterCatalogue(db, storage, alice.barId);
   const imported = db.select().from(cocktails).where(eq(cocktails.bar_id, alice.barId)).all();
   expect(imported).toHaveLength(134);
+  expect(imported.every(({ image_id }) => image_id !== null)).toBe(true);
   expect(imported.every(({ source }) => source === null)).toBe(true);
   expect(db.select().from(tags).all()).toEqual([]);
   expect(db.select().from(cocktailTags).all()).toEqual([]);
