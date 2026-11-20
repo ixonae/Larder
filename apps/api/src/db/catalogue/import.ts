@@ -4,25 +4,29 @@ import {
   createCocktailSchema,
   createPantryIngredientSchema,
   createProductSchema,
+  createUtensilSchema,
   type ImageEntity,
   type IngredientSource,
   isBottleCategory,
   isPantryCategoryKind,
   nameKey,
+  type UtensilKind,
   unitSchema,
 } from "@larder/shared";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { insertCategory, listAllCategories } from "../../modules/categories/repo.ts";
 import { insertIngredients } from "../../modules/cocktails/ingredients.ts";
-import { insertSteps } from "../../modules/cocktails/recipe-repo.ts";
+import { insertSteps, insertTools } from "../../modules/cocktails/recipe-repo.ts";
 import { insertCocktail } from "../../modules/cocktails/repo.ts";
 import { findOwnerImage, insertImage, setOwnerImage } from "../../modules/images/repo.ts";
-import { removeImageFiles, stageImage } from "../../modules/images/service.ts";
+import { removeImageFiles, stageImage, stagePreparedImage } from "../../modules/images/service.ts";
 import { insertPantryIngredient } from "../../modules/pantry/repo.ts";
 import { insertProduct } from "../../modules/products/repo.ts";
 import { insertUtensil } from "../../modules/utensils/repo.ts";
+import type { ProcessedImage } from "../../storage/process.ts";
 import type { ImageStorage } from "../../storage/storage.ts";
+import type { Ctx } from "../../types.ts";
 import type { Db, Tx } from "../client.ts";
 import {
   barDataMigrations,
@@ -56,6 +60,7 @@ export const catalogueRecipeSchema = createCocktailSchema
   .extend({
     id: z.string(),
     glass: z.string().min(1),
+    tools: createUtensilSchema.shape.name.array().optional(),
     steps: z.array(z.string().min(1)).min(1),
     ingredients: z
       .array(
@@ -82,11 +87,13 @@ export interface Catalogue {
   categories: CatalogueCategory[];
   sources: z.infer<typeof catalogueSourceSchema>[];
   recipes: z.infer<typeof catalogueRecipeSchema>[];
+  glassware?: readonly string[];
+  tools?: readonly string[];
   /**
-   * Image bytes by target key. Use categoryPictureKey for categories.
-   * Other examples are "product:Campari", "glass:Coupe" and "cocktail:negroni".
+   * Image bytes or prepared WebP pairs by target key. Use categoryPictureKey for categories.
+   * Other examples are "product:Campari", "glass:Coupe", "tool:Shaker" and "cocktail:negroni".
    */
-  pictures?: ReadonlyMap<string, Uint8Array>;
+  pictures?: ReadonlyMap<string, Uint8Array | ProcessedImage>;
 }
 
 export function categoryPictureKey(path: readonly string[]): string {
@@ -99,6 +106,7 @@ const scopedCategoryKey = (parentId: string | null, name: string) =>
 const importedCocktailSchema = createCocktailSchema.omit({ tags: true }).required({
   ingredients: true,
   steps: true,
+  tool_ids: true,
 });
 
 export const catalogueRecord = (barId: string, id: string) =>
@@ -229,7 +237,7 @@ function insertCatalogue(
     }
   }
 
-  const glassware = new Map(
+  const barUtensils = new Map(
     tx
       .select()
       .from(utensils)
@@ -237,6 +245,24 @@ function insertCatalogue(
       .all()
       .map(({ id, name, kind }) => [nameKey(name), { id, kind }]),
   );
+  function ensureUtensil(name: string, kind: UtensilKind) {
+    const slot = availableName(
+      name,
+      kind,
+      (candidate) => barUtensils.get(nameKey(candidate)),
+      (row) => row.kind,
+    );
+    const id = slot.existing?.id ?? insertUtensil(tx, { ...audit, kind, name: slot.name });
+    barUtensils.set(nameKey(slot.name), { id, kind });
+    trackImage(`${kind}:${name}`, "utensils", id);
+    return id;
+  }
+
+  for (const name of catalogue.glassware ?? []) ensureUtensil(name, "glass");
+  const toolIds = new Map(
+    (catalogue.tools ?? []).map((name) => [nameKey(name), ensureUtensil(name, "tool")]),
+  );
+
   const existing = new Map(
     tx
       .select({ name: cocktails.name, id: cocktails.id })
@@ -247,21 +273,7 @@ function insertCatalogue(
   );
   for (const recipe of catalogue.recipes) {
     const key = nameKey(recipe.name);
-    const slot = availableName(
-      recipe.glass,
-      "glass",
-      (name) => glassware.get(nameKey(name)),
-      (row) => row.kind,
-    );
-    const glass_id =
-      slot.existing?.id ??
-      insertUtensil(tx, {
-        ...audit,
-        kind: "glass",
-        name: slot.name,
-      });
-    glassware.set(nameKey(slot.name), { id: glass_id, kind: "glass" });
-    trackImage(`glass:${recipe.glass}`, "utensils", glass_id);
+    const glass_id = ensureUtensil(recipe.glass, "glass");
     const existingId = existing.get(key);
     if (existingId) {
       trackImage(`cocktail:${recipe.id}`, "cocktails", existingId);
@@ -270,6 +282,7 @@ function insertCatalogue(
     const input = importedCocktailSchema.parse({
       ...recipe,
       glass_id,
+      tool_ids: (recipe.tools ?? []).map((name) => required(toolIds, nameKey(name))),
       steps: recipe.steps.map((value) => ({ text: value })),
       ingredients: recipe.ingredients.map(({ ref, alternatives, ...quantity }) => ({
         ...quantity,
@@ -277,13 +290,15 @@ function insertCatalogue(
         alternatives: alternatives?.map(({ ref, note }) => ({ ...required(sources, ref), note })),
       })),
     });
-    const { ingredients, steps, ...cocktail } = input;
+    const { ingredients, steps, tool_ids, ...cocktail } = input;
     const { id } = insertCocktail(tx, {
       ...audit,
       ...cocktail,
     });
     insertIngredients(tx, barId, userId, id, ingredients);
-    insertSteps(tx, { ...audit, cocktail_id: id }, steps);
+    const recipeOwner = { ...audit, cocktail_id: id };
+    insertSteps(tx, recipeOwner, steps);
+    insertTools(tx, recipeOwner, tool_ids);
     existing.set(key, id);
     trackImage(`cocktail:${recipe.id}`, "cocktails", id);
   }
@@ -312,6 +327,32 @@ export function applyCatalogue(
   return attached;
 }
 
+/** Stage files before the database writes and clean up any files the transaction did not attach. */
+export async function withCataloguePictures(
+  ctx: Pick<Ctx, "barId" | "userId" | "storage">,
+  pictures: Catalogue["pictures"],
+  apply: (staged: ReadonlyMap<string, StagedImage>) => ReadonlySet<string>,
+) {
+  const staged = new Map<string, StagedImage>();
+  let used: ReadonlySet<string> = new Set();
+  try {
+    for (const [key, picture] of pictures ?? []) {
+      const image =
+        picture instanceof Uint8Array
+          ? await stageImage(ctx, picture)
+          : await stagePreparedImage(ctx, picture);
+      staged.set(key, image);
+    }
+    used = apply(staged);
+  } finally {
+    await Promise.all(
+      [...staged]
+        .filter(([key]) => !used.has(key))
+        .map(([, image]) => removeImageFiles(ctx.storage, image)),
+    );
+  }
+}
+
 /** Import one version into one bar. Existing entries are reused by name, and missing pictures can be filled. */
 export async function importCatalogue(
   db: Db,
@@ -325,24 +366,16 @@ export async function importCatalogue(
   const bar = db.select().from(bars).where(eq(bars.id, barId)).get();
   if (!bar) throw new Error(`Unknown bar: ${barId}`);
 
-  const staged = new Map<string, StagedImage>();
-  let used: ReadonlySet<string> = new Set();
-  try {
-    for (const [key, bytes] of catalogue.pictures ?? []) {
-      staged.set(key, await stageImage({ barId, userId: bar.owner_id, storage }, bytes));
-    }
-    used = db.transaction(
-      (tx) => {
-        if (tx.select().from(barDataMigrations).where(record).get()) return new Set<string>();
-        return applyCatalogue(tx, barId, bar.owner_id, catalogue, staged);
-      },
-      { behavior: "immediate" },
-    );
-  } finally {
-    await Promise.all(
-      [...staged]
-        .filter(([key]) => !used.has(key))
-        .map(([, image]) => removeImageFiles(storage, image)),
-    );
-  }
+  await withCataloguePictures(
+    { barId, userId: bar.owner_id, storage },
+    catalogue.pictures,
+    (staged) =>
+      db.transaction(
+        (tx) => {
+          if (tx.select().from(barDataMigrations).where(record).get()) return new Set<string>();
+          return applyCatalogue(tx, barId, bar.owner_id, catalogue, staged);
+        },
+        { behavior: "immediate" },
+      ),
+  );
 }

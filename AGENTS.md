@@ -43,6 +43,13 @@ present, read it before starting a step; this file summarises the rules you must
 - Lists support `?q=`, filters and `?limit=&cursor=` pagination, sorted by name by default.
 - Mobile first: design every screen for a phone, then widen for desktop.
 
+## Utensil icons
+
+- Use the seeded [champagne flute](apps/api/src/db/catalogue/glassware-icons/champagne-flute.webp) as the visual reference.
+- Render one empty vessel or bar tool in a clean, semi-realistic studio style. Center the entire object on a square, truly transparent canvas, filling about 86–90% of its longest axis. Use a slightly elevated view that reveals its identifying features. Preserve the silhouette, proportions and material.
+- Pair charcoal contours with near-white highlights on the rim, sides, foot, stem and handles. Keep glass neutral and translucent. Use restrained material tones for metal and ceramic. Check the same icon at 48 px on white and black.
+- Keep the background and gaps around handles transparent. Omit cast shadows, glow, liquid, garnish, props, text and logos. Ship alpha-preserving 512 px square WebP originals under `apps/api/src/db/catalogue/glassware-icons/` or `apps/api/src/db/catalogue/tool-icons/` and 256 px copies under their `thumbnails/` subdirectories.
+
 ## Testing
 
 - Backend tests hit a real in-memory SQLite database through `app.request()`; never mock Drizzle.

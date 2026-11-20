@@ -21,7 +21,8 @@ import { barMembers, createOwnedBar, removeBar, renameBar } from "./service.ts";
 export const barDirectoryRoutes = new Hono<AppEnv>().post(
   "/",
   validate("json", createBarSchema),
-  (c) => c.json(createOwnedBar(c.var.db, c.var.user.id, c.req.valid("json")), 201),
+  async (c) =>
+    c.json(await createOwnedBar(c.var.db, c.var.storage, c.var.user.id, c.req.valid("json")), 201),
 );
 
 /** Routes under `/api/bars/:barId`. Every bar-scoped module is mounted here, behind `barAccess`. */

@@ -39,14 +39,18 @@ export function replaceSteps(db: Executor, owner: RecipeOwner, input: { text: st
   insertSteps(db, owner, input);
 }
 
-export function replaceTools(db: Executor, owner: RecipeOwner, toolIds: string[]) {
-  db.delete(tools)
-    .where(and(eq(tools.bar_id, owner.bar_id), eq(tools.cocktail_id, owner.cocktail_id)))
-    .run();
+export function insertTools(db: Executor, owner: RecipeOwner, toolIds: string[]) {
   for (const utensil_id of new Set(toolIds))
     db.insert(tools)
       .values({ ...owner, utensil_id })
       .run();
+}
+
+export function replaceTools(db: Executor, owner: RecipeOwner, toolIds: string[]) {
+  db.delete(tools)
+    .where(and(eq(tools.bar_id, owner.bar_id), eq(tools.cocktail_id, owner.cocktail_id)))
+    .run();
+  insertTools(db, owner, toolIds);
 }
 
 export function replaceTags(db: Executor, owner: RecipeOwner, names: string[]) {

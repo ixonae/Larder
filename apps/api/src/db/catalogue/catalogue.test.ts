@@ -1,10 +1,19 @@
-import { cocktailDetailSchema, newId } from "@larder/shared";
+import { readdir, readFile } from "node:fs/promises";
+import {
+  cocktailDetailSchema,
+  imageSchema,
+  newId,
+  pageSchema,
+  utensilSchema,
+} from "@larder/shared";
 import { eq } from "drizzle-orm";
 import sharp from "sharp";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { createTestApp, jsonRequest } from "../../test/app.ts";
 import {
   barDataMigrations,
+  barMembers,
+  bars,
   categories,
   cocktailSteps,
   cocktails,
@@ -17,6 +26,55 @@ import {
 } from "../schema/index.ts";
 import { type Catalogue, categoryPictureKey, importCatalogue } from "./import.ts";
 import { migrateStarterCatalogues, seedStarterCatalogue, skipStarterCatalogue } from "./starter.ts";
+
+it("bundles a transparent original and thumbnail for each utensil icon", async () => {
+  for (const directory of ["glassware-icons", "tool-icons"]) {
+    const root = new URL(`./${directory}/`, import.meta.url);
+    const originals = (await readdir(root)).filter((name) => name.endsWith(".webp")).sort();
+    const thumbnails = (await readdir(new URL("thumbnails/", root))).sort();
+    expect(thumbnails).toEqual(originals);
+    for (const name of originals) {
+      for (const [path, side] of [
+        [name, 512],
+        [`thumbnails/${name}`, 256],
+      ] as const) {
+        const image = sharp(await readFile(new URL(path, root)));
+        expect(await image.metadata(), path).toMatchObject({
+          format: "webp",
+          width: side,
+          height: side,
+          hasAlpha: true,
+        });
+        await image.raw().toBuffer();
+      }
+    }
+  }
+});
+
+it("leaves no bar or image files when seeded bar creation fails while staging icons", async () => {
+  const { app, db, storage, uploads } = createTestApp();
+  const existingBars = db.select().from(bars).all();
+  const existingMembers = db.select().from(barMembers).all();
+  const put = storage.put;
+  const writes = vi
+    .spyOn(storage, "put")
+    .mockImplementationOnce(put)
+    .mockImplementationOnce(put)
+    .mockRejectedValueOnce(new Error("Simulated image storage failure"));
+
+  const response = await app.request(
+    "/api/bars",
+    jsonRequest("POST", { name: "Starter bar", seed_data: true }),
+  );
+  expect(response.status).toBe(500);
+  expect(writes).toHaveBeenCalledTimes(4);
+  expect(db.select().from(bars).all()).toEqual(existingBars);
+  expect(db.select().from(barMembers).all()).toEqual(existingMembers);
+  expect(db.select().from(barDataMigrations).all()).toEqual([]);
+  expect(db.select().from(images).all()).toEqual([]);
+  const entries = await readdir(uploads, { recursive: true, withFileTypes: true });
+  expect(entries.filter((entry) => entry.isFile())).toEqual([]);
+});
 
 it("backfills the starter catalogue once, reuses existing entries and honors another bar's opt-out", async () => {
   const { app, db, storage, alice, bob } = createTestApp();
@@ -58,6 +116,10 @@ it("backfills the starter catalogue once, reuses existing entries and honors ano
     method: "other",
     source: null,
   });
+  const negroni = await app.request(
+    `${base}/cocktails/${imported.find(({ name }) => name === "NEGRONI")?.id}`,
+  );
+  expect(cocktailDetailSchema.parse(await negroni.json()).tools).toEqual([]);
   const steps = db
     .select()
     .from(cocktailSteps)
@@ -101,6 +163,7 @@ it("backfills the starter catalogue once, reuses existing entries and honors ano
   ).toMatchObject({
     name: "Coupe (glass 2)",
     kind: "glass",
+    image_id: expect.any(String),
   });
   const bottleRows = db.select().from(products).where(eq(products.bar_id, alice.barId)).all();
   expect(bottleRows.filter(({ in_bar }) => in_bar)).toMatchObject([{ name: "CAMPARI", abv: 21 }]);
@@ -136,7 +199,66 @@ it("backfills the starter catalogue once, reuses existing entries and honors ano
   );
 });
 
-it("imports recipes without default tags or source links and serves separate numbered actions", async () => {
+it("seeds transparent icons for standalone glassware and keeps an existing custom picture", async () => {
+  const { app, db, storage, alice, bob } = createTestApp();
+  skipStarterCatalogue(db, bob.barId);
+  const base = `/api/bars/${alice.barId}`;
+  const create = await app.request(
+    `${base}/utensils`,
+    jsonRequest("POST", { name: "COLLINS GLASS", kind: "glass", capacity_ml: 350 }),
+  );
+  expect(create.status).toBe(201);
+  const collins = utensilSchema.parse(await create.json());
+  const custom = await sharp({ create: { width: 10, height: 10, channels: 3, background: "red" } })
+    .png()
+    .toBuffer();
+  const form = new FormData();
+  form.append("file", new File([new Uint8Array(custom)], "collins.png", { type: "image/png" }));
+  const upload = await app.request(`${base}/utensils/${collins.id}/image`, {
+    method: "PUT",
+    body: form,
+  });
+  expect(upload.status).toBe(200);
+  const uploaded = imageSchema.parse(await upload.json());
+  const list = async () => {
+    const res = await app.request(`${base}/utensils?kind=glass`);
+    expect(res.status).toBe(200);
+    return pageSchema(utensilSchema).parse(await res.json()).items;
+  };
+
+  await migrateStarterCatalogues(db, storage);
+  const glasses = await list();
+  expect(glasses.find(({ id }) => id === collins.id)).toMatchObject({
+    name: collins.name,
+    capacity_ml: collins.capacity_ml,
+    image_id: uploaded.id,
+  });
+  expect(glasses.filter(({ name }) => name.toLowerCase() === "collins glass")).toHaveLength(1);
+  const shot = glasses.find(({ name }) => name === "Shot glass");
+  expect(shot).toMatchObject({ kind: "glass", image_id: expect.any(String) });
+  for (const [suffix, side] of [
+    ["", 512],
+    ["/thumb", 256],
+  ] as const) {
+    const icon = await app.request(`/api/images/${shot?.image_id}${suffix}`);
+    expect(icon.status).toBe(200);
+    expect(icon.headers.get("content-type")).toBe("image/webp");
+    expect(await sharp(Buffer.from(await icon.arrayBuffer())).metadata()).toMatchObject({
+      width: side,
+      height: side,
+      hasAlpha: true,
+    });
+  }
+  expect(db.select().from(utensils).where(eq(utensils.bar_id, bob.barId)).all()).toEqual([]);
+
+  expect((await app.request(`${base}/utensils/${shot?.id}`, { method: "DELETE" })).status).toBe(
+    204,
+  );
+  await migrateStarterCatalogues(db, storage);
+  expect(await list()).toEqual(glasses.filter(({ id }) => id !== shot?.id));
+});
+
+it("imports preparation tools and numbered actions without default tags or source links", async () => {
   const { app, db, storage, alice } = createTestApp();
   const base = `/api/bars/${alice.barId}`;
   await seedStarterCatalogue(db, storage, alice.barId);
@@ -149,7 +271,13 @@ it("imports recipes without default tags or source links and serves separate num
   const id = imported.find(({ name }) => name === "Dry Martini")?.id;
   const response = await app.request(`${base}/cocktails/${id}`);
   expect(response.status).toBe(200);
-  const { steps } = cocktailDetailSchema.parse(await response.json());
+  const { steps, tools } = cocktailDetailSchema.parse(await response.json());
+  expect(tools.map(({ name }) => name)).toEqual([
+    "Bar spoon",
+    "Jigger",
+    "Julep strainer",
+    "Mixing glass",
+  ]);
   expect(steps.map(({ text }) => text)).toEqual([
     "Chill a martini glass.",
     "Measure the gin and dry vermouth into a mixing glass.",
@@ -157,13 +285,14 @@ it("imports recipes without default tags or source links and serves separate num
     "Strain into the chilled martini glass.",
     "Finish with lemon oils or a green olive.",
   ]);
-  for (const [name, expectedIngredients] of [
+  for (const [name, expectedIngredients, expectedTools] of [
     [
       "Gin and Tonic",
       [
         { name: "Gin", amount: 50 },
         { name: "Tonic water", amount: 150 },
       ],
+      ["Bar spoon", "Jigger"],
     ],
     [
       "Godfather",
@@ -171,6 +300,7 @@ it("imports recipes without default tags or source links and serves separate num
         { name: "Blended Scotch", amount: 50 },
         { name: "Amaretto", amount: 25 },
       ],
+      ["Bar spoon", "Ice tongs", "Jigger"],
     ],
   ] as const) {
     const id = imported.find((recipe) => recipe.name === name)?.id;
@@ -178,10 +308,22 @@ it("imports recipes without default tags or source links and serves separate num
     expect(response.status).toBe(200);
     const recipe = cocktailDetailSchema.parse(await response.json());
     expect(recipe.tags).toEqual([]);
+    expect(recipe.tools.map(({ name }) => name)).toEqual(expectedTools);
     expect(recipe.ingredients.slice(0, 2)).toMatchObject(
       expectedIngredients.map((ingredient) => ({ ...ingredient, unit: "ml" })),
     );
     expect(recipe.steps.map(({ position }) => position)).toEqual(recipe.steps.map((_, i) => i));
+  }
+  for (const [name, expectedTools] of [
+    ["Don’s Special Daiquiri", ["Citrus juicer", "Drink mixer", "Ice scoop", "Jigger"]],
+    ["Espresso Martini", ["Fine-mesh strainer", "Jigger", "Shaker"]],
+    ["Mojito", ["Bar spoon", "Citrus juicer", "Jigger", "Muddler"]],
+    ["Piña Colada", ["Blender", "Jigger"]],
+  ] as const) {
+    const id = imported.find((recipe) => recipe.name === name)?.id;
+    const response = await app.request(`${base}/cocktails/${id}`);
+    const recipe = cocktailDetailSchema.parse(await response.json());
+    expect(recipe.tools.map(({ name }) => name)).toEqual(expectedTools);
   }
 });
 
@@ -348,7 +490,6 @@ it("validates pantry and bottle categories before marking a catalogue as importe
 
 it("rolls back all rows and removes staged files when an ingredient reference is invalid", async () => {
   const { db, storage, uploads, alice } = createTestApp();
-  const { readdir } = await import("node:fs/promises");
   const { join } = await import("node:path");
   const bytes = await sharp({ create: { width: 10, height: 10, channels: 3, background: "red" } })
     .png()
@@ -361,6 +502,12 @@ it("rolls back all rows and removes staged files when an ingredient reference is
       pictures: new Map([[categoryPictureKey(["Other spirits"]), bytes]]),
     }),
   ).rejects.toThrow("Unknown catalogue reference: bottle");
+  await expect(
+    importCatalogue(db, storage, alice.barId, {
+      ...sample,
+      recipes: sample.recipes.map((recipe) => ({ ...recipe, tools: ["Unknown tool"] })),
+    }),
+  ).rejects.toThrow("Unknown catalogue reference: unknown tool");
   expect(db.select().from(barDataMigrations).all()).toEqual([]);
   expect(
     db.select().from(categories).where(eq(categories.name, "Other spirits")).get(),

@@ -3,15 +3,10 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Db, Tx } from "../../db/client.ts";
 import { barMembers, bars, images, users } from "../../db/schema/index.ts";
 
-/** Inserts a bar and its owner membership (two rows, hence a transaction); returns the new bar id. */
-export function insertBar(db: Tx, name: string, ownerId: string): string {
-  const { id } = db
-    .insert(bars)
-    .values({ name, owner_id: ownerId })
-    .returning({ id: bars.id })
-    .get();
+/** Inserts a bar and its owner membership (two rows, hence a transaction). */
+export function insertBar(db: Tx, id: string, name: string, ownerId: string): void {
+  db.insert(bars).values({ id, name, owner_id: ownerId }).run();
   db.insert(barMembers).values({ bar_id: id, user_id: ownerId, role: "owner" }).run();
-  return id;
 }
 
 /** The bar with the user's role in it (`null` when they are not a member), or undefined if it does not exist. */

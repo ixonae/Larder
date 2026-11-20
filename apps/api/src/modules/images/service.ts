@@ -1,7 +1,7 @@
 import { type Image, type ImageEntity, newId } from "@larder/shared";
 import type { Db, Executor } from "../../db/client.ts";
 import { notFound, parseId } from "../../errors.ts";
-import { processImage } from "../../storage/process.ts";
+import { type ProcessedImage, processImage } from "../../storage/process.ts";
 import type { ImageStorage } from "../../storage/storage.ts";
 import type { Ctx } from "../../types.ts";
 import { findBarForMember } from "../bars/repo.ts";
@@ -63,12 +63,11 @@ function requireOwner(db: Executor, entity: ImageEntity, barId: string, id: stri
   return owner;
 }
 
-/** Write the full image and thumbnail before inserting their metadata in a transaction. */
-export async function stageImage(
+/** Write a prepared full image and thumbnail before inserting their metadata in a transaction. */
+export async function stagePreparedImage(
   { barId, userId, storage }: Pick<Ctx, "barId" | "userId" | "storage">,
-  data: Uint8Array,
+  processed: ProcessedImage,
 ) {
-  const processed = await processImage(data);
   const id = newId();
   const files = {
     storage_key: `${barId}/${id}.webp`,
@@ -94,6 +93,11 @@ export async function stageImage(
     height: processed.height,
     size_bytes: processed.full.byteLength,
   };
+}
+
+/** Process an uploaded picture and stage both resulting files. */
+export async function stageImage(ctx: Pick<Ctx, "barId" | "userId" | "storage">, data: Uint8Array) {
+  return stagePreparedImage(ctx, await processImage(data));
 }
 
 /**

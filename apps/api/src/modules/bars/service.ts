@@ -1,4 +1,4 @@
-import type { BarSummary, CreateBar, RenameBar } from "@larder/shared";
+import { type BarSummary, type CreateBar, newId, type RenameBar } from "@larder/shared";
 import { addStarterCatalogue, skipStarterCatalogue } from "../../db/catalogue/starter.ts";
 import type { Db, Tx } from "../../db/client.ts";
 import { conflict, forbidden, notFound, parseId } from "../../errors.ts";
@@ -21,27 +21,33 @@ export function resolveBarAccess(db: Db, barId: string | undefined, userId: stri
 }
 
 /** Creates a bar owned by `ownerId`, with the owner membership, starter categories and pantry. */
-export function createBar(tx: Tx, { name, ownerId }: { name: string; ownerId: string }): string {
-  const barId = repo.insertBar(tx, name, ownerId);
+export function createBar(
+  tx: Tx,
+  { name, ownerId, barId = newId() }: { name: string; ownerId: string; barId?: string },
+): string {
+  repo.insertBar(tx, barId, name, ownerId);
   seedStarterPantry(tx, barId, ownerId, seedStarterCategories(tx, barId, ownerId));
   return barId;
 }
 
-export function createOwnedBar(
+export async function createOwnedBar(
   db: Db,
+  storage: ImageStorage,
   ownerId: string,
   { name, seed_data }: CreateBar,
-): BarSummary {
-  return db.transaction((tx) => {
-    if (seed_data) {
-      const id = createBar(tx, { name, ownerId });
-      addStarterCatalogue(tx, id, ownerId);
-      return { id, name, role: "owner" };
-    }
-    const id = repo.insertBar(tx, name, ownerId);
-    skipStarterCatalogue(tx, id);
-    return { id, name, role: "owner" };
-  });
+): Promise<BarSummary> {
+  const barId = newId();
+  if (seed_data) {
+    await addStarterCatalogue({ db, storage, barId, userId: ownerId }, (tx) => {
+      createBar(tx, { name, ownerId, barId });
+    });
+  } else {
+    db.transaction((tx) => {
+      repo.insertBar(tx, barId, name, ownerId);
+      skipStarterCatalogue(tx, barId);
+    });
+  }
+  return { id: barId, name, role: "owner" };
 }
 
 export const barMembers = (db: Db, barId: string) => ({ members: repo.listMembers(db, barId) });

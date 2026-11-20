@@ -5,7 +5,9 @@ import {
   barSummarySchema,
   meSchema,
   newId,
+  pageSchema,
   usedBySchema,
+  utensilSchema,
 } from "@larder/shared";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -150,6 +152,29 @@ describe("bar management", () => {
     const bar = barSummarySchema.parse(await res.json());
     const rows = () => t.db.select().from(cocktails).where(eq(cocktails.bar_id, bar.id)).all();
     expect(rows().length).toBeGreaterThan(100);
+    const glassware = await t.request(`/api/bars/${bar.id}/utensils?kind=glass`);
+    expect(glassware.status).toBe(200);
+    const { items } = pageSchema(utensilSchema).parse(await glassware.json());
+    expect(items).toHaveLength(48);
+    expect(items.every(({ image_id }) => image_id !== null)).toBe(true);
+    expect(items.map(({ name }) => name)).toEqual(
+      expect.arrayContaining([
+        "Champagne flute",
+        "Collins glass",
+        "Margarita glass",
+        "Nick & Nora glass",
+        "Shot glass",
+      ]),
+    );
+    const tools = await t.request(`/api/bars/${bar.id}/utensils?kind=tool`);
+    expect(tools.status).toBe(200);
+    const seededTools = pageSchema(utensilSchema).parse(await tools.json()).items;
+    expect(seededTools).toHaveLength(15);
+    expect(seededTools.every(({ image_id }) => image_id !== null)).toBe(true);
+    const shaker = seededTools.find(({ name }) => name === "Shaker");
+    const thumbnail = await t.request(`/api/images/${shaker?.image_id}/thumb`);
+    expect(thumbnail.status).toBe(200);
+    expect(thumbnail.headers.get("content-type")).toBe("image/webp");
     await t.storage.put(`${bar.id}/test.webp`, Buffer.from("a"));
     await t.storage.put(`${bar.id}/test-thumb.webp`, Buffer.from("b"));
     t.db
