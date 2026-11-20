@@ -79,7 +79,7 @@ test("creates, filters, pages, edits and deletes cocktails with serving and vari
     items: [variant],
     next_cursor: null,
   });
-  expect((await page(`q=NÉG&method=stirred&glass_id=${glass.id}`)).items).toEqual([base]);
+  expect((await page(`q=WHITE&method=stirred`)).items).toEqual([variant]);
   expect((await app.request(`${path}/${base.id}`, jsonRequest("PATCH", {}))).status).toBe(400);
   const updated = await app.request(
     `${path}/${variant.id}`,

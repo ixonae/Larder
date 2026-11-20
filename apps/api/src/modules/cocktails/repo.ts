@@ -1,11 +1,11 @@
 import { type ListCocktailsQuery, nowIso } from "@larder/shared";
-import { and, eq, exists, getTableColumns, gt, or, type SQL, sql } from "drizzle-orm";
+import { and, eq, exists, getTableColumns, gt, inArray, or, type SQL, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { cocktails, cocktailTags } from "../../db/schema/index.ts";
 import { invalid } from "../../errors.ts";
 import { avgRatingSort, isFavourite } from "./feedback-repo.ts";
-import { usesSpiritCategories } from "./ingredients-repo.ts";
+import { usesCategories } from "./ingredients-repo.ts";
 
 const { bar_id: _barId, created_by: _createdBy, ...columns } = getTableColumns(cocktails);
 /** The cocktail sort key, shared by every list of cocktails. */
@@ -42,14 +42,14 @@ export function listCocktails(
   {
     q,
     method,
-    glass_id,
     tag,
     sort,
     favourite,
     limit,
   }: Omit<ListCocktailsQuery, "limit"> & { limit?: number },
   after: NameCursor | undefined,
-  spiritCategoryIds: string[] | undefined,
+  /** One list of category IDs per chosen ingredient: a cocktail needs a line in each. */
+  ingredientCategories: string[][],
   userId: string,
 ) {
   const byRating: boolean = sort === "rating";
@@ -65,26 +65,23 @@ export function listCocktails(
       and(
         eq(cocktails.bar_id, barId),
         q === undefined ? undefined : sql`instr(${nameKey}, larder_name_key(${q})) > 0`,
-        method === undefined ? undefined : eq(cocktails.method, method),
-        glass_id === undefined ? undefined : eq(cocktails.glass_id, glass_id),
-        tag === undefined
-          ? undefined
-          : exists(
-              db
-                .select({ id: cocktailTags.tag_id })
-                .from(cocktailTags)
-                .where(
-                  and(
-                    eq(cocktailTags.bar_id, barId),
-                    eq(cocktailTags.cocktail_id, cocktails.id),
-                    eq(cocktailTags.tag_id, tag),
-                  ),
+        method === undefined ? undefined : inArray(cocktails.method, method),
+        ...(tag ?? []).map((tagId) =>
+          exists(
+            db
+              .select({ id: cocktailTags.tag_id })
+              .from(cocktailTags)
+              .where(
+                and(
+                  eq(cocktailTags.bar_id, barId),
+                  eq(cocktailTags.cocktail_id, cocktails.id),
+                  eq(cocktailTags.tag_id, tagId),
                 ),
-            ),
+              ),
+          ),
+        ),
         favourite === true ? isFavourite(db, barId, userId) : undefined,
-        spiritCategoryIds === undefined
-          ? undefined
-          : usesSpiritCategories(db, barId, spiritCategoryIds),
+        ...ingredientCategories.map((ids) => usesCategories(db, barId, ids)),
         byRating ? afterRating(after) : afterName(nameKey, cocktails.id, after),
       ),
     )

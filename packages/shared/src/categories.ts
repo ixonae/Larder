@@ -19,6 +19,21 @@ export const CATEGORY_KINDS = [
 export const categoryKindSchema = z.enum(CATEGORY_KINDS);
 export type CategoryKind = z.infer<typeof categoryKindSchema>;
 
+/** The kinds the cocktail list's "alcohol" filter looks through. */
+export const ALCOHOL_KINDS: ReadonlySet<CategoryKind> = new Set([
+  "spirit",
+  "liqueur",
+  "wine",
+  "beer",
+]);
+/** The kinds its "mixer" filter looks through. */
+export const MIXER_KINDS: ReadonlySet<CategoryKind> = new Set([
+  "mixer",
+  "juice",
+  "syrup",
+  "bitters",
+]);
+
 const PANTRY_KINDS: ReadonlySet<CategoryKind> = new Set(["other", "garnish", "syrup"]);
 
 export function isPantryCategoryKind(kind: CategoryKind): boolean {

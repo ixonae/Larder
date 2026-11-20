@@ -437,10 +437,13 @@ it("sorts by rating and filters favourites through the URL", async () => {
   );
   const { user } = renderWithProviders("/cocktails?sort=bogus&favourite=false");
   await screen.findByRole("list", { name: "Cocktails" });
+  await user.click(screen.getByRole("button", { name: "Sort" }));
   expect(screen.getByRole("radio", { name: "By name" })).toBeChecked();
+  await user.keyboard("{Escape}");
   expect(requests[0]?.has("sort")).toBe(false);
   expect(requests[0]?.has("favourite")).toBe(false);
 
+  await user.click(screen.getByRole("button", { name: "Sort" }));
   await user.click(screen.getByRole("radio", { name: "Top rated" }));
   await waitFor(() => expect(requests.at(-1)?.get("sort")).toBe("rating"));
   await user.click(screen.getByRole("checkbox", { name: "Favourites" }));
@@ -448,6 +451,7 @@ it("sorts by rating and filters favourites through the URL", async () => {
   expect(screen.getByRole("checkbox", { name: "Favourites" })).toBeChecked();
 
   await user.click(screen.getByRole("checkbox", { name: "Favourites" }));
+  await user.click(screen.getByRole("button", { name: "Sort" }));
   await user.click(screen.getByRole("radio", { name: "By name" }));
   await waitFor(() => expect(requests.at(-1)?.has("favourite")).toBe(false));
   expect(requests.at(-1)?.has("sort")).toBe(false);
@@ -472,6 +476,7 @@ it("refreshes a favourites-only list after a heart tap, and a sort is not a filt
   expect(await screen.findByText("No cocktails match")).toBeInTheDocument();
 
   await user.click(screen.getByRole("checkbox", { name: "Favourites" }));
+  await user.click(screen.getByRole("button", { name: "Sort" }));
   await user.click(screen.getByRole("radio", { name: "Top rated" }));
   await waitFor(() => expect(requests.at(-1)?.get("sort")).toBe("rating"));
   expect(await screen.findByText("No cocktails yet")).toBeInTheDocument();

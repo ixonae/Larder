@@ -93,18 +93,23 @@ it("filters by what the bar can make and shows badges and missing items on cards
   const { user, router } = renderWithProviders("/cocktails?missing=bogus");
   const cards = await screen.findByRole("list", { name: "Cocktails" });
   expect(requests[0]?.has("missing")).toBe(false);
+  await user.click(screen.getByRole("button", { name: "Availability" }));
   expect(screen.getByRole("radio", { name: "All" })).toBeChecked();
+  await user.keyboard("{Escape}");
   expect(within(cards).getByText("Can make")).toBeInTheDocument();
   expect(within(cards).getByText("Missing 1")).toBeInTheDocument();
   expect(within(cards).getByText("Missing: Lemon or Bottled lemon")).toBeInTheDocument();
 
+  await user.click(screen.getByRole("button", { name: "Availability" }));
   await user.click(screen.getByRole("radio", { name: "Can make now" }));
   await waitFor(() => expect(Object.fromEntries(requests.at(-1) ?? [])).toEqual({ missing: "0" }));
   expect(router.state.location.search).toEqual({ missing: 0 });
 
+  await user.click(screen.getByRole("button", { name: "Availability" }));
   await user.click(screen.getByRole("radio", { name: "Missing one" }));
   await waitFor(() => expect(Object.fromEntries(requests.at(-1) ?? [])).toEqual({ missing: "1" }));
 
+  await user.click(screen.getByRole("button", { name: "Availability" }));
   await user.click(screen.getByRole("radio", { name: "All" }));
   await waitFor(() => expect(Object.fromEntries(requests.at(-1) ?? [])).toEqual({}));
 

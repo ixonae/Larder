@@ -145,30 +145,50 @@ it("filters and pages cocktail cards, and restores filters after viewing a recip
   expect(await within(cards).findByText("Water")).toBeInTheDocument();
   expect(requests.at(-1)?.get("cursor")).toBe("more");
 
-  await user.click(screen.getByRole("combobox", { name: "Spirit" }));
+  const tick = async (label: string, option: string) => {
+    await user.click(screen.getByRole("combobox", { name: label }));
+    await user.click(await screen.findByRole("option", { name: option }));
+    await user.keyboard("{Escape}");
+  };
+  await user.click(screen.getByRole("combobox", { name: "Alcohol" }));
   expect(await screen.findByRole("option", { name: "Gin" })).toBeInTheDocument();
   expect(screen.queryByRole("option", { name: "Citrus" })).toBeNull();
   await user.keyboard("{Escape}");
-  await choose(user, "Spirit", "Gin");
-  await choose(user, "Tag", "Classic");
-  await choose(user, "Glass", "Coupe");
-  await choose(user, "Method", "shaken");
+  await user.click(screen.getByRole("combobox", { name: "Mixers" }));
+  expect(await screen.findByRole("option", { name: "Citrus" })).toBeInTheDocument();
+  expect(screen.queryByRole("option", { name: "Gin" })).toBeNull();
+  await user.keyboard("{Escape}");
+  await tick("Alcohol", "Gin");
+  await tick("Mixers", "Citrus");
+  await tick("Tags", "Classic");
+  await tick("Method", "shaken");
+  await tick("Method", "stirred");
+  expect(screen.getByRole("combobox", { name: "Method" })).toHaveTextContent("Method: shaken+1");
   const search = screen.getByRole("searchbox");
   await user.type(search, "Gim");
   await waitFor(() =>
     expect(Object.fromEntries(requests.at(-1) ?? [])).toEqual({
       q: "Gim",
-      spirit: gin.id,
+      alcohol: gin.id,
+      mixer: id(12),
       tag: tag.id,
-      glass_id: glass.id,
-      method: "shaken",
+      method: "shaken,stirred",
     }),
   );
   await user.click(await screen.findByRole("link", { name: /Gimlet/ }));
   expect(await screen.findByRole("heading", { name: "Gimlet" })).toBeInTheDocument();
   await user.click(screen.getByRole("link", { name: "All cocktails" }));
   expect(await screen.findByRole("searchbox")).toHaveValue("Gim");
+  await user.click(screen.getByRole("combobox", { name: "Method" }));
+  await user.click(await screen.findByRole("option", { name: "stirred" }));
+  await user.click(await screen.findByRole("button", { name: "Clear selection" }));
+  await user.keyboard("{Escape}");
+  expect(screen.getByRole("combobox", { name: "Method" })).toHaveTextContent(/^Method$/);
+  await user.click(screen.getByRole("button", { name: "Clear filters" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull());
+  expect(screen.getByRole("searchbox")).toHaveValue("Gim");
   await user.clear(screen.getByRole("searchbox"));
+  await waitFor(() => expect(requests.at(-1)?.has("q")).toBe(false));
   await user.type(screen.getByRole("searchbox"), "none");
   expect(await screen.findByText("No cocktails match")).toBeInTheDocument();
 });
@@ -700,18 +720,22 @@ it("lets users clear unavailable filters from a bookmarked URL", async () => {
       new URL(request.url).searchParams.size > 0 ? page([]) : page([recipe]),
     ),
   );
+  const list = (...ids: number[]) => encodeURIComponent(JSON.stringify(ids.map(id)));
+  const lone = renderWithProviders(`/cocktails?tag=${id(52)}`);
+  expect(await screen.findByRole("combobox", { name: "Tags" })).toHaveTextContent(/Tags: /);
+  lone.unmount();
   const { user } = renderWithProviders(
-    `/cocktails?glass_id=${id(51)}&tag=${id(52)}&spirit=${id(53)}`,
+    `/cocktails?tag=${list(52, 54)}&alcohol=${list(53)}&mixer=bad`,
   );
-  for (const [filter, all] of [
-    ["Glass", "All glasses"],
-    ["Tag", "All tags"],
-    ["Spirit", "All spirits"],
+  for (const [filter, text] of [
+    ["Tags", "Tags: Unavailable+1"],
+    ["Alcohol", "Alcohol: Unavailable"],
   ] as const) {
     const trigger = await screen.findByRole("combobox", { name: filter });
-    await waitFor(() => expect(trigger).toHaveTextContent(`Unavailable ${filter.toLowerCase()}`));
-    await choose(user, filter, all);
+    await waitFor(() => expect(trigger).toHaveTextContent(text));
   }
+  expect(screen.getByRole("combobox", { name: "Mixers" })).toHaveTextContent(/^Mixers$/);
+  await user.click(screen.getByRole("button", { name: "Clear filters" }));
   expect(await screen.findByRole("link", { name: /Gimlet/ })).toBeInTheDocument();
 });
 

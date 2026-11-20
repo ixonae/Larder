@@ -24,7 +24,7 @@ export interface ComboboxOption {
 }
 
 /** Above this many options the list gets a search box. */
-const SEARCH_THRESHOLD = 7;
+export const SEARCH_THRESHOLD = 7;
 
 /** "Spirit › Whisky › Scotch": the option with its ancestors. */
 export const optionPath = ({ label, context }: ComboboxOption) =>
@@ -34,7 +34,7 @@ export const optionPath = ({ label, context }: ComboboxOption) =>
 let lastSearch = "";
 let lastKey = "";
 /** Items carry their already-folded path as their only keyword. */
-const matches = (_value: string, search: string, keywords: string[] = []) => {
+export const matches = (_value: string, search: string, keywords: string[] = []) => {
   if (search !== lastSearch) {
     lastSearch = search;
     lastKey = searchKey(search.trim());

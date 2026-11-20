@@ -19,12 +19,19 @@ export const cocktailDetailKey = (barId: string, id: string) =>
   [...cocktailsKey(barId), "detail", id] as const;
 export type CocktailFilters = Omit<ListCocktailsQuery, "limit" | "cursor">;
 
+/** The API takes a list filter as one comma-separated value. */
+const joined = (values: readonly string[] | undefined) => values?.join(",");
+
 export const cocktailListQuery = (barId: string, filters: CocktailFilters) =>
   infiniteQueryOptions({
     queryKey: [...cocktailListKey(barId), filters],
     queryFn: async ({ pageParam, signal }) => {
       const query = {
         ...filters,
+        alcohol: joined(filters.alcohol),
+        mixer: joined(filters.mixer),
+        method: joined(filters.method),
+        tag: joined(filters.tag),
         missing: filters.missing?.toString(),
         favourite: filters.favourite?.toString(),
         cursor: pageParam,

@@ -87,7 +87,7 @@ export function listIngredients(db: Executor, barId: string, cocktailIds: string
     .all();
 }
 
-export function usesSpiritCategories(db: Executor, barId: string, categoryIds: string[]) {
+export function usesCategories(db: Executor, barId: string, categoryIds: string[]) {
   const lines = db.select({ id: ingredients.id }).from(ingredients).$dynamic();
   return exists(
     joinSources(lines, ingredients).where(

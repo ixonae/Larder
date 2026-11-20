@@ -1,24 +1,27 @@
 import {
+  ALCOHOL_KINDS,
   type BarSummary,
   COCKTAIL_METHODS,
   type Cocktail,
   type CocktailSort,
   hasRole,
+  MIXER_KINDS,
   type MissingIngredient,
 } from "@larder/shared";
 import { type UseMutationResult, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { cn } from "cn";
-import { ChevronRight, LayoutGrid, List, Martini } from "lucide-react";
+import { ArrowUpDown, ChevronRight, Heart, LayoutGrid, List, Martini } from "lucide-react";
 import type { ChangeEvent, ReactElement } from "react";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { type CocktailFilters, cocktailListQuery, cocktailTagsQuery } from "@/api/cocktails.ts";
 import { useSetFavourite } from "@/api/feedback.ts";
-import { utensilOptionsQuery } from "@/api/utensils.ts";
 import { badge } from "@/components/badge.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
-import { type ChipOption, ChipRadioGroup } from "@/components/chip-radio-group.tsx";
-import { Combobox, type ComboboxOption } from "@/components/combobox.tsx";
+import type { ChipOption } from "@/components/chip-radio-group.tsx";
+import { ChoiceMenu } from "@/components/choice-menu.tsx";
+import type { ComboboxOption } from "@/components/combobox.tsx";
+import { MultiCombobox } from "@/components/multi-combobox.tsx";
 import { SearchInput } from "@/components/search-input.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Thumbnail } from "@/components/thumbnail.tsx";
@@ -55,6 +58,8 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
       search: { ...search, [name]: value === "" ? undefined : value },
       replace: true,
     });
+  const clearFilters = () =>
+    navigate({ to: "/cocktails", search: { q: search.q, sort: search.sort }, replace: true });
   const [q, setQ] = useDebouncedSearch(search.q ?? "", (value) => setFilter("q", value));
   const list = useInfiniteQuery(
     cocktailListQuery(barId, { ...search, q: search.q?.trim() || undefined }),
@@ -62,9 +67,10 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
   const items: Cocktail[] = list.data?.pages.flatMap((page) => page.items) ?? [];
   // The router drops unset keys, so every value here is a chosen filter (or a blank search);
   // the sort order only reorders the list.
-  const filtered = Object.entries(search).some(
-    ([key, value]) => key !== "sort" && String(value).trim(),
-  );
+  const isSet = (skip: string[]) =>
+    Object.entries(search).some(([key, value]) => !skip.includes(key) && String(value).trim());
+  const filtered = isSet(["sort"]);
+  const filtering = isSet(["sort", "q"]);
   const [view, setView] = useStoredState(
     "larder.cocktails.view",
     VIEWS.map(({ value }) => value),
@@ -108,17 +114,12 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
           ))}
         </fieldset>
       </div>
-      <AvailabilityFilter
-        value={search.missing}
-        onChange={(value) => setFilter("missing", value)}
+      <FilterOptions
+        barId={barId}
+        search={search}
+        setFilter={setFilter}
+        onClear={filtering ? clearFilters : undefined}
       />
-      <ListOptions
-        sort={search.sort}
-        favourite={search.favourite}
-        onSort={(value: CocktailSort | undefined): unknown => setFilter("sort", value)}
-        onFavourite={(value: true | undefined): unknown => setFilter("favourite", value)}
-      />
-      <FilterOptions barId={barId} search={search} setFilter={setFilter} />
 
       {list.isPending ? (
         <LoadingState label="Loading cocktails…" />
@@ -304,62 +305,10 @@ const AVAILABILITY: ChipOption<number | undefined>[] = [
   { value: 1, label: "Missing one" },
 ];
 
-function AvailabilityFilter({
-  value,
-  onChange,
-}: {
-  value: number | undefined;
-  onChange: (missing: number | undefined) => void;
-}) {
-  return (
-    <ChipRadioGroup<number | undefined>
-      label="Availability"
-      options={AVAILABILITY}
-      value={value}
-      onChange={onChange}
-    />
-  );
-}
-
 const SORTS: ChipOption<CocktailSort>[] = [
   { value: "name", label: "By name" },
   { value: "rating", label: "Top rated" },
 ];
-
-/** Name order or best rated first, and only the cocktails you have favourited. */
-function ListOptions({
-  sort,
-  favourite,
-  onSort,
-  onFavourite,
-}: {
-  sort: CocktailSort | undefined;
-  favourite: boolean | undefined;
-  onSort: (sort: CocktailSort | undefined) => unknown;
-  onFavourite: (favourite: true | undefined) => unknown;
-}): ReactElement {
-  return (
-    <div className="flex flex-wrap gap-2">
-      <ChipRadioGroup<CocktailSort>
-        label="Sort"
-        options={SORTS}
-        value={sort ?? "name"}
-        onChange={(value: CocktailSort): unknown => onSort(value === "name" ? undefined : value)}
-      />
-      <label className={toggleChip({ size: "sm" })}>
-        <input
-          type="checkbox"
-          className="sr-only"
-          checked={favourite === true}
-          onChange={(event: ChangeEvent<HTMLInputElement>): unknown =>
-            onFavourite(event.currentTarget.checked ? true : undefined)
-          }
-        />
-        Favourites
-      </label>
-    </div>
-  );
-}
 
 function AbvBadge({ abv }: { abv: number }) {
   return <span className={badge({ className: "tabular-nums" })}>≈ {Math.round(abv)}% ABV</span>;
@@ -369,80 +318,129 @@ function FilterOptions({
   barId,
   search,
   setFilter,
+  onClear,
 }: {
   barId: string;
   search: CocktailFilters;
-  setFilter: (name: keyof CocktailFilters, value: string) => void;
+  setFilter: <K extends keyof CocktailFilters>(
+    name: K,
+    value: CocktailFilters[K] | undefined,
+  ) => unknown;
+  onClear: (() => unknown) | undefined;
 }) {
   const categories = useQuery(categoryTreeQuery(barId));
-  const glasses = useQuery(utensilOptionsQuery(barId, "glass"));
   const tags = useQuery(cocktailTagsQuery(barId));
-  const failed = [categories, glasses, tags].find((query) => query.isError);
-  const spirits = categoryOptions(categories.data ?? [], (item) => item.kind === "spirit");
+  const failed = [categories, tags].find((query) => query.isError);
+  const tree = categories.data ?? [];
   const named = (items: { id: string; name: string }[] = []) =>
     items.map(({ id, name }) => ({ value: id, label: name }));
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+      <div className="flex flex-wrap items-center gap-2">
         <FilterSelect
-          label="Spirit"
-          value={search.spirit}
-          options={spirits}
+          label="Alcohol"
+          noun="alcohol"
+          values={search.alcohol}
+          options={categoryOptions(tree, (item) => ALCOHOL_KINDS.has(item.kind))}
           pending={categories.isPending}
-          onChange={(value) => setFilter("spirit", value)}
+          onChange={(value) => setFilter("alcohol", value)}
         />
         <FilterSelect
-          label="Tag"
-          value={search.tag}
+          label="Mixers"
+          noun="mixers"
+          values={search.mixer}
+          options={categoryOptions(tree, (item) => MIXER_KINDS.has(item.kind))}
+          pending={categories.isPending}
+          onChange={(value) => setFilter("mixer", value)}
+        />
+        <FilterSelect
+          label="Tags"
+          noun="tags"
+          values={search.tag}
           options={named(tags.data)}
           pending={tags.isPending}
           onChange={(value) => setFilter("tag", value)}
         />
         <FilterSelect
-          label="Glass"
-          value={search.glass_id}
-          options={named(glasses.data)}
-          pending={glasses.isPending}
-          onChange={(value) => setFilter("glass_id", value)}
-        />
-        <FilterSelect
           label="Method"
-          value={search.method}
+          noun="methods"
+          values={search.method}
           options={COCKTAIL_METHODS.map((method) => ({ value: method, label: method }))}
           pending={false}
           onChange={(value) => setFilter("method", value)}
         />
+        <ChoiceMenu<number | undefined>
+          label="Availability"
+          options={AVAILABILITY}
+          value={search.missing}
+          initial={undefined}
+          onChange={(value) => setFilter("missing", value)}
+        />
+        <label className={toggleChip({ size: "sm" })}>
+          <input
+            type="checkbox"
+            className="sr-only"
+            checked={search.favourite === true}
+            onChange={(event: ChangeEvent<HTMLInputElement>): unknown =>
+              setFilter("favourite", event.currentTarget.checked ? true : undefined)
+            }
+          />
+          <Heart className="size-3" aria-hidden />
+          Favourites
+        </label>
+        <div className="ml-auto flex items-center gap-2">
+          {onClear && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={onClear}
+            >
+              Clear filters
+            </Button>
+          )}
+          <ChoiceMenu<CocktailSort>
+            label="Sort"
+            icon={ArrowUpDown}
+            options={SORTS}
+            value={search.sort ?? "name"}
+            initial="name"
+            onChange={(value: CocktailSort) =>
+              setFilter("sort", value === "name" ? undefined : value)
+            }
+          />
+        </div>
       </div>
       {failed && <ErrorState error={failed.error} onRetry={() => failed.refetch()} />}
     </>
   );
 }
 
-function FilterSelect({
+function FilterSelect<T extends string>({
   label,
-  value,
+  noun,
+  values,
   options,
   pending,
   onChange,
 }: {
   label: string;
-  value: string | undefined;
+  noun: string;
+  values: readonly T[] | undefined;
   options: ComboboxOption[];
   pending: boolean;
-  onChange: (value: string) => void;
+  onChange: (values: T[] | undefined) => unknown;
 }) {
-  const name = label.toLowerCase();
-  const plural = name === "glass" ? "glasses" : `${name}s`;
   return (
-    <Combobox
-      aria-label={label}
-      value={value}
-      onChange={onChange}
+    <MultiCombobox
+      label={label}
+      values={values ?? []}
+      onChange={(next) => onChange(next.length > 0 ? (next as T[]) : undefined)}
       options={options}
-      clearLabel={`All ${plural}`}
-      fallbackLabel={pending ? `Loading selected ${name}…` : `Unavailable ${name}`}
-      searchPlaceholder={`Search ${plural}`}
+      fallbackLabel={pending ? "Loading…" : "Unavailable"}
+      searchPlaceholder={`Search ${noun}`}
     />
   );
 }

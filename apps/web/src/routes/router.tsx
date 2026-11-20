@@ -1,4 +1,4 @@
-import { COCKTAIL_SORTS, listCocktailsQuerySchema } from "@larder/shared";
+import { COCKTAIL_METHODS, COCKTAIL_SORTS, idSchema, MAX_FILTER_VALUES } from "@larder/shared";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
@@ -48,13 +48,24 @@ const indexRoute = createRoute({
   },
 });
 
-const filters = listCocktailsQuerySchema.shape;
+/**
+ * A filter that takes several values; anything malformed in the URL is dropped. A lone value
+ * (an older `?tag=<id>` bookmark) counts as a list of one.
+ */
+const listOf = <T extends z.ZodType>(item: T) =>
+  z
+    .preprocess(
+      (value) => (typeof value === "string" ? [value] : value),
+      z.array(item).min(1).max(MAX_FILTER_VALUES),
+    )
+    .optional()
+    .catch(undefined);
 const cocktailsSearchSchema = z.object({
   q: z.string().max(100).optional().catch(undefined),
-  spirit: filters.spirit.catch(undefined),
-  glass_id: filters.glass_id.catch(undefined),
-  method: filters.method.catch(undefined),
-  tag: filters.tag.catch(undefined),
+  alcohol: listOf(idSchema),
+  mixer: listOf(idSchema),
+  method: listOf(z.enum(COCKTAIL_METHODS)),
+  tag: listOf(idSchema),
   missing: z.number().int().nonnegative().optional().catch(undefined),
   sort: z.enum(COCKTAIL_SORTS).optional().catch(undefined),
   // Only `true` filters; `false` means the same as leaving it out.

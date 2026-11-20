@@ -107,18 +107,32 @@ export type UpdateCocktail = z.infer<typeof updateCocktailSchema>;
 export const COCKTAIL_SORTS = ["name", "rating"] as const;
 export type CocktailSort = (typeof COCKTAIL_SORTS)[number];
 
+/** Most values one list filter accepts. */
+export const MAX_FILTER_VALUES = 20;
+/** `a,b,c` in the query string: one or more values, so a single value still works. */
+const listOf = <T extends z.ZodType<unknown, string>>(item: T) =>
+  z
+    .string()
+    .transform((value) => value.split(","))
+    .pipe(z.array(item).min(1).max(MAX_FILTER_VALUES));
+
 export const listCocktailsQuerySchema = paginationQuerySchema.extend({
   /** `rating`: highest average first, unrated last, then by name. */
   sort: z.enum(COCKTAIL_SORTS).default("name"),
   q: nameSchema.optional(),
-  method: methodSchema.optional(),
-  glass_id: idSchema.optional(),
-  /** Category ID. Matches spirit ingredients in that category or its descendants. */
-  spirit: idSchema.optional(),
+  /** Any of these methods. */
+  method: listOf(methodSchema).optional(),
+  /**
+   * Category IDs. Uses an alcoholic ingredient (spirit, liqueur, wine or beer) in each of these
+   * categories or their descendants: with several, every one of them.
+   */
+  alcohol: listOf(idSchema).optional(),
+  /** Like `alcohol`, for mixers, juices, syrups and bitters. */
+  mixer: listOf(idSchema).optional(),
   /** `true` lists only the caller's favourites. */
   favourite: booleanQuerySchema.optional(),
-  /** Tag ID from GET /tags. */
-  tag: idSchema.optional(),
+  /** Tag IDs from GET /tags: carrying every one of them. */
+  tag: listOf(idSchema).optional(),
   /** Exactly this many required lines missing: 0 lists what the bar can make now. */
   missing: z
     .string()

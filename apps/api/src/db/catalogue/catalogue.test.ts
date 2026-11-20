@@ -470,7 +470,7 @@ it("uses seeded bottle ABVs and excludes rinses from the served drink", async ()
   expect(sazerac.computed.abv).toBeCloseTo((50 * 40 + 1.8 * 35) / 51.8 / 1.2);
   expect(sazerac.computed.spirits.map(({ name }) => name)).toEqual(["Brandy"]);
   const absinthe = db.select().from(categories).where(eq(categories.name, "Absinthe")).get();
-  const filtered = await app.request(`${base}?q=Sazerac&spirit=${absinthe?.id}`);
+  const filtered = await app.request(`${base}?q=Sazerac&alcohol=${absinthe?.id}`);
   expect(await filtered.json()).toMatchObject({ items: [] });
 });
 

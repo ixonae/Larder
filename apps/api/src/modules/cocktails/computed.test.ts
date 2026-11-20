@@ -5,7 +5,6 @@ import {
   newId,
   type PantryIngredient,
   type Product,
-  type Utensil,
 } from "@larder/shared";
 import { expect, test } from "vitest";
 import { categories, tags } from "../../db/schema/index.ts";
@@ -152,16 +151,13 @@ test("reports and filters by the direct spirit family in a mixed-kind category p
     ingredients: [{ category_id: leaf.id, amount: 30, unit: "ml" }],
   });
   expect(recipe.computed.spirits).toEqual([{ id: family.id, name: family.name }]);
-  expect((await list(`spirit=${family.id}`)).items.map(({ id }) => id)).toEqual([recipe.id]);
+  expect((await list(`alcohol=${family.id}`)).items.map(({ id }) => id)).toEqual([recipe.id]);
 });
 
 test("combines descendant spirit and tag filters before paging and isolates other bars", async () => {
-  const { app, db, bob, path, post, create, list, spirit, family, leaf, other, mixer, bottle } =
+  const { app, db, bob, path, create, list, spirit, family, leaf, other, mixer, bottle } =
     await setup();
-  const glass = await readJson<Utensil>(
-    await post("utensils", { name: "Fizz glass", kind: "glass" }),
-  );
-  const metadata = { glass_id: glass.id, tags: ["Citrusy"] };
+  const metadata = { tags: ["Citrusy"] };
   const mixed = { category_id: mixer.id, unit: "top", alternatives: [{ category_id: leaf.id }] };
   await create("A Fizz", { ...metadata, ingredients: [mixed] });
   const first = await create("B Fizz", {
@@ -182,20 +178,20 @@ test("combines descendant spirit and tag filters before paging and isolates othe
     ingredients: [{ category_id: other.id, unit: "top" }],
   });
   const tag = first.tags[0]?.id;
-  const query = `spirit=${family.id}&tag=${tag}&glass_id=${glass.id}&method=shaken&q=FIZZ&limit=1`;
+  const query = `alcohol=${family.id}&tag=${tag}&method=shaken&q=FIZZ&limit=1`;
   const page = await list(query);
   expect(page.items.map(({ id }) => id)).toEqual([first.id]);
   expect(page.next_cursor).toBeTypeOf("string");
   const next = await list(`${query}&cursor=${page.next_cursor}`);
   expect(next.items.map(({ id }) => id)).toEqual([second.id]);
   expect(next.next_cursor).toBeNull();
-  expect((await list(`spirit=${spirit.id}`)).items.map(({ id }) => id)).toEqual([
+  expect((await list(`alcohol=${spirit.id}`)).items.map(({ id }) => id)).toEqual([
     first.id,
     second.id,
     direct.id,
     alternativeFamily.id,
   ]);
-  expect((await list(`spirit=${mixer.id}`)).items).toEqual([]);
+  expect((await list(`alcohol=${mixer.id}`)).items).toEqual([]);
 
   const audit = { bar_id: bob.barId, created_by: bob.userId };
   const foreignSpirit = db
@@ -208,10 +204,43 @@ test("combines descendant spirit and tag filters before paging and isolates othe
     .values({ ...audit, name: "Citrusy" })
     .returning()
     .get();
-  for (const query of [`spirit=${foreignSpirit.id}`, `tag=${foreignTag.id}`, `tag=${newId()}`]) {
+  for (const query of [`alcohol=${foreignSpirit.id}`, `tag=${foreignTag.id}`, `tag=${newId()}`]) {
     expect(await list(query)).toEqual({ items: [], next_cursor: null });
   }
-  for (const query of ["spirit=Agave", "tag=Citrusy"]) {
+  for (const query of ["alcohol=Agave", "tag=Citrusy"]) {
     expect((await app.request(`${path}?${query}`)).status).toBe(400);
   }
+});
+
+test("filters by several alcohols, mixers, tags and methods", async () => {
+  const { app, path, post, create, list, family, other, mixer } = await setup();
+  const juice = await readJson<Category>(
+    await post("categories", { name: "Citrus juice", kind: "juice" }),
+  );
+  const line = (category_id: string) => ({ category_id, amount: 10, unit: "ml" });
+  const both = await create("Both", {
+    tags: ["Classic", "Sour"],
+    ingredients: [line(family.id), line(other.id), line(juice.id)],
+  });
+  const agave = await create("Agave only", {
+    method: "stirred",
+    tags: ["Classic"],
+    ingredients: [line(family.id), line(mixer.id)],
+  });
+  await create("Neither", { ingredients: [line(juice.id)] });
+  const ids = async (query: string) => (await list(query)).items.map(({ id }) => id);
+
+  expect(await ids(`alcohol=${family.id},${other.id}`)).toEqual([both.id]);
+  expect(await ids(`alcohol=${family.id}`)).toEqual([agave.id, both.id]);
+  expect(await ids(`alcohol=${family.id}&mixer=${mixer.id}`)).toEqual([agave.id]);
+  expect(await ids(`mixer=${mixer.id},${juice.id}`)).toEqual([]);
+  expect(await ids(`mixer=${juice.id}`)).toHaveLength(2);
+  const [classic, sour] = both.tags;
+  expect(await ids(`tag=${classic?.id},${sour?.id}`)).toEqual([both.id]);
+  expect(await ids(`method=stirred,built`)).toEqual([agave.id]);
+  for (const query of ["alcohol=", "method=shaken,nope", `tag=${newId()},`]) {
+    expect((await app.request(`${path}?${query}`)).status).toBe(400);
+  }
+  const many = Array.from({ length: 21 }, () => newId()).join(",");
+  expect((await app.request(`${path}?tag=${many}`)).status).toBe(400);
 });

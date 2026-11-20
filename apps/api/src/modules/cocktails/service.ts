@@ -1,6 +1,8 @@
 import {
+  ALCOHOL_KINDS,
   buildInventory,
   type Category,
+  type CategoryKind,
   type Cocktail,
   type CocktailDetail,
   type CocktailMethod,
@@ -11,6 +13,7 @@ import {
   computeVolume,
   type ListCocktailsQuery,
   type ListTagsQuery,
+  MIXER_KINDS,
   makeability,
   matchingBottles,
   type Page,
@@ -66,6 +69,19 @@ const loadInventory = (db: Executor, barId: string, categories: Category[]) =>
     listAvailablePantryIngredientIds(db, barId),
   );
 
+function ingredientGroups(
+  categories: Category[],
+  ids: string[] | undefined,
+  kinds: ReadonlySet<CategoryKind>,
+): string[][] {
+  return (ids ?? []).map((id) => {
+    const family = subtreeIds(categories, id);
+    return categories
+      .filter((item) => kinds.has(item.kind) && family.has(item.id))
+      .map((item) => item.id);
+  });
+}
+
 export function listCocktails(
   { db, barId, userId }: Ctx,
   query: ListCocktailsQuery,
@@ -75,19 +91,17 @@ export function listCocktails(
   const filtered = query.missing !== undefined;
   return db.transaction((tx) => {
     const categories = listAllCategories(tx, barId);
-    let spiritCategoryIds: string[] | undefined;
-    if (query.spirit !== undefined) {
-      const descendants = subtreeIds(categories, query.spirit);
-      spiritCategoryIds = categories
-        .filter(({ id, kind }) => kind === "spirit" && descendants.has(id))
-        .map(({ id }) => id);
-    }
+    // Each chosen category stands for itself and its descendants of the right kinds.
+    const ingredientCategories = [
+      ...ingredientGroups(categories, query.alcohol, ALCOHOL_KINDS),
+      ...ingredientGroups(categories, query.mixer, MIXER_KINDS),
+    ];
     const rows = repo.listCocktails(
       tx,
       barId,
       { ...query, limit: filtered ? undefined : query.limit + 1 },
       after,
-      spiritCategoryIds,
+      ingredientCategories,
       userId,
     );
     if (rows.length === 0) return { items: [], next_cursor: null };
