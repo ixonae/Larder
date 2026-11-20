@@ -71,6 +71,8 @@ export const cocktailIngredients = sqliteTable(
     preparation_only: integer("preparation_only", { mode: "boolean" }).notNull().default(false),
   },
   (t) => [
+    index("cocktail_ingredients_created_by_idx").on(t.created_by),
+
     uniqueIndex("cocktail_ingredients_bar_id_id_unique").on(t.bar_id, t.id),
     uniqueIndex("cocktail_ingredients_position_unique").on(t.bar_id, t.cocktail_id, t.position),
     foreignKey({
@@ -94,6 +96,8 @@ export const cocktailIngredientAlternatives = sqliteTable(
     ingredient_id: text("ingredient_id").notNull(),
   },
   (t) => [
+    index("cocktail_ingredient_alternatives_created_by_idx").on(t.created_by),
+
     uniqueIndex("cocktail_ingredient_alternatives_position_unique").on(
       t.bar_id,
       t.ingredient_id,

@@ -1,3 +1,4 @@
+import type { HttpBindings } from "@hono/node-server";
 import type { BarSummary, Role, User } from "@larder/shared";
 import type { RequestIdVariables } from "hono/request-id";
 import type { Db } from "./db/client.ts";
@@ -14,8 +15,12 @@ export interface Ctx {
 }
 
 export type AppEnv = {
+  Bindings: HttpBindings;
   Variables: RequestIdVariables & {
     logger: Logger;
+    publicUrl: string | undefined;
+    credentialCheck: <T>(key: string, task: () => Promise<T>) => Promise<T>;
+    limitUploads: (userId: string) => void;
     db: Db;
     storage: ImageStorage;
     user: User;

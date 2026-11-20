@@ -7,7 +7,9 @@ export const ERROR_CODES = [
   "UNAUTHORIZED",
   "FORBIDDEN",
   "PAYLOAD_TOO_LARGE",
+  "RATE_LIMITED",
   "INTERNAL",
+  "UNAVAILABLE",
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);
@@ -21,7 +23,9 @@ export const ERROR_STATUS = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   PAYLOAD_TOO_LARGE: 413,
+  RATE_LIMITED: 429,
   INTERNAL: 500,
+  UNAVAILABLE: 503,
 } as const satisfies Record<ErrorCode, number>;
 
 /** The single JSON error shape: `{ error: { code, message, details? } }`. */
@@ -35,6 +39,7 @@ export const errorBodySchema = z.object({
 export type ErrorBody = z.infer<typeof errorBodySchema>;
 
 export const USAGE_TYPES = [
+  "bar",
   "category",
   "product",
   "pantry_ingredient",

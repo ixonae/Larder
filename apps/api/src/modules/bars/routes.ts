@@ -1,18 +1,54 @@
+import {
+  createBarSchema,
+  createInvitationSchema,
+  deleteBarSchema,
+  renameBarSchema,
+} from "@larder/shared";
 import { Hono } from "hono";
-import { barAccess } from "../../middleware/context.ts";
+import { barAccess, requireRole } from "../../middleware/context.ts";
+import { validate } from "../../middleware/validate.ts";
 import type { AppEnv } from "../../types.ts";
 import { categoryRoutes } from "../categories/routes.ts";
 import { cocktailRoutes, tagRoutes } from "../cocktails/routes.ts";
 import { entityImageRoutes } from "../images/routes.ts";
+import { invite, pendingInvitations, revokeInvitation } from "../invitations/service.ts";
 import { pantryRoutes } from "../pantry/routes.ts";
 import { productRoutes } from "../products/routes.ts";
 import { utensilRoutes } from "../utensils/routes.ts";
+
+import { barMembers, createOwnedBar, removeBar, renameBar } from "./service.ts";
+
+export const barDirectoryRoutes = new Hono<AppEnv>().post(
+  "/",
+  validate("json", createBarSchema),
+  (c) => c.json(createOwnedBar(c.var.db, c.var.user.id, c.req.valid("json")), 201),
+);
 
 /** Routes under `/api/bars/:barId`. Every bar-scoped module is mounted here, behind `barAccess`. */
 export const barRoutes = new Hono<AppEnv>()
   .use(barAccess)
   // barAccess has already loaded the bar and the member's role through the bars service.
   .get("/", (c) => c.json(c.var.bar))
+  .patch("/", requireRole("owner"), validate("json", renameBarSchema), (c) =>
+    c.json(renameBar(c.var.ctx, c.req.valid("json"))),
+  )
+  .delete("/", requireRole("owner"), validate("json", deleteBarSchema), async (c) => {
+    const { db, storage, barId } = c.var.ctx;
+    await removeBar(db, storage, barId, c.req.valid("json").name);
+    return c.body(null, 204);
+  })
+  .get("/members", (c) => c.json(barMembers(c.var.db, c.var.ctx.barId)))
+  .get("/invitations", requireRole("owner"), (c) => c.json(pendingInvitations(c.var.ctx)))
+  .post("/invitations", requireRole("owner"), validate("json", createInvitationSchema), (c) => {
+    const { token, ...summary } = invite(c.var.ctx, c.req.valid("json").role);
+    const url = new URL("/invite", c.var.publicUrl ?? c.req.url);
+    url.hash = token;
+    return c.json({ ...summary, url: url.href }, 201);
+  })
+  .delete("/invitations/:id", requireRole("owner"), (c) => {
+    revokeInvitation(c.var.ctx, c.req.param("id"));
+    return c.body(null, 204);
+  })
   .route("/categories", categoryRoutes)
   .route("/categories", entityImageRoutes("categories"))
   .route("/products", productRoutes)

@@ -10,11 +10,13 @@ export function hasRole(role: Role, required: Role): boolean {
   return ROLES.indexOf(role) >= ROLES.indexOf(required);
 }
 
-export const userSchema = z.object({
+/** Public identity for attributed bar activity. */
+export const authorSchema = z.object({
   id: idSchema,
-  email: z.email(),
   display_name: z.string(),
 });
+
+export const userSchema = authorSchema.extend({ email: z.email(), is_admin: z.boolean() });
 export type User = z.infer<typeof userSchema>;
 
 export const barSummarySchema = z.object({
@@ -30,3 +32,30 @@ export const meSchema = z.object({
   bars: z.array(barSummarySchema),
 });
 export type Me = z.infer<typeof meSchema>;
+
+export const createBarSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  seed_data: z.boolean().default(false),
+});
+export type CreateBar = z.output<typeof createBarSchema>;
+
+export const renameBarSchema = createBarSchema.pick({ name: true });
+export type RenameBar = z.output<typeof renameBarSchema>;
+export const deleteBarSchema = z.object({ name: z.string().min(1) });
+
+export const barMemberSchema = authorSchema.extend({ role: roleSchema });
+export type BarMember = z.infer<typeof barMemberSchema>;
+export const barMembersSchema = z.object({ members: z.array(barMemberSchema) });
+
+export const adminUserSchema = userSchema.extend({
+  disabled: z.boolean(),
+  last_login_at: z.iso.datetime().nullable(),
+});
+export type AdminUser = z.output<typeof adminUserSchema>;
+export const adminUsersSchema = z.object({ users: z.array(adminUserSchema) });
+export const userAccessSchema = adminUserSchema.pick({ disabled: true });
+export const deleteUserSchema = userSchema.pick({ email: true });
+
+export const adminBarSchema = barSummarySchema.omit({ role: true }).extend({ owner: authorSchema });
+export type AdminBar = z.output<typeof adminBarSchema>;
+export const adminBarsSchema = z.object({ bars: z.array(adminBarSchema) });

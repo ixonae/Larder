@@ -32,7 +32,7 @@ export const images = sqliteTable(
       .references(() => users.id),
     created_at: createdAt(),
   },
-  (t) => [index("images_bar_id_idx").on(t.bar_id)],
+  (t) => [index("images_created_by_idx").on(t.created_by), index("images_bar_id_idx").on(t.bar_id)],
 );
 
 /** The item's picture. Images are only ever created by the server for the item's own bar. */
@@ -57,6 +57,9 @@ export const categories = sqliteTable(
     ...timestamps(),
   },
   (t) => [
+    index("categories_created_by_idx").on(t.created_by),
+    index("categories_image_id_idx").on(t.image_id),
+
     // Target of the parent foreign key below; also serves every `bar_id` lookup.
     uniqueIndex("categories_bar_id_id_unique").on(t.bar_id, t.id),
     // The parent must be in the same bar.
@@ -101,6 +104,8 @@ export const pantryIngredients = sqliteTable(
     ...timestamps(),
   },
   (t) => [
+    index("pantry_ingredients_created_by_idx").on(t.created_by),
+
     // Target for cocktail lines (S17); also serves every `bar_id` lookup.
     uniqueIndex("pantry_ingredients_bar_id_id_unique").on(t.bar_id, t.id),
     // The category must be in the same bar.
@@ -145,6 +150,9 @@ export const products = sqliteTable(
     ...timestamps(),
   },
   (t) => [
+    index("products_created_by_idx").on(t.created_by),
+    index("products_image_id_idx").on(t.image_id),
+
     // Target for cocktail lines (S17); also serves every `bar_id` lookup.
     uniqueIndex("products_bar_id_id_unique").on(t.bar_id, t.id),
     // The category must be in the same bar.
@@ -185,6 +193,9 @@ export const utensils = sqliteTable(
     ...timestamps(),
   },
   (t) => [
+    index("utensils_created_by_idx").on(t.created_by),
+    index("utensils_image_id_idx").on(t.image_id),
+
     // Target for cocktail glasses and tools (S16, S17); also serves every `bar_id` lookup.
     uniqueIndex("utensils_bar_id_id_unique").on(t.bar_id, t.id),
     uniqueIndex("utensils_name_unique").on(t.bar_id, sql`larder_name_key(${t.name})`),

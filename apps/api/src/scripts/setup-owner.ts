@@ -1,6 +1,13 @@
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, newAccountSchema } from "@larder/shared";
 import { hashPassword } from "../auth/password.ts";
+import { ensureOwner } from "../auth/service.ts";
+import { type Db, openDb } from "../db/client.ts";
+import { runMigrations } from "../db/migrate.ts";
+import { loadEnv } from "../env.ts";
 
 export interface Io {
   /** On a terminal the password is asked twice; piped input is read once. */
@@ -11,20 +18,24 @@ export interface Io {
   err(line: string): void;
 }
 
-export const MIN_LENGTH = 12;
-
-/** `pnpm hash-password`: prints a value for LARDER_PASSWORD_HASH. Returns the exit code. */
-export async function main(io: Io): Promise<number> {
+/** Initializes the owner credential, or replaces it on an explicit reset. */
+export async function main(io: Io, db: Db, reset = false): Promise<number> {
   const password = await io.readPassword("Password: ");
-  if (password.length < MIN_LENGTH) {
-    io.err(`Use at least ${MIN_LENGTH} characters.`);
+  if (!newAccountSchema.shape.password.safeParse(password).success) {
+    io.err(`Use ${MIN_PASSWORD_LENGTH} to ${MAX_PASSWORD_LENGTH} characters.`);
     return 1;
   }
   if (io.interactive && (await io.readPassword("Repeat: ")) !== password) {
     io.err("The passwords do not match.");
     return 1;
   }
-  io.out(await hashPassword(password));
+  const passwordHash = await hashPassword(password);
+  const email = ensureOwner(db, passwordHash, reset);
+  if (!email) {
+    io.err("The owner account is already set up. Use --reset to replace its password.");
+    return 1;
+  }
+  io.out(`Owner account ready. Sign in as ${email}.`);
   return 0;
 }
 
@@ -71,5 +82,19 @@ const terminalIo: Io = {
   err: (line) => process.stderr.write(`${line}\n`),
 };
 
-if (import.meta.main) process.exitCode = await main(terminalIo);
+if (import.meta.main) {
+  const args = process.argv.slice(2);
+  if (args.length > 1 || (args.length === 1 && args[0] !== "--reset")) {
+    throw new Error("Usage: setup-owner [--reset]");
+  }
+  const { DATA_DIR } = loadEnv();
+  mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
+  const db = openDb(join(DATA_DIR, "larder.db"));
+  try {
+    runMigrations(db);
+    process.exitCode = await main(terminalIo, db, args[0] === "--reset");
+  } finally {
+    db.$client.close();
+  }
+}
 /* v8 ignore stop */

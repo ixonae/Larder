@@ -2,15 +2,18 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
-import { passwordAuth } from "./auth/middleware.ts";
+import { concurrencyLimit } from "./auth/limit.ts";
+import { currentUser, protectApi } from "./auth/middleware.ts";
+import { rateLimit } from "./auth/rate-limit.ts";
+import { authRoutes } from "./auth/routes.ts";
 import type { Db } from "./db/client.ts";
-import { DEFAULT_USER } from "./db/seed.ts";
 import { AppError } from "./errors.ts";
 import type { Logger } from "./logger.ts";
-import { currentUser } from "./middleware/context.ts";
 import { handleError, handleNotFound } from "./middleware/errors.ts";
-import { barRoutes } from "./modules/bars/routes.ts";
+import { adminRoutes } from "./modules/admin/routes.ts";
+import { barDirectoryRoutes, barRoutes } from "./modules/bars/routes.ts";
 import { imageRoutes } from "./modules/images/routes.ts";
+import { invitationRoutes, publicInvitationRoutes } from "./modules/invitations/routes.ts";
 import { meRoutes } from "./modules/me/routes.ts";
 import { webApp } from "./static.ts";
 import type { ImageStorage } from "./storage/storage.ts";
@@ -21,10 +24,8 @@ export interface AppDeps {
   db: Db;
   /** Where uploaded pictures are kept. */
   storage: ImageStorage;
-  /** Email of the user every request acts as, until real auth lands (phase 6). */
-  userEmail?: string;
-  /** When set, every route except `/api/health` requires HTTP Basic auth with this password. */
-  passwordHash?: string;
+  /** The browser-facing origin, including when TLS terminates at a reverse proxy. */
+  publicUrl?: string;
   /** Directory of the built web app to serve (production). */
   webDir?: string;
   /** Largest request body accepted, in bytes; bigger ones get `PAYLOAD_TOO_LARGE`. */
@@ -54,18 +55,27 @@ export function createApp({
   logger,
   db,
   storage,
-  userEmail = DEFAULT_USER.email,
-  passwordHash,
+  publicUrl,
   webDir,
   maxBodyBytes = DEFAULT_MAX_BODY_BYTES,
 }: AppDeps) {
   const app = new Hono<AppEnv>();
 
+  const limitUploads = rateLimit(20);
+  const limitAttempts = rateLimit(10);
+  const queue = concurrencyLimit(2, 4);
+  const credentialCheck = <T>(key: string, task: () => Promise<T>) => {
+    limitAttempts(key);
+    return queue(task);
+  };
   app.use(requestId());
   app.use(async (c, next) => {
     c.set("logger", logger);
     c.set("db", db);
     c.set("storage", storage);
+    c.set("limitUploads", limitUploads);
+    c.set("credentialCheck", credentialCheck);
+    c.set("publicUrl", publicUrl);
     const start = performance.now();
     await next();
     logger.info("request", {
@@ -82,7 +92,7 @@ export function createApp({
   app.onError(handleError);
   app.notFound(handleNotFound);
 
-  if (passwordHash) app.use(passwordAuth(passwordHash));
+  app.use("/api/*", protectApi);
 
   app.use(
     "/api/*",
@@ -97,15 +107,17 @@ export function createApp({
     }),
   );
 
-  const withUser = currentUser(userEmail);
-  app.use("/api/me", withUser);
-  app.use("/api/bars/*", withUser);
-  app.use("/api/images/*", withUser);
-
+  // Deny by default: only the routes mounted before `currentUser` answer signed-out requests.
   const routes = app
     .get("/api/health", (c) => c.json({ status: "ok" as const }))
+    .route("/api/auth", authRoutes)
+    .route("/api/invitations", publicInvitationRoutes)
+    .use("/api/*", currentUser)
+    .route("/api/admin", adminRoutes)
     .route("/api/me", meRoutes)
+    .route("/api/bars", barDirectoryRoutes)
     .route("/api/bars/:barId", barRoutes)
+    .route("/api/invitations", invitationRoutes)
     .route("/api/images", imageRoutes);
 
   if (webDir) app.get("*", webApp(webDir));

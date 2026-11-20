@@ -25,7 +25,12 @@ describe("hasRole", () => {
 describe("meSchema", () => {
   it("rejects an unknown role", () => {
     const me = {
-      user: { id: "01a1f326-d941-7d74-8a40-504a488cd388", email: "a@b.c", display_name: "A" },
+      user: {
+        id: "01a1f326-d941-7d74-8a40-504a488cd388",
+        email: "a@b.c",
+        display_name: "A",
+        is_admin: false,
+      },
       bars: [{ id: "01a1f326-d941-7d74-8a40-504a488cd388", name: "Bar", role: "admin" }],
     };
     expect(meSchema.safeParse(me).success).toBe(false);

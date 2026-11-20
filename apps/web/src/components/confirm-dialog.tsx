@@ -1,5 +1,5 @@
 import { type UsedBy, usedBySchema } from "@larder/shared";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ApiError } from "@/api/client.ts";
 import {
   AlertDialog,
@@ -11,8 +11,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Label } from "@/components/ui/label.tsx";
 
 const TYPE_LABEL: Record<UsedBy["used_by"][number]["type"], string> = {
+  bar: "Bar",
   category: "Category",
   product: "Bottle",
   pantry_ingredient: "Ingredient",
@@ -37,6 +40,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Delete",
+  confirmationText,
   onConfirm,
 }: Readonly<{
   open: boolean;
@@ -44,14 +48,18 @@ export function ConfirmDialog({
   title: string;
   description: string;
   confirmLabel?: string;
-  onConfirm: () => Promise<unknown>;
+  confirmationText?: string;
+  onConfirm: (confirmation: string) => Promise<unknown>;
 }>) {
+  const inputId = useId();
+  const [confirmation, setConfirmation] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const usedBy = usedByOf(error);
 
   const change = (next: boolean) => {
     setError(null);
+    setConfirmation("");
     onOpenChange(next);
   };
 
@@ -59,7 +67,7 @@ export function ConfirmDialog({
     setPending(true);
     setError(null);
     try {
-      await onConfirm();
+      await onConfirm(confirmation);
       change(false);
     } catch (err) {
       setError(err as Error);
@@ -72,9 +80,25 @@ export function ConfirmDialog({
     <AlertDialog open={open} onOpenChange={change}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogTitle className="break-words">{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {confirmationText !== undefined && (
+          <div className="grid gap-2">
+            <Label htmlFor={inputId} className="block break-words leading-snug">
+              Type “<strong>{confirmationText}</strong>” to confirm.
+            </Label>
+            <Input
+              id={inputId}
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.currentTarget.value)}
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+          </div>
+        )}
         {error && (
           <div
             role="alert"
@@ -98,7 +122,13 @@ export function ConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>{usedBy ? "Close" : "Cancel"}</AlertDialogCancel>
           {!usedBy && (
-            <Button variant="destructive" disabled={pending} onClick={confirm}>
+            <Button
+              variant="destructive"
+              disabled={
+                pending || (confirmationText !== undefined && confirmation !== confirmationText)
+              }
+              onClick={confirm}
+            >
               {pending ? "Working…" : confirmLabel}
             </Button>
           )}

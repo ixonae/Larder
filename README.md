@@ -8,9 +8,8 @@ Status: early development. See [`AGENTS.md`](AGENTS.md) for contributor conventi
 ## Run it with Docker
 
 ```bash
-mkdir -p data
+mkdir -p -m 700 data
 printf 'LARDER_UID=%s\nLARDER_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
-docker compose up -d --build
 ```
 
 Larder is then on <http://127.0.0.1:3000>. Everything it stores (SQLite database and uploads) lives in
@@ -20,7 +19,7 @@ Settings go in a `.env` file next to `docker-compose.yml`:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `LARDER_PASSWORD_HASH` | — | Turns on the password (see below) |
+| `LARDER_PUBLIC_URL` | — | Browser-facing origin, for example `https://bar.example.com` |
 | `LARDER_PORT` | `3000` | Host port |
 | `LARDER_BIND` | `127.0.0.1` | Host address the port is bound to |
 | `LARDER_DATA_DIR` | `./data` | Data directory on the host |
@@ -28,30 +27,38 @@ Settings go in a `.env` file next to `docker-compose.yml`:
 | `MAX_UPLOAD_MB` | `10` | Largest request body the API accepts |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` or `silent` |
 
-### Password
+### Owner account
 
-Generate a hash (you are asked for the password; it is never stored in plain text):
-
-```bash
-pnpm hash-password
-```
-
-Without Node on the host, run the same script from the image:
+Set up the owner account before starting Larder for the first time or upgrading from shared
+password access. The terminal prompts for a password and stores its hash in SQLite.
 
 ```bash
-docker compose run --rm --no-deps larder node apps/api/src/scripts/hash-password.ts
+docker compose build
+docker compose run --rm --no-deps larder node apps/api/src/scripts/setup-owner.ts
+docker compose up -d
 ```
 
-Put the result in `.env` as `LARDER_PASSWORD_HASH=scrypt:...`. Recreate the container to apply the
-new environment, then check that a request without credentials returns HTTP `401`:
+Sign in as `owner@larder.local`. The setup command preserves the existing owner and bar. Run it
+with `--reset` to replace the owner password and sign out all owner sessions.
 
-```bash
-docker compose up -d --force-recreate --wait larder
-curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3000/api/me
-```
+When using an HTTPS reverse proxy, set `LARDER_PUBLIC_URL` to the full public origin including
+`https://`. Larder uses it for invite links, Secure cookies and browser origin checks. The health
+check at `/api/health` is public.
 
-Use the configured host port if you changed `LARDER_PORT`. Open Larder in your browser and sign in
-with any username and the password. The health check at `/api/health` stays public.
+### Bars and accounts
+
+Open **Bars** from the current bar name. You can start an empty bar or add the starter recipes and
+catalogue. Bar owners can rename or delete their bars and share or revoke single-use viewer and
+editor invitations.
+
+The installation admin can open **Administration** to see each user’s last sign-in, reset passwords,
+and create, disable, re-enable or delete accounts. Accounts that own bars or are credited on bar data
+can be disabled to preserve that data. Admins can also delete any bar and set the signup policy.
+Signup defaults to invite only. **Admins only** limits account
+creation to the administration page. People who already have an account can still accept an invite.
+
+Use **Account settings** to change your sign-in email or password. Both require your current password
+and sign out your other sessions.
 
 ## Development
 
@@ -59,16 +66,21 @@ Requires Node 26.13.1 (see `.nvmrc`) and pnpm 12.
 
 Databases created before the consolidated initial migration need a fresh data directory. Set
 `DATA_DIR` for local development or `LARDER_DATA_DIR` for Docker to use a new directory and keep
-the old one. Larder imports the starter catalogue automatically on first startup.
+the old one. Local commands resolve relative `DATA_DIR` paths from the repository root and default
+to `./data`. If your existing development database is under `apps/api/data`, set
+`DATA_DIR=apps/api/data` for setup and dev. Larder imports the starter catalogue into the initial
+bar on first startup.
 
 ```bash
 nvm install && nvm use
 pnpm install
-pnpm dev                                           # API on :3000, web app on :5173
+pnpm setup-owner                                  # first run only
+pnpm dev                                          # API on :3000, web app on :5173
 pnpm lint && pnpm typecheck && pnpm test:coverage  # what CI runs
 pnpm test:e2e                                      # smoke test in a second terminal while pnpm dev runs
 ```
 
+Set `LARDER_TEST_PASSWORD` to the owner password for the smoke tests.
 Install the smoke test browser once with `pnpm exec playwright install chromium`.
 The tests use `http://localhost:5173` by default. To test a running Docker instance on the default
 port, run `LARDER_URL=http://127.0.0.1:3000 pnpm test:e2e`.

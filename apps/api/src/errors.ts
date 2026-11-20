@@ -4,14 +4,28 @@ import { type ErrorCode, idSchema, type UsageType, type UsedBy } from "@larder/s
 export class AppError extends Error {
   readonly code: ErrorCode;
   readonly details: unknown;
+  /** Extra response headers, such as `Retry-After`. */
+  readonly headers: Record<string, string>;
 
-  constructor(code: ErrorCode, message: string, details?: unknown) {
+  constructor(
+    code: ErrorCode,
+    message: string,
+    details?: unknown,
+    headers: Record<string, string> = {},
+  ) {
     super(message);
     this.name = "AppError";
     this.code = code;
     this.details = details;
+    this.headers = headers;
   }
 }
+
+/** `429` with the seconds to wait before trying again. */
+export const rateLimited = (retryAfter: number) =>
+  new AppError("RATE_LIMITED", "Too many requests. Try again shortly.", undefined, {
+    "Retry-After": String(retryAfter),
+  });
 
 export const notFound = (what = "Resource") => new AppError("NOT_FOUND", `${what} not found`);
 export const forbidden = (message = "You do not have access to this resource") =>

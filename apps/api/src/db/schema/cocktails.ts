@@ -44,6 +44,9 @@ export const cocktails = sqliteTable(
     variant_note: text("variant_note"),
   },
   (t) => [
+    index("cocktails_created_by_idx").on(t.created_by),
+    index("cocktails_image_id_idx").on(t.image_id),
+
     uniqueIndex("cocktails_bar_id_id_unique").on(t.bar_id, t.id),
     uniqueIndex("cocktails_name_unique").on(t.bar_id, sql`larder_name_key(${t.name})`),
     index("cocktails_bar_id_glass_id_idx").on(t.bar_id, t.glass_id),

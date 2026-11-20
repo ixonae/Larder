@@ -12,7 +12,7 @@ services:
       # Localhost only by default. Expose it through an HTTPS reverse proxy, never plain HTTP.
       - "${LARDER_BIND:-127.0.0.1}:${LARDER_PORT:-3000}:3000"
     environment:
-      LARDER_PASSWORD_HASH: ${LARDER_PASSWORD_HASH:-}
+      LARDER_PUBLIC_URL: ${LARDER_PUBLIC_URL:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-10}
     volumes:

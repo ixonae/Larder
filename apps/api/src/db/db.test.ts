@@ -5,6 +5,7 @@ import { openDb } from "./client.ts";
 import { runMigrations } from "./migrate.ts";
 import {
   barDataMigrations,
+  barInvitations,
   barMembers,
   bars,
   categories,
@@ -15,8 +16,11 @@ import {
   cocktailTags,
   cocktailUtensils,
   images,
+  installationSettings,
   pantryIngredients,
+  passwordCredentials,
   products,
+  sessions,
   tags,
   users,
   utensils,
@@ -241,6 +245,16 @@ describe("schema", () => {
     [bars, [["owner_id", "users"]]],
     [barDataMigrations, [["bar_id", "bars"]]],
     [
+      barInvitations,
+      [
+        ["bar_id", "bars"],
+        ["created_by", "users"],
+      ],
+    ],
+    [passwordCredentials, [["user_id", "users"]]],
+    [sessions, [["user_id", "users"]]],
+    [installationSettings, []],
+    [
       tags,
       [
         ["bar_id", "bars"],
@@ -360,4 +374,28 @@ describe("schema", () => {
     });
     expect(fks).toEqual(expected);
   });
+});
+
+it("can use indexes to find child rows for every foreign key", () => {
+  const db = freshDb().$client;
+  const keys = db
+    .prepare(`
+    SELECT m.name AS child, f.id AS fk, f."from" AS column
+    FROM sqlite_schema m CROSS JOIN pragma_foreign_key_list(m.name) f
+    WHERE m.type = 'table'
+    ORDER BY m.name, f.id, f.seq
+  `)
+    .all() as { child: string; fk: number; column: string }[];
+  const constraints = Map.groupBy(keys, ({ child, fk }) => `${child}/${fk}`);
+  for (const columns of constraints.values()) {
+    const table = columns[0]?.child;
+    const match = columns.map(({ column }) => `"${column}" = 'key'`).join(" AND ");
+    const plan = db
+      .prepare(`EXPLAIN QUERY PLAN SELECT rowid FROM "${table}" WHERE ${match}`)
+      .get() as {
+      detail: string;
+    };
+    expect(plan.detail).toMatch(/^SEARCH /);
+    for (const { column } of columns) expect(plan.detail).toContain(`${column}=?`);
+  }
 });

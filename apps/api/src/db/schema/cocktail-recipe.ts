@@ -22,6 +22,8 @@ export const cocktailSteps = sqliteTable(
     text: text("text").notNull(),
   },
   (t) => [
+    index("cocktail_steps_created_by_idx").on(t.created_by),
+
     uniqueIndex("cocktail_steps_position_unique").on(t.bar_id, t.cocktail_id, t.position),
     foreignKey({
       name: "cocktail_steps_cocktail_fk",
@@ -39,6 +41,8 @@ export const cocktailUtensils = sqliteTable(
     utensil_id: text("utensil_id").notNull(),
   },
   (t) => [
+    index("cocktail_utensils_created_by_idx").on(t.created_by),
+
     primaryKey({ columns: [t.cocktail_id, t.utensil_id] }),
     index("cocktail_utensils_bar_id_cocktail_id_idx").on(t.bar_id, t.cocktail_id),
     index("cocktail_utensils_bar_id_utensil_id_idx").on(t.bar_id, t.utensil_id),
@@ -63,6 +67,8 @@ export const tags = sqliteTable(
     name: nocaseText("name").notNull(),
   },
   (t) => [
+    index("tags_created_by_idx").on(t.created_by),
+
     uniqueIndex("tags_bar_id_id_unique").on(t.bar_id, t.id),
     uniqueIndex("tags_name_unique").on(t.bar_id, sql`larder_name_key(${t.name})`),
   ],
@@ -76,6 +82,8 @@ export const cocktailTags = sqliteTable(
     tag_id: text("tag_id").notNull(),
   },
   (t) => [
+    index("cocktail_tags_created_by_idx").on(t.created_by),
+
     primaryKey({ columns: [t.cocktail_id, t.tag_id] }),
     index("cocktail_tags_bar_id_cocktail_id_idx").on(t.bar_id, t.cocktail_id),
     index("cocktail_tags_bar_id_tag_id_idx").on(t.bar_id, t.tag_id),

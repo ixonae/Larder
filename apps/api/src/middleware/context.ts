@@ -2,18 +2,7 @@ import { hasRole, type Role } from "@larder/shared";
 import { createMiddleware } from "hono/factory";
 import { forbidden } from "../errors.ts";
 import { resolveBarAccess } from "../modules/bars/service.ts";
-import { resolveUser } from "../modules/me/service.ts";
 import type { AppEnv } from "../types.ts";
-
-/**
- * Resolves the user making the request.
- * For now this is always the seeded user with `email`: it is the single place to swap for real auth (phase 6).
- */
-export const currentUser = (email: string) =>
-  createMiddleware<AppEnv>(async (c, next) => {
-    c.set("user", resolveUser(c.var.db, email));
-    await next();
-  });
 
 /** Loads `:barId`, checks the current user is a member, and sets `c.var.bar` and `c.var.ctx`. */
 export const barAccess = createMiddleware<AppEnv>(async (c, next) => {

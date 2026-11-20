@@ -299,6 +299,19 @@ function insertCatalogue(
   return used;
 }
 
+/** Applies a catalogue and records its version in the same transaction. */
+export function applyCatalogue(
+  tx: Tx,
+  barId: string,
+  userId: string,
+  catalogue: Catalogue,
+  staged: ReadonlyMap<string, StagedImage>,
+) {
+  const attached = insertCatalogue(tx, barId, userId, catalogue, staged);
+  tx.insert(barDataMigrations).values({ bar_id: barId, migration: catalogue.id }).run();
+  return attached;
+}
+
 /** Import one version into one bar. Existing entries are reused by name, and missing pictures can be filled. */
 export async function importCatalogue(
   db: Db,
@@ -321,9 +334,7 @@ export async function importCatalogue(
     used = db.transaction(
       (tx) => {
         if (tx.select().from(barDataMigrations).where(record).get()) return new Set<string>();
-        const attached = insertCatalogue(tx, barId, bar.owner_id, catalogue, staged);
-        tx.insert(barDataMigrations).values({ bar_id: barId, migration: catalogue.id }).run();
-        return attached;
+        return applyCatalogue(tx, barId, bar.owner_id, catalogue, staged);
       },
       { behavior: "immediate" },
     );

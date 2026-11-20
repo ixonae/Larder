@@ -38,6 +38,8 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    env:
+      LARDER_TEST_PASSWORD: larder-ci-test-password
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,7 +54,9 @@ jobs:
       - name: Start the built image
         run: |
           mkdir -p data
-          LARDER_UID=$(id -u) LARDER_GID=$(id -g) docker compose up -d --wait
+          export LARDER_UID=$(id -u) LARDER_GID=$(id -g)
+          printf '%s\n' "$LARDER_TEST_PASSWORD" | docker compose run -T --rm --no-deps larder node apps/api/src/scripts/setup-owner.ts
+          docker compose up -d --wait
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
         env:

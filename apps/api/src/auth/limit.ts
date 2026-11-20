@@ -1,4 +1,4 @@
-export class QueueFullError extends Error {}
+import { AppError } from "../errors.ts";
 
 /** Runs at most `max` tasks at once; later ones wait their turn in arrival order. */
 export function concurrencyLimit(max: number, maxWaiting: number) {
@@ -8,7 +8,12 @@ export function concurrencyLimit(max: number, maxWaiting: number) {
     if (active < max) active++;
     else {
       if (waiting.length >= maxWaiting)
-        throw new QueueFullError("Password verification is busy. Try again shortly.");
+        throw new AppError(
+          "UNAVAILABLE",
+          "Password verification is busy. Try again shortly.",
+          undefined,
+          { "Retry-After": "1" },
+        );
       await new Promise<void>((resolve) => waiting.push(resolve));
     }
     try {

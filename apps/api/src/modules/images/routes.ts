@@ -1,9 +1,15 @@
 import { type ImageEntity, uploadImageSchema } from "@larder/shared";
 import { type Context, Hono } from "hono";
+import { createMiddleware } from "hono/factory";
 import { requireRole } from "../../middleware/context.ts";
 import { validate } from "../../middleware/validate.ts";
 import type { AppEnv } from "../../types.ts";
 import { readImage, removeImage, uploadImage } from "./service.ts";
+
+const limitUpload = createMiddleware<AppEnv>(async (c, next) => {
+  c.var.limitUploads(c.var.ctx.userId);
+  await next();
+});
 
 /**
  * `PUT` and `DELETE /:id/image` for one kind of item, mounted next to that item's own routes under
@@ -11,16 +17,18 @@ import { readImage, removeImage, uploadImage } from "./service.ts";
  */
 export const entityImageRoutes = (entity: ImageEntity) =>
   new Hono<AppEnv>()
-    .put("/:id/image", requireRole("editor"), validate("form", uploadImageSchema), async (c) =>
-      c.json(await uploadImage(c.var.ctx, entity, c.req.param("id"), c.req.valid("form").file)),
+    .put(
+      "/:id/image",
+      requireRole("editor"),
+      limitUpload,
+      validate("form", uploadImageSchema),
+      async (c) =>
+        c.json(await uploadImage(c.var.ctx, entity, c.req.param("id"), c.req.valid("form").file)),
     )
     .delete("/:id/image", requireRole("editor"), async (c) => {
       await removeImage(c.var.ctx, entity, c.req.param("id"));
       return c.body(null, 204);
     });
-
-/** A file never changes once stored (a replacement gets a new id), so browsers may keep it for good. */
-const CACHE_CONTROL = "private, max-age=31536000, immutable";
 
 async function serve(c: Context<AppEnv>, size: "full" | "thumb") {
   const { data, mime } = await readImage(
@@ -32,7 +40,6 @@ async function serve(c: Context<AppEnv>, size: "full" | "thumb") {
   );
   return c.body(new Uint8Array(data), 200, {
     "Content-Type": mime,
-    "Cache-Control": CACHE_CONTROL,
   });
 }
 

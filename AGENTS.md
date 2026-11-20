@@ -36,7 +36,8 @@ present, read it before starting a step; this file summarises the rules you must
   and locale-independent lowercase, preserving accents. For categories, use the key in both the
   root and sibling partial unique indexes.
 - Errors use one shape: `{ error: { code, message, details? } }` with codes `VALIDATION`, `NOT_FOUND`,
-  `CONFLICT`, `UNAUTHORIZED`, `FORBIDDEN`, `PAYLOAD_TOO_LARGE`, `INTERNAL`.
+  `CONFLICT`, `UNAUTHORIZED`, `FORBIDDEN`, `PAYLOAD_TOO_LARGE`, `RATE_LIMITED`, `INTERNAL`,
+  `UNAVAILABLE`.
 - Deletes that would orphan data are refused with `CONFLICT`, listing what uses the item. No soft delete.
 - Multi-row writes happen in one transaction.
 - Lists support `?q=`, filters and `?limit=&cursor=` pagination, sorted by name by default.

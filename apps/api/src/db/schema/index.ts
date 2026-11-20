@@ -1,3 +1,5 @@
+export * from "./auth.ts";
+
 export * from "./catalogue.ts";
 export * from "./cocktail-ingredients.ts";
 export * from "./cocktail-recipe.ts";

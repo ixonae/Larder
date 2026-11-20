@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit && pnpm -r --if-present typecheck",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "hash-password": "node apps/api/src/scripts/hash-password.ts",
+    "setup-owner": "node apps/api/src/scripts/setup-owner.ts",
     "test:e2e": "playwright test"
   },
   "devDependencies": {

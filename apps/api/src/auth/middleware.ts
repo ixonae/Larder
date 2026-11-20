@@ -1,38 +1,62 @@
-import { createHash, timingSafeEqual } from "node:crypto";
-import { basicAuth } from "hono/basic-auth";
+import { SESSION_REQUEST_HEADER } from "@larder/shared";
+import type { Context } from "hono";
+import { getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
+import { AppError, forbidden } from "../errors.ts";
 import type { AppEnv } from "../types.ts";
-import { concurrencyLimit } from "./limit.ts";
-import { verifyPassword } from "./password.ts";
+import { peerKey } from "./rate-limit.ts";
+import { SESSION_TTL_SECONDS, sessionUser } from "./service.ts";
 
-const OPEN_PATHS = new Set(["/api/health"]);
-/**
- * Each scrypt check takes ~32 MB and real CPU time, and anyone can trigger one by sending a wrong
- * password. Running at most this many at once keeps a burst of bad requests from exhausting the host.
- */
-export const MAX_CONCURRENT_CHECKS = 2;
-export const MAX_WAITING_CHECKS = 4;
-const sha256 = (s: string) => createHash("sha256").update(s).digest();
+export const SESSION_COOKIE = "larder_session";
 
-/**
- * HTTP Basic auth with the shared password (any username). Everything except `/api/health` needs it.
- * scrypt is deliberately slow, so the digest of the last accepted password is remembered and later
- * requests with it skip the hash (and the queue); wrong passwords always pay the full cost.
- */
-export function passwordAuth(passwordHash: string) {
-  let accepted: Buffer | undefined;
-  const limit = concurrencyLimit(MAX_CONCURRENT_CHECKS, MAX_WAITING_CHECKS);
-  const auth = basicAuth({
-    realm: "Larder",
-    verifyUser: async (_username, password) => {
-      const digest = sha256(password);
-      if (accepted && timingSafeEqual(digest, accepted)) return true;
-      const ok = await limit(() => verifyPassword(password, passwordHash));
-      if (ok) accepted = digest;
-      return ok;
-    },
+export const sessionCookie = (c: Context<AppEnv>) => getCookie(c, SESSION_COOKIE) ?? "";
+
+export function writeSessionCookie(
+  c: Context<AppEnv>,
+  token: string,
+  maxAge = SESSION_TTL_SECONDS,
+) {
+  setCookie(c, SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: c.var.publicUrl?.startsWith("https://") ?? false,
+    path: "/",
+    maxAge,
   });
-  return createMiddleware<AppEnv>((c, next) =>
-    OPEN_PATHS.has(c.req.path) ? next() : auth(c, next),
-  );
 }
+
+/** Sets the new session cookie and answers 204. */
+export function respondWithSession(c: Context<AppEnv>, token: string) {
+  writeSessionCookie(c, token);
+  return c.body(null, 204);
+}
+
+/** Rate-limits by peer and queues the rest of the request behind the password-hashing slots. */
+export const limitCredentials = createMiddleware<AppEnv>((c, next) =>
+  c.var.credentialCheck(peerKey(c), next),
+);
+
+export const currentUser = createMiddleware<AppEnv>(async (c, next) => {
+  const user = sessionUser(c.var.db, sessionCookie(c));
+  if (!user) throw new AppError("UNAUTHORIZED", "Sign in to continue");
+  c.set("user", user);
+  await next();
+});
+
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/** A cross-origin browser cannot send this header without a CORS preflight. */
+export const protectApi = createMiddleware<AppEnv>(async (c, next) => {
+  c.header("Cache-Control", "private, no-store");
+  if (!SAFE_METHODS.has(c.req.method)) {
+    if (c.req.header(SESSION_REQUEST_HEADER) !== "1") throw forbidden("Missing request header");
+    const origin = c.req.header("Origin");
+    if (origin && c.var.publicUrl && origin !== c.var.publicUrl) throw forbidden("Invalid origin");
+  }
+  await next();
+});
+
+export const requireAdmin = createMiddleware<AppEnv>(async (c, next) => {
+  if (!c.var.user.is_admin) throw forbidden("This action needs an installation admin");
+  await next();
+});

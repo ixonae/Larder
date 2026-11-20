@@ -10,6 +10,11 @@ import {
 import { z } from "zod";
 import { AppShell } from "@/components/app-shell.tsx";
 import { NotFoundPage } from "@/components/section-page.tsx";
+import { SettingsPage } from "@/features/account/settings-page.tsx";
+import { SignUpPage } from "@/features/account/sign-up.tsx";
+import { AdminPage } from "@/features/admin/admin-page.tsx";
+import { BarsPage } from "@/features/bars/bars-page.tsx";
+import { InvitePage } from "@/features/bars/invite-page.tsx";
 import { BottleDetailPage } from "@/features/bottles/bottle-detail-page.tsx";
 import { BottlesPage, bottlesSearchSchema } from "@/features/bottles/bottles-page.tsx";
 import { CategoriesPage } from "@/features/categories/categories-page.tsx";
@@ -18,6 +23,13 @@ import { EditCocktailPage, NewCocktailPage } from "@/features/cocktails/cocktail
 import { CocktailsPage } from "@/features/cocktails/cocktails-page.tsx";
 import { PantryPage } from "@/features/pantry/pantry-page.tsx";
 import { UtensilsPage } from "@/features/utensils/utensils-page.tsx";
+
+declare module "@tanstack/react-router" {
+  interface StaticDataRouteOption {
+    /** Also shown to signed-out visitors, instead of the sign-in form. */
+    public?: boolean;
+  }
+}
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -48,6 +60,21 @@ const cocktailsSearchSchema = z.object({
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/signup",
+    component: SignUpPage,
+    staticData: { public: true },
+  }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/settings", component: SettingsPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: AdminPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/bars", component: BarsPage }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/invite",
+    component: InvitePage,
+    staticData: { public: true },
+  }),
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/cocktails",

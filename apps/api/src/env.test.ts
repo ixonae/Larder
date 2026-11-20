@@ -1,54 +1,52 @@
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { type Env, loadEnv, securityWarnings } from "./env.ts";
-
-const HASH = "scrypt:32768:8:1:BwcHBwcHBwcHBwcHBwcHBw:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc";
 
 describe("loadEnv", () => {
   it("applies defaults", () => {
     expect(loadEnv({})).toEqual({
       PORT: 3000,
       HOST: "127.0.0.1",
-      DATA_DIR: "./data",
+      DATA_DIR: fileURLToPath(new URL("../../../data", import.meta.url)),
       LOG_LEVEL: "info",
       MAX_UPLOAD_MB: 10,
-      LARDER_PASSWORD_HASH: undefined,
+      LARDER_PUBLIC_URL: undefined,
       WEB_DIR: undefined,
     });
   });
 
-  it("reads and coerces values", () => {
+  it("reads and coerces values, and normalizes the public origin", () => {
     const env = loadEnv({
       PORT: "8080",
       HOST: "0.0.0.0",
       DATA_DIR: "/data",
       LOG_LEVEL: "debug",
       MAX_UPLOAD_MB: "2.5",
-      LARDER_PASSWORD_HASH: HASH,
+      LARDER_PUBLIC_URL: "https://Bar.example.test:443/",
       WEB_DIR: "/app/web",
     });
     expect(env).toMatchObject({
       PORT: 8080,
       MAX_UPLOAD_MB: 2.5,
-      LARDER_PASSWORD_HASH: HASH,
+      LARDER_PUBLIC_URL: "https://bar.example.test",
       WEB_DIR: "/app/web",
     });
   });
 
-  it("treats an empty password hash as unset", () => {
-    expect(loadEnv({ LARDER_PASSWORD_HASH: "" }).LARDER_PASSWORD_HASH).toBeUndefined();
+  it("treats an empty public URL as unset", () => {
+    expect(loadEnv({ LARDER_PUBLIC_URL: "" }).LARDER_PUBLIC_URL).toBeUndefined();
   });
 
-  it("refuses a password hash in the wrong format", () => {
-    expect(() => loadEnv({ LARDER_PASSWORD_HASH: "hunter2" })).toThrow(/pnpm hash-password/);
-    expect(() => loadEnv({ LARDER_PASSWORD_HASH: HASH.replace("32768", "32767") })).toThrow(
-      /pnpm hash-password/,
-    );
-  });
-
-  it("rejects unsupported scrypt costs at startup", () => {
-    expect(() => loadEnv({ LARDER_PASSWORD_HASH: HASH.replace("32768", "1048576") })).toThrow(
-      /LARDER_PASSWORD_HASH/,
-    );
+  it.each([
+    "example.test",
+    "ftp://example.test",
+    "https://login@example.test",
+    "https://:password@example.test",
+    "https://example.test/app",
+    "https://example.test?q=one",
+    "https://example.test#fragment",
+  ])("rejects invalid public origin %s", (LARDER_PUBLIC_URL) => {
+    expect(() => loadEnv({ LARDER_PUBLIC_URL })).toThrow(/LARDER_PUBLIC_URL/);
   });
 
   it("lists every invalid variable", () => {
@@ -64,13 +62,21 @@ describe("securityWarnings", () => {
     expect(securityWarnings(env({ HOST }))).toEqual([]);
   });
 
-  it("is quiet when a password is set", () => {
-    expect(securityWarnings(env({ HOST: "0.0.0.0", LARDER_PASSWORD_HASH: HASH }))).toEqual([]);
+  it("is quiet when a public HTTPS origin is configured", () => {
+    expect(
+      securityWarnings(env({ HOST: "0.0.0.0", LARDER_PUBLIC_URL: "https://bar.example.test" })),
+    ).toEqual([]);
   });
 
-  it("warns on a non-loopback address without a password", () => {
+  it("warns on a non-loopback address without secure cookies", () => {
     expect(securityWarnings(env({ HOST: "0.0.0.0" }))).toEqual([
-      expect.stringContaining("Listening on 0.0.0.0 without a password"),
+      expect.stringContaining("Listening on 0.0.0.0 with Secure cookies disabled"),
     ]);
   });
+});
+
+it("resolves relative data directories from the repository root", () => {
+  expect(loadEnv({ DATA_DIR: "apps/api/data" }).DATA_DIR).toBe(
+    fileURLToPath(new URL("../data", import.meta.url)),
+  );
 });

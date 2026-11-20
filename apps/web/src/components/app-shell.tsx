@@ -1,8 +1,21 @@
-import { Link, Outlet } from "@tanstack/react-router";
+import { Link, Outlet, useMatches } from "@tanstack/react-router";
 import { cn } from "cn";
-import { Citrus, FolderTree, Martini, UtensilsCrossed, Wine } from "lucide-react";
+import {
+  CircleUserRound,
+  Citrus,
+  FolderTree,
+  Martini,
+  ShieldCheck,
+  UtensilsCrossed,
+  Wine,
+} from "lucide-react";
+import { Fragment } from "react";
 import { useMe } from "@/api/queries.ts";
-import { ErrorState } from "./states.tsx";
+import { SignInForm } from "@/features/account/sign-in.tsx";
+import { SignOutButton } from "@/features/account/sign-out.tsx";
+import { SignUpLink } from "@/features/account/sign-up.tsx";
+import { ActiveBarProvider, useActiveBar } from "@/features/bars/active-bar.tsx";
+import { ErrorState, LoadingState } from "./states.tsx";
 import { ThemeToggle } from "./theme.tsx";
 
 const NAV = [
@@ -51,8 +64,44 @@ function Brand({ className }: { className?: string }) {
 /** Mobile first: bottom tab bar on phones, sidebar from the `md` breakpoint. */
 export function AppShell() {
   const me = useMe();
-  const barName = me.data ? (me.data.bars[0]?.name ?? "No bar") : "";
+  const publicPage = useMatches({
+    select: (matches) => matches.some((match) => match.staticData.public),
+  });
+  if (me.isPending) return <LoadingState />;
+  if (me.isLoadingError) return <ErrorState error={me.error} onRetry={() => me.refetch()} />;
+  if (me.data === null) {
+    return (
+      <main className="mx-auto grid min-h-dvh w-full max-w-sm content-center gap-6 px-5 py-8">
+        <Brand />
+        {publicPage ? (
+          <Outlet />
+        ) : (
+          <>
+            <h1 className="text-3xl">Sign in</h1>
+            <SignInForm />
+            <SignUpLink />
+          </>
+        )}
+      </main>
+    );
+  }
+  return (
+    <ActiveBarProvider key={me.data.user.id} me={me.data}>
+      <SignedInLayout
+        isAdmin={me.data.user.is_admin}
+        error={me.error}
+        onRetry={() => me.refetch()}
+      />
+    </ActiveBarProvider>
+  );
+}
 
+function SignedInLayout({
+  isAdmin,
+  error,
+  onRetry,
+}: Readonly<{ isAdmin: boolean; error: Error | null; onRetry: () => void }>) {
+  const bar = useActiveBar()?.bar;
   return (
     <div className="min-h-dvh bg-background text-foreground md:flex">
       <aside className="sticky top-0 hidden h-dvh border-sidebar-border border-r bg-sidebar p-3 md:flex md:w-60 md:shrink-0 md:flex-col md:gap-6">
@@ -60,23 +109,44 @@ export function AppShell() {
         <nav aria-label="Sidebar" className="flex flex-col gap-1">
           <NavLinks variant="side" />
         </nav>
+        <nav
+          aria-label="Account navigation"
+          className="mt-auto grid gap-1 border-sidebar-border border-t pt-3"
+        >
+          <AccountLink to="/settings" icon={CircleUserRound} label="Account" />
+          {isAdmin && <AccountLink to="/admin" icon={ShieldCheck} label="Administration" />}
+        </nav>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-2 border-b bg-background/85 px-4 backdrop-blur md:px-8">
           <Brand className="md:hidden" />
-          <span
-            className="truncate rounded-full border bg-card px-3 py-1 text-muted-foreground text-xs empty:hidden md:text-sm"
+          <Link
+            to="/bars"
+            aria-label="Manage bars"
+            className="min-w-0 truncate rounded-full border bg-card px-3 py-1 text-muted-foreground text-xs hover:text-foreground md:text-sm"
             data-testid="bar-name"
           >
-            {barName}
-          </span>
-          <ThemeToggle />
+            {bar?.name ?? "No bar"}
+          </Link>
+          <div className="flex shrink-0 items-center gap-1">
+            <Link
+              to="/settings"
+              aria-label="Account settings"
+              className="flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
+            >
+              <CircleUserRound className="size-5" aria-hidden />
+            </Link>
+            <ThemeToggle />
+            <SignOutButton />
+          </div>
         </header>
 
         <main className="flex-1 px-4 py-6 pb-24 md:px-8 md:py-8">
-          {me.isError && <ErrorState error={me.error} onRetry={() => me.refetch()} />}
-          {!me.isLoadingError && <Outlet />}
+          {error && <ErrorState error={error} onRetry={onRetry} />}
+          <Fragment key={bar?.id}>
+            <Outlet />
+          </Fragment>
         </main>
       </div>
 
@@ -87,5 +157,30 @@ export function AppShell() {
         <NavLinks variant="bottom" />
       </nav>
     </div>
+  );
+}
+
+function AccountLink({
+  to,
+  icon: Icon,
+  label,
+}: Readonly<{
+  to: "/settings" | "/admin";
+  icon: typeof CircleUserRound;
+  label: string;
+}>) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-sidebar-accent/60"
+      activeProps={{
+        className: "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
+        "aria-current": "page",
+      }}
+      inactiveProps={{ className: "text-muted-foreground" }}
+    >
+      <Icon className="size-5" aria-hidden />
+      {label}
+    </Link>
   );
 }

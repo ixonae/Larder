@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import type { ImageStorage } from "../../storage/storage.ts";
-import type { Db } from "../client.ts";
+import type { Db, Executor, Tx } from "../client.ts";
 import { barDataMigrations, bars } from "../schema/index.ts";
 import {
+  applyCatalogue,
   type Catalogue,
   catalogueCategorySchema,
   catalogueRecipeSchema,
@@ -33,25 +34,23 @@ const catalogue: Catalogue = {
   recipes: [...lines("./classic-recipes.jsonl"), ...lines("./basic-recipes.jsonl")].map((line) =>
     catalogueRecipeSchema.parse(JSON.parse(line)),
   ),
-  // To bundle pictures, map a target key (use categoryPictureKey for categories) to readFileSync(new URL("./images/example.jpg", import.meta.url)).
-  pictures: new Map(),
 };
 const optedOut = `${catalogue.id}-opt-out`;
 
-/** Defaults to the starter pack. A future bar-creation flow can pass false for this bar. */
-export async function seedStarterCatalogue(
-  db: Db,
-  storage: ImageStorage,
-  barId: string,
-  enabled = true,
-) {
-  if (!enabled) {
-    db.insert(barDataMigrations)
-      .values({ bar_id: barId, migration: optedOut })
-      .onConflictDoNothing()
-      .run();
-    return;
-  }
+/** The bundled starter catalogue has no picture files to stage. */
+export function addStarterCatalogue(tx: Tx, barId: string, userId: string): void {
+  applyCatalogue(tx, barId, userId, catalogue, new Map());
+}
+
+export function skipStarterCatalogue(db: Executor, barId: string): void {
+  db.insert(barDataMigrations)
+    .values({ bar_id: barId, migration: optedOut })
+    .onConflictDoNothing()
+    .run();
+}
+
+/** Imports the starter pack unless the bar opted out. */
+export async function seedStarterCatalogue(db: Db, storage: ImageStorage, barId: string) {
   if (db.select().from(barDataMigrations).where(catalogueRecord(barId, optedOut)).get()) return;
   await importCatalogue(db, storage, barId, catalogue);
 }

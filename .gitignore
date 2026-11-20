@@ -6,7 +6,7 @@ coverage/
 .env.*
 !.env.example
 /data/
-# `pnpm dev` runs the API from apps/api, so its default ./data lands there.
+# Older development installations may still use this data directory.
 apps/api/data/
 test-results/
 playwright-report/

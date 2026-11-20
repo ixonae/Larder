@@ -54,7 +54,7 @@ describe("PUT /:entity/:id/image", () => {
     const full = await t.app.request(`/api/images/${image.id}`);
     expect(full.status).toBe(200);
     expect(full.headers.get("content-type")).toBe("image/webp");
-    expect(full.headers.get("cache-control")).toBe("private, max-age=31536000, immutable");
+    expect(full.headers.get("cache-control")).toBe("private, no-store");
     const bytes = Buffer.from(await full.arrayBuffer());
     expect(bytes.byteLength).toBe(image.size_bytes);
     const thumb = await t.app.request(`/api/images/${image.id}/thumb`);
@@ -251,4 +251,15 @@ describe("cross-bar isolation", () => {
       bobsImage.id,
     );
   });
+});
+
+it("rate limits uploads across all entity routes before processing their contents", async () => {
+  const t = setup();
+  const id = t.cat("Gin").id;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    expect((await t.upload(`/categories/${id}`, "invalid")).status).toBe(400);
+  }
+  const bottle = await t.product();
+  expect((await t.upload(`/products/${bottle.id}`, await png(30, 30))).status).toBe(429);
+  expect(t.imageCount()).toBe(0);
 });

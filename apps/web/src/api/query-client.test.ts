@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { meFixture } from "@/test/msw.ts";
 import { ApiError } from "./client.ts";
+import { meQuery } from "./queries.ts";
 import { createQueryClient, MAX_RETRIES, shouldRetry } from "./query-client.ts";
 
 describe("shouldRetry", () => {
@@ -17,6 +19,38 @@ describe("shouldRetry", () => {
 
   it("is the default retry rule of the app's query client", () => {
     expect(createQueryClient().getDefaultOptions().queries?.retry).toBe(shouldRetry);
+  });
+});
+
+describe("unauthorized answers", () => {
+  const unauthorized = new ApiError(401, "UNAUTHORIZED", "Sign in to continue");
+  const fail = (client: ReturnType<typeof createQueryClient>, error: unknown) =>
+    client
+      .getMutationCache()
+      .build(client, { mutationFn: () => Promise.reject(error) })
+      .execute(undefined)
+      .catch(() => undefined);
+
+  it("signs out and drops cached data when a session stops working", async () => {
+    const client = createQueryClient();
+    client.setQueryData(meQuery.queryKey, meFixture);
+    client.setQueryData(["bars", "x"], 1);
+    await fail(client, new ApiError(404, "NOT_FOUND", "x"));
+    expect(client.getQueryData(meQuery.queryKey)).toEqual(meFixture);
+
+    await client
+      .fetchQuery({ queryKey: ["bars", "y"], queryFn: () => Promise.reject(unauthorized) })
+      .catch(() => undefined);
+    await vi.waitFor(() => expect(client.getQueryData(meQuery.queryKey)).toBeNull());
+    expect(client.getQueryData(["bars", "x"])).toBeUndefined();
+  });
+
+  it("leaves the cache alone when already signed out", async () => {
+    const client = createQueryClient();
+    client.setQueryData(meQuery.queryKey, null);
+    client.setQueryData(["signup-settings"], 1);
+    await fail(client, unauthorized);
+    expect(client.getQueryData(["signup-settings"])).toBe(1);
   });
 });
 

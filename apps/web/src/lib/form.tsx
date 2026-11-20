@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { ReactNode } from "react";
+import { MIN_PASSWORD_LENGTH } from "@larder/shared";
+import { type ReactNode, useId } from "react";
 import {
   Controller,
   type FieldValues,
@@ -12,6 +13,7 @@ import {
 import type { z } from "zod";
 import { ApiError } from "@/api/client.ts";
 import { Combobox, type ComboboxProps } from "@/components/combobox.tsx";
+import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
 
 /** `useForm` validated by a shared Zod schema: the same rules as the API, checked before sending. */
@@ -93,7 +95,7 @@ export function FormField<T extends FieldValues>({
   srOnlyLabel?: boolean;
   children: (control: ControlProps) => ReactNode;
 }>) {
-  const id = `field-${name}`;
+  const id = useId();
   const { error } = form.getFieldState(name, form.formState);
   const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
   return (
@@ -113,6 +115,44 @@ export function FormField<T extends FieldValues>({
         </p>
       )}
     </div>
+  );
+}
+
+/** A password row; `lengthHint` adds the minimum length under a field that sets a new password. */
+export function PasswordField<T extends FieldValues>({
+  form,
+  name,
+  label,
+  autoComplete,
+  lengthHint = false,
+}: Readonly<{
+  form: AnyForm<T>;
+  name: Path<T>;
+  label: string;
+  autoComplete: "current-password" | "new-password";
+  lengthHint?: boolean;
+}>) {
+  return (
+    <FormField
+      form={form}
+      name={name}
+      label={label}
+      hint={lengthHint ? `Use at least ${MIN_PASSWORD_LENGTH} characters.` : undefined}
+    >
+      {(control) => (
+        <Input {...control} {...form.register(name)} type="password" autoComplete={autoComplete} />
+      )}
+    </FormField>
+  );
+}
+
+/** The error of a failed request, announced to screen readers. */
+export function FormError({ error }: Readonly<{ error: Error | null | undefined }>) {
+  if (!error) return null;
+  return (
+    <p role="alert" className="text-destructive text-sm">
+      {error.message}
+    </p>
   );
 }
 

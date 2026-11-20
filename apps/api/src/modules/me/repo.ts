@@ -1,15 +1,7 @@
-import type { BarSummary, User } from "@larder/shared";
+import type { BarSummary } from "@larder/shared";
 import { asc, eq, sql } from "drizzle-orm";
 import type { Db } from "../../db/client.ts";
-import { barMembers, bars, users } from "../../db/schema/index.ts";
-
-export function findUserByEmail(db: Db, email: string): User | undefined {
-  return db
-    .select({ id: users.id, email: users.email, display_name: users.display_name })
-    .from(users)
-    .where(eq(users.email, email))
-    .get();
-}
+import { barMembers, bars } from "../../db/schema/index.ts";
 
 export function listBarsForUser(db: Db, userId: string): BarSummary[] {
   return db

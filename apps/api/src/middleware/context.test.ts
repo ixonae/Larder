@@ -8,7 +8,7 @@ import { requireRole } from "./context.ts";
 describe("GET /api/me", () => {
   it("returns the current user and their bars", async () => {
     const { app, alice } = createTestApp();
-    const res = await app.request("/api/me");
+    const res = await app.request(new Request("http://localhost/api/me"));
     expect(res.status).toBe(200);
     const me = (await res.json()) as Me;
     expect(me.user).toMatchObject({ id: alice.userId, email: "owner@larder.local" });
@@ -38,12 +38,12 @@ describe("GET /api/me", () => {
     expect(me.bars.map((b) => b.name)).toEqual(["alpha", "Zed"]);
   });
 
-  it("refuses requests when the current user does not exist", async () => {
+  it("refuses requests without a session", async () => {
     const { app } = createTestApp({ as: "nobody@larder.local" });
     const res = await app.request("/api/me");
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({
-      error: { code: "UNAUTHORIZED", message: "No current user" },
+      error: { code: "UNAUTHORIZED", message: "Sign in to continue" },
     });
   });
 });

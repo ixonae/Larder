@@ -16,7 +16,7 @@ import {
   utensils,
 } from "../schema/index.ts";
 import { type Catalogue, categoryPictureKey, importCatalogue } from "./import.ts";
-import { migrateStarterCatalogues, seedStarterCatalogue } from "./starter.ts";
+import { migrateStarterCatalogues, seedStarterCatalogue, skipStarterCatalogue } from "./starter.ts";
 
 it("backfills the starter catalogue once, reuses existing entries and honors another bar's opt-out", async () => {
   const { app, db, storage, alice, bob } = createTestApp();
@@ -49,8 +49,8 @@ it("backfills the starter catalogue once, reuses existing entries and honors ano
     })
     .run();
 
-  await seedStarterCatalogue(db, storage, bob.barId, false);
-  await seedStarterCatalogue(db, storage, bob.barId, false);
+  skipStarterCatalogue(db, bob.barId);
+  skipStarterCatalogue(db, bob.barId);
   await migrateStarterCatalogues(db, storage);
   const imported = db.select().from(cocktails).where(eq(cocktails.bar_id, alice.barId)).all();
   expect(imported).toHaveLength(134);

@@ -1,18 +1,13 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
-/**
- * Password hashes look like `scrypt:<N>:<r>:<p>:<salt>:<key>` (salt and key in base64url).
- * Colons rather than `$` so the value can be pasted into a shell or a compose `.env` file unquoted.
- */
-const COST = { N: 32768, r: 8, p: 1, maxmem: 128 * 1024 * 1024 };
+/** Password hashes look like `scrypt:<N>:<r>:<p>:<salt>:<key>` (salt and key in base64url). */
+const COST = { N: 32768, r: 8, p: 3, maxmem: 128 * 1024 * 1024 };
 const KEY_LENGTH = 32;
 const SALT_LENGTH = 16;
 const PREFIX = `scrypt:${COST.N}:${COST.r}:${COST.p}:`;
 // Fixed lengths bound the decoder input to the format produced by hashPassword.
-export const PASSWORD_HASH_PATTERN = new RegExp(
-  `^${PREFIX}([A-Za-z0-9_-]{22}):([A-Za-z0-9_-]{43})$`,
-);
+const PASSWORD_HASH_PATTERN = new RegExp(`^${PREFIX}([A-Za-z0-9_-]{22}):([A-Za-z0-9_-]{43})$`);
 
 const scryptAsync = promisify(scrypt) as (
   password: string,
@@ -33,8 +28,6 @@ function parseHash(stored: string) {
     return undefined;
   return { salt, key };
 }
-
-export const isPasswordHash = (value: string): boolean => parseHash(value) !== undefined;
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(SALT_LENGTH);
