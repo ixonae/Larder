@@ -34,11 +34,11 @@ export function UtensilSheet({
   barId,
   target,
   onClose,
-}: {
+}: Readonly<{
   barId: string;
   target: UtensilTarget;
   onClose: () => void;
-}) {
+}>) {
   const editing = target === "new" ? null : target;
   return (
     <Sheet open={target !== null} onOpenChange={(open) => !open && onClose()}>
@@ -57,11 +57,11 @@ function UtensilForm({
   barId,
   editing,
   onDone,
-}: {
+}: Readonly<{
   barId: string;
   editing: Utensil | null;
   onDone: () => void;
-}) {
+}>) {
   const { create, update } = useUtensilMutations(barId);
   const picture = useImageField(barId, "utensils");
   const form = useZodForm(createUtensilSchema, {

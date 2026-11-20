@@ -12,11 +12,11 @@ export function StockToggle({
   barId,
   ingredient,
   canEdit,
-}: {
+}: Readonly<{
   barId: string;
   ingredient: PantryIngredient;
   canEdit: boolean;
-}) {
+}>) {
   const setStock = useSetPantryStock(barId);
   if (ingredient.always_available) {
     return (

@@ -84,7 +84,7 @@ export function FormField<T extends FieldValues>({
   hint,
   srOnlyLabel = false,
   children,
-}: {
+}: Readonly<{
   form: AnyForm<T>;
   name: Path<T>;
   label: string;
@@ -92,7 +92,7 @@ export function FormField<T extends FieldValues>({
   /** Keep the label for screen readers only, where the layout already says what the field is. */
   srOnlyLabel?: boolean;
   children: (control: ControlProps) => ReactNode;
-}) {
+}>) {
   const id = `field-${name}`;
   const { error } = form.getFieldState(name, form.formState);
   const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");

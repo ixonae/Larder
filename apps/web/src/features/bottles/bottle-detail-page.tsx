@@ -34,7 +34,7 @@ const BackLink = () => (
   </Link>
 );
 
-function BottleView({ bar, productId }: { bar: BarSummary; productId: string }) {
+function BottleView({ bar, productId }: Readonly<{ bar: BarSummary; productId: string }>) {
   const product = useQuery(productQuery(bar.id, productId));
   let body: ReactNode;
   if (product.isPending) body = <LoadingState label="Loading bottle…" />;
@@ -54,7 +54,7 @@ function BottleView({ bar, productId }: { bar: BarSummary; productId: string }) 
   );
 }
 
-function BottleDetails({ bar, product }: { bar: BarSummary; product: Product }) {
+function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Product }>) {
   const canEdit = hasRole(bar.role, "editor");
   const navigate = useNavigate();
   const { remove } = useProductMutations(bar.id);

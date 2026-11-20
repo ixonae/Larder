@@ -6,7 +6,7 @@ import { useSyncExternalStore } from "react";
 export interface ToastItem {
   id: number;
   title: string;
-  description?: string | undefined;
+  description?: string;
   variant: "default" | "error";
 }
 

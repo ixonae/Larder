@@ -7,7 +7,7 @@ import {
 } from "@larder/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2, UtensilsCrossed } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useUtensilMutations, utensilListQuery } from "@/api/utensils.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
@@ -21,13 +21,91 @@ export function UtensilsPage() {
   return <BarGate title="Utensils">{(bar) => <UtensilsView key={bar.id} bar={bar} />}</BarGate>;
 }
 
-function UtensilsView({ bar }: { bar: BarSummary }) {
+function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>) {
   const canEdit = hasRole(bar.role, "editor");
   const list = useInfiniteQuery(utensilListQuery(bar.id));
   const { remove } = useUtensilMutations(bar.id);
   const [target, setTarget] = useState<UtensilTarget>(null);
   const [deleting, setDeleting] = useState<Utensil | null>(null);
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
+
+  let content: ReactNode;
+  if (list.isPending) {
+    content = <LoadingState label="Loading utensils…" />;
+  } else if (list.isError) {
+    content = <ErrorState error={list.error} onRetry={() => list.refetch()} />;
+  } else if (items.length === 0) {
+    content = <EmptyState title="No utensils yet">Add your glasses and bar tools.</EmptyState>;
+  } else {
+    content = (
+      <>
+        {UTENSIL_KINDS.map((kind) => {
+          const group = items.filter((u) => u.kind === kind);
+          if (group.length === 0) return null;
+          const heading = `utensils-${kind}`;
+          return (
+            <div key={kind} className="flex flex-col gap-2">
+              <h2 id={heading} className="font-medium text-muted-foreground text-sm">
+                {UTENSIL_KIND_PLURAL[kind]}
+              </h2>
+              <ul
+                aria-labelledby={heading}
+                className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
+              >
+                {group.map((utensil) => (
+                  <li key={utensil.id} className="flex items-center gap-2 p-3">
+                    <Thumbnail imageId={utensil.image_id} icon={UtensilsCrossed} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{utensil.name}</p>
+                      {(utensil.capacity_ml !== null || utensil.description) && (
+                        <p className="truncate text-muted-foreground text-sm">
+                          {[
+                            utensil.capacity_ml !== null && `${utensil.capacity_ml} ml`,
+                            utensil.description,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Edit ${utensil.name}`}
+                          onClick={() => setTarget(utensil)}
+                        >
+                          <Pencil aria-hidden />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Delete ${utensil.name}`}
+                          onClick={() => setDeleting(utensil)}
+                        >
+                          <Trash2 aria-hidden />
+                        </Button>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+        {list.hasNextPage && (
+          <Button
+            variant="outline"
+            disabled={list.isFetchingNextPage}
+            onClick={() => list.fetchNextPage()}
+          >
+            Load more
+          </Button>
+        )}
+      </>
+    );
+  }
 
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-4">
@@ -41,80 +119,7 @@ function UtensilsView({ bar }: { bar: BarSummary }) {
         )}
       </div>
 
-      {list.isPending ? (
-        <LoadingState label="Loading utensils…" />
-      ) : list.isError ? (
-        <ErrorState error={list.error} onRetry={() => list.refetch()} />
-      ) : items.length === 0 ? (
-        <EmptyState title="No utensils yet">Add your glasses and bar tools.</EmptyState>
-      ) : (
-        <>
-          {UTENSIL_KINDS.map((kind) => {
-            const group = items.filter((u) => u.kind === kind);
-            if (group.length === 0) return null;
-            const heading = `utensils-${kind}`;
-            return (
-              <div key={kind} className="flex flex-col gap-2">
-                <h2 id={heading} className="font-medium text-muted-foreground text-sm">
-                  {UTENSIL_KIND_PLURAL[kind]}
-                </h2>
-                <ul
-                  aria-labelledby={heading}
-                  className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
-                >
-                  {group.map((utensil) => (
-                    <li key={utensil.id} className="flex items-center gap-2 p-3">
-                      <Thumbnail imageId={utensil.image_id} icon={UtensilsCrossed} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{utensil.name}</p>
-                        {(utensil.capacity_ml !== null || utensil.description) && (
-                          <p className="truncate text-muted-foreground text-sm">
-                            {[
-                              utensil.capacity_ml !== null && `${utensil.capacity_ml} ml`,
-                              utensil.description,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </p>
-                        )}
-                      </div>
-                      {canEdit && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Edit ${utensil.name}`}
-                            onClick={() => setTarget(utensil)}
-                          >
-                            <Pencil aria-hidden />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Delete ${utensil.name}`}
-                            onClick={() => setDeleting(utensil)}
-                          >
-                            <Trash2 aria-hidden />
-                          </Button>
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-          {list.hasNextPage && (
-            <Button
-              variant="outline"
-              disabled={list.isFetchingNextPage}
-              onClick={() => list.fetchNextPage()}
-            >
-              Load more
-            </Button>
-          )}
-        </>
-      )}
+      {content}
 
       <UtensilSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
       {deleting && (

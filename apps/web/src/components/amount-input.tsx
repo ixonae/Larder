@@ -15,14 +15,14 @@ export function AmountInput({
   id,
   className,
   ...aria
-}: {
+}: Readonly<{
   value: Amount;
   onChange: (value: Amount) => void;
   id?: string;
   className?: string;
   "aria-invalid"?: boolean;
-  "aria-describedby"?: string | undefined;
-}) {
+  "aria-describedby"?: string;
+}>) {
   const needsAmount = unitNeedsAmount(value.unit);
   return (
     <div className={cn("flex gap-2", className)}>

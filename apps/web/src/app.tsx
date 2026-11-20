@@ -6,10 +6,10 @@ import type { createAppRouter } from "./routes/router.tsx";
 export function App({
   queryClient,
   router,
-}: {
+}: Readonly<{
   queryClient: QueryClient;
   router: ReturnType<typeof createAppRouter>;
-}) {
+}>) {
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />

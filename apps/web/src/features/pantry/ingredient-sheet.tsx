@@ -33,11 +33,11 @@ export function IngredientSheet({
   barId,
   target,
   onClose,
-}: {
+}: Readonly<{
   barId: string;
   target: IngredientTarget;
   onClose: () => void;
-}) {
+}>) {
   const editing = target === "new" ? null : target;
   return (
     <Sheet open={target !== null} onOpenChange={(open) => !open && onClose()}>
@@ -126,11 +126,11 @@ function IngredientForm({
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" className="size-4" {...form.register("in_stock")} />
-        In stock now
+        <span>In stock now</span>
       </label>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" className="size-4" {...form.register("always_available")} />
-        Always available (a staple such as water or ice)
+        <span>Always available (a staple such as water or ice)</span>
       </label>
 
       <SheetFooter className="px-0">

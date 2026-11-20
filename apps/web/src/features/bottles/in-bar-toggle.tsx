@@ -9,11 +9,11 @@ export function InBarToggle({
   barId,
   product,
   canEdit,
-}: {
+}: Readonly<{
   barId: string;
   product: Product;
   canEdit: boolean;
-}) {
+}>) {
   const setInBar = useSetProductInBar(barId);
   const label = product.in_bar ? "In the bar" : "Not in the bar";
   if (!canEdit) {

@@ -38,14 +38,14 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Delete",
   onConfirm,
-}: {
+}: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
   confirmLabel?: string;
   onConfirm: () => Promise<unknown>;
-}) {
+}>) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const usedBy = usedByOf(error);

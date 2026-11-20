@@ -8,7 +8,7 @@ import {
 } from "@larder/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { pantryListQuery, usePantryMutations } from "@/api/pantry.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
@@ -49,7 +49,7 @@ function byCategory(items: PantryIngredient[], paths: Map<string, string>) {
   return [...groups.entries()].sort(([, a], [, b]) => a.name.localeCompare(b.name));
 }
 
-function PantryView({ bar }: { bar: BarSummary }) {
+function PantryView({ bar }: Readonly<{ bar: BarSummary }>) {
   const canEdit = hasRole(bar.role, "editor");
   const list = useInfiniteQuery(pantryListQuery(bar.id));
   const { remove } = usePantryMutations(bar.id);
@@ -61,6 +61,58 @@ function PantryView({ bar }: { bar: BarSummary }) {
     () => byCategory(list.data?.pages.flatMap((page) => page.items) ?? [], paths),
     [list.data, paths],
   );
+
+  let content: ReactNode;
+  if (list.isPending) {
+    content = <LoadingState label="Loading the pantry…" />;
+  } else if (list.isError) {
+    content = <ErrorState error={list.error} onRetry={() => list.refetch()} />;
+  } else if (groups.length === 0) {
+    content = (
+      <EmptyState title="The pantry is empty">
+        Add the fruit, eggs and other supplies you keep next to your bottles.
+      </EmptyState>
+    );
+  } else {
+    content = (
+      <>
+        {groups.map(([categoryId, group]) => {
+          const heading = `pantry-${categoryId}`;
+          return (
+            <div key={categoryId} className="flex flex-col gap-2">
+              <h2 id={heading} className="font-medium text-muted-foreground text-sm">
+                {group.name}
+              </h2>
+              <ul
+                aria-labelledby={heading}
+                className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
+              >
+                {group.items.map((ingredient) => (
+                  <IngredientRow
+                    key={ingredient.id}
+                    barId={bar.id}
+                    ingredient={ingredient}
+                    canEdit={canEdit}
+                    onEdit={() => setTarget(ingredient)}
+                    onDelete={() => setDeleting(ingredient)}
+                  />
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+        {list.hasNextPage && (
+          <Button
+            variant="outline"
+            disabled={list.isFetchingNextPage}
+            onClick={() => list.fetchNextPage()}
+          >
+            Load more
+          </Button>
+        )}
+      </>
+    );
+  }
 
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-4">
@@ -74,52 +126,7 @@ function PantryView({ bar }: { bar: BarSummary }) {
         )}
       </div>
 
-      {list.isPending ? (
-        <LoadingState label="Loading the pantry…" />
-      ) : list.isError ? (
-        <ErrorState error={list.error} onRetry={() => list.refetch()} />
-      ) : groups.length === 0 ? (
-        <EmptyState title="The pantry is empty">
-          Add the fruit, eggs and other supplies you keep next to your bottles.
-        </EmptyState>
-      ) : (
-        <>
-          {groups.map(([categoryId, group]) => {
-            const heading = `pantry-${categoryId}`;
-            return (
-              <div key={categoryId} className="flex flex-col gap-2">
-                <h2 id={heading} className="font-medium text-muted-foreground text-sm">
-                  {group.name}
-                </h2>
-                <ul
-                  aria-labelledby={heading}
-                  className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
-                >
-                  {group.items.map((ingredient) => (
-                    <IngredientRow
-                      key={ingredient.id}
-                      barId={bar.id}
-                      ingredient={ingredient}
-                      canEdit={canEdit}
-                      onEdit={() => setTarget(ingredient)}
-                      onDelete={() => setDeleting(ingredient)}
-                    />
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-          {list.hasNextPage && (
-            <Button
-              variant="outline"
-              disabled={list.isFetchingNextPage}
-              onClick={() => list.fetchNextPage()}
-            >
-              Load more
-            </Button>
-          )}
-        </>
-      )}
+      {content}
 
       <IngredientSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
       {deleting && (
@@ -144,13 +151,13 @@ function IngredientRow({
   canEdit,
   onEdit,
   onDelete,
-}: {
+}: Readonly<{
   barId: string;
   ingredient: PantryIngredient;
   canEdit: boolean;
   onEdit: () => void;
   onDelete: () => void;
-}) {
+}>) {
   return (
     <li className="flex items-center gap-2 p-3">
       <p className="min-w-0 flex-1 truncate font-medium">{ingredient.name}</p>

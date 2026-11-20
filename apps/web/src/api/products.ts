@@ -15,10 +15,10 @@ const bar = api.api.bars[":barId"];
 export const productsKey = (barId: string) => ["bars", barId, "products"] as const;
 
 export interface ProductFilters {
-  q?: string | undefined;
-  category_id?: string | undefined;
-  in_bar?: boolean | undefined;
-  limit?: number | undefined;
+  q?: string;
+  category_id?: string;
+  in_bar?: boolean;
+  limit?: number;
 }
 
 /** The bar's bottles matching `filters`, sorted by name, one page at a time ("Load more"). */

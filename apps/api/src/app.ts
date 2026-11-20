@@ -24,9 +24,9 @@ export interface AppDeps {
   /** Email of the user every request acts as, until real auth lands (phase 6). */
   userEmail?: string;
   /** When set, every route except `/api/health` requires HTTP Basic auth with this password. */
-  passwordHash?: string | undefined;
+  passwordHash?: string;
   /** Directory of the built web app to serve (production). */
-  webDir?: string | undefined;
+  webDir?: string;
   /** Largest request body accepted, in bytes; bigger ones get `PAYLOAD_TOO_LARGE`. */
   maxBodyBytes?: number;
 }

@@ -43,11 +43,11 @@ export type ProductChanges = Partial<
 >;
 
 export interface ProductFilter {
-  q?: string | undefined;
+  q?: string;
   /** Any of these categories. */
-  categoryIds?: string[] | undefined;
-  in_bar?: boolean | undefined;
-  after?: NameCursor | undefined;
+  categoryIds?: string[];
+  in_bar?: boolean;
+  after?: NameCursor;
   limit: number;
 }
 

@@ -30,12 +30,12 @@ export function ImageUpload({
   imageId,
   value,
   onChange,
-}: {
+}: Readonly<{
   /** The saved picture, if any. */
   imageId: string | null;
   value: ImageChange;
   onChange: (change: ImageChange) => void;
-}) {
+}>) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const preview = usePreview(value.kind === "replace" ? value.file : null);

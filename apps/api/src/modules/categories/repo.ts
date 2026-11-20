@@ -24,10 +24,10 @@ export type CategoryChanges = Partial<
 >;
 
 export interface CategoryFilter {
-  q?: string | undefined;
-  kind?: CategoryKind | undefined;
-  parent_id?: string | undefined;
-  after?: NameCursor | undefined;
+  q?: string;
+  kind?: CategoryKind;
+  parent_id?: string;
+  after?: NameCursor;
   limit: number;
 }
 

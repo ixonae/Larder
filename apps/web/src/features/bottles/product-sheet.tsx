@@ -35,11 +35,11 @@ export function ProductSheet({
   barId,
   target,
   onClose,
-}: {
+}: Readonly<{
   barId: string;
   target: ProductTarget;
   onClose: () => void;
-}) {
+}>) {
   const editing = target === "new" ? null : target;
   return (
     <Sheet open={target !== null} onOpenChange={(open) => !open && onClose()}>
@@ -159,7 +159,7 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" className="size-4" {...form.register("in_bar")} />
-        In the bar now
+        <span>In the bar now</span>
       </label>
 
       <SheetFooter className="px-0">

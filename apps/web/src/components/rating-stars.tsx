@@ -15,11 +15,11 @@ export function RatingStars({
   value,
   onChange,
   label = "Rating",
-}: {
+}: Readonly<{
   value: number | null;
   onChange?: (value: number | null) => void;
   label?: string;
-}) {
+}>) {
   const name = useId();
   if (!onChange) {
     return (

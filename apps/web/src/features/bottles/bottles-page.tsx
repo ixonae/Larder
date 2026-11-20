@@ -2,7 +2,7 @@ import { type BarSummary, hasRole, idSchema, PRODUCT_NAME_MAX } from "@larder/sh
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { Plus, Wine } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { z } from "zod";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { productListQuery } from "@/api/products.ts";
@@ -31,7 +31,7 @@ export function BottlesPage() {
   return <BarGate title="Bottles">{(bar) => <BottlesView key={bar.id} bar={bar} />}</BarGate>;
 }
 
-function BottlesView({ bar }: { bar: BarSummary }) {
+function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
   const canEdit = hasRole(bar.role, "editor");
   const search = route.useSearch();
   const navigate = route.useNavigate();
@@ -52,6 +52,56 @@ function BottlesView({ bar }: { bar: BarSummary }) {
   );
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
   const filtered = Boolean(search.q || search.category || search.in_bar !== undefined);
+
+  let content: ReactNode;
+  if (list.isPending) {
+    content = <LoadingState label="Loading bottles…" />;
+  } else if (list.isError) {
+    content = <ErrorState error={list.error} onRetry={() => list.refetch()} />;
+  } else if (items.length === 0) {
+    content = filtered ? (
+      <EmptyState title="No bottles match">Try another search or filter.</EmptyState>
+    ) : (
+      <EmptyState title="No bottles yet">Add the bottles you own or have tasted.</EmptyState>
+    );
+  } else {
+    content = (
+      <>
+        <ul
+          aria-label="Bottles"
+          className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
+        >
+          {items.map((product) => (
+            <li key={product.id} className="flex items-center gap-3 p-3">
+              <Thumbnail imageId={product.image_id} icon={Wine} />
+              <div className="min-w-0 flex-1">
+                <Link
+                  to="/bottles/$productId"
+                  params={{ productId: product.id }}
+                  className="block truncate font-medium hover:underline"
+                >
+                  {product.name}
+                </Link>
+                <p className="truncate text-muted-foreground text-sm">
+                  {[product.category_name, product.producer].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+              <InBarToggle barId={bar.id} product={product} canEdit={canEdit} />
+            </li>
+          ))}
+        </ul>
+        {list.hasNextPage && (
+          <Button
+            variant="outline"
+            disabled={list.isFetchingNextPage}
+            onClick={() => list.fetchNextPage()}
+          >
+            Load more
+          </Button>
+        )}
+      </>
+    );
+  }
 
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-4">
@@ -95,52 +145,7 @@ function BottlesView({ bar }: { bar: BarSummary }) {
         />
       </div>
 
-      {list.isPending ? (
-        <LoadingState label="Loading bottles…" />
-      ) : list.isError ? (
-        <ErrorState error={list.error} onRetry={() => list.refetch()} />
-      ) : items.length === 0 ? (
-        filtered ? (
-          <EmptyState title="No bottles match">Try another search or filter.</EmptyState>
-        ) : (
-          <EmptyState title="No bottles yet">Add the bottles you own or have tasted.</EmptyState>
-        )
-      ) : (
-        <>
-          <ul
-            aria-label="Bottles"
-            className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
-          >
-            {items.map((product) => (
-              <li key={product.id} className="flex items-center gap-3 p-3">
-                <Thumbnail imageId={product.image_id} icon={Wine} />
-                <div className="min-w-0 flex-1">
-                  <Link
-                    to="/bottles/$productId"
-                    params={{ productId: product.id }}
-                    className="block truncate font-medium hover:underline"
-                  >
-                    {product.name}
-                  </Link>
-                  <p className="truncate text-muted-foreground text-sm">
-                    {[product.category_name, product.producer].filter(Boolean).join(" · ")}
-                  </p>
-                </div>
-                <InBarToggle barId={bar.id} product={product} canEdit={canEdit} />
-              </li>
-            ))}
-          </ul>
-          {list.hasNextPage && (
-            <Button
-              variant="outline"
-              disabled={list.isFetchingNextPage}
-              onClick={() => list.fetchNextPage()}
-            >
-              Load more
-            </Button>
-          )}
-        </>
-      )}
+      {content}
 
       <ProductSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
     </section>

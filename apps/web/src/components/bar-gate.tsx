@@ -7,10 +7,10 @@ import { EmptyState, LoadingState } from "./states.tsx";
 export function BarGate({
   title,
   children,
-}: {
+}: Readonly<{
   title: string;
   children: (bar: BarSummary) => ReactNode;
-}) {
+}>) {
   const me = useMe();
   const bar = me.data?.bars[0];
   if (bar) return children(bar);

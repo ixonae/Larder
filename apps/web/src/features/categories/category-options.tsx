@@ -51,10 +51,10 @@ export const categoryIdField = idSchema
 export function CategoryTreeLoader({
   barId,
   children,
-}: {
+}: Readonly<{
   barId: string;
   children: (tree: CategoryTreeNode[]) => ReactNode;
-}) {
+}>) {
   const tree = useQuery(categoryTreeQuery(barId));
   if (tree.isPending) return <LoadingState label="Loading categories…" />;
   if (tree.isError) return <ErrorState error={tree.error} onRetry={() => tree.refetch()} />;

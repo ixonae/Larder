@@ -1,7 +1,10 @@
 import { EmptyState } from "./states.tsx";
 
 /** Placeholder page for sections that later steps fill in. */
-export function SectionPage({ title, description }: { title: string; description: string }) {
+export function SectionPage({
+  title,
+  description,
+}: Readonly<{ title: string; description: string }>) {
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-4">
       <h1 className="text-3xl">{title}</h1>

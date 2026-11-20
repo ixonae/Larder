@@ -23,9 +23,9 @@ export type UtensilChanges = Partial<
 >;
 
 export interface UtensilFilter {
-  q?: string | undefined;
-  kind?: UtensilKind | undefined;
-  after?: NameCursor | undefined;
+  q?: string;
+  kind?: UtensilKind;
+  after?: NameCursor;
   limit: number;
 }
 

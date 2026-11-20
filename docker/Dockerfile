@@ -11,7 +11,7 @@ ENV CI=true
 # `packageManager` in package.json; the hash is the tarball's sha256 (`shasum -a 256`).
 ADD --checksum=sha256:0791469382b579869c51827759876616bc3eae5296d8fa880bbc3c9c1e8cf6f7 \
     https://registry.npmjs.org/pnpm/-/pnpm-12.21.0.tgz /tmp/pnpm.tgz
-RUN npm install -g /tmp/pnpm.tgz && rm /tmp/pnpm.tgz
+RUN npm install --ignore-scripts -g /tmp/pnpm.tgz && rm /tmp/pnpm.tgz
 WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json apps/api/

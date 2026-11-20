@@ -44,12 +44,12 @@ export function CategorySheet({
   tree,
   target,
   onClose,
-}: {
+}: Readonly<{
   barId: string;
   tree: CategoryTreeNode[];
   target: SheetTarget | null;
   onClose: () => void;
-}) {
+}>) {
   return (
     <Sheet open={target !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
@@ -70,12 +70,12 @@ function CategoryForm({
   tree,
   target: { editing, parentId },
   onDone,
-}: {
+}: Readonly<{
   barId: string;
   tree: CategoryTreeNode[];
   target: SheetTarget;
   onDone: () => void;
-}) {
+}>) {
   const { create, update } = useCategoryMutations(barId);
   const picture = useImageField(barId, "categories");
   const all = useMemo(() => flattenTree(tree), [tree]);

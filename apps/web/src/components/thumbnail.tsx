@@ -7,12 +7,12 @@ export function Thumbnail({
   imageId,
   className,
   icon: Icon = ImageOff,
-}: {
+}: Readonly<{
   imageId: string | null;
   className?: string;
   /** Shown on the placeholder; pick one that hints at what the item is. */
   icon?: LucideIcon;
-}) {
+}>) {
   const box = cn("size-10 shrink-0 rounded-md bg-muted object-cover", className);
   if (!imageId) {
     return (

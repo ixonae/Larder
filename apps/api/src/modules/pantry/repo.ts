@@ -24,11 +24,11 @@ export type PantryIngredientChanges = Partial<
 >;
 
 export interface PantryIngredientFilter {
-  q?: string | undefined;
+  q?: string;
   /** Any of these categories. */
-  categoryIds?: string[] | undefined;
-  available?: boolean | undefined;
-  after?: NameCursor | undefined;
+  categoryIds?: string[];
+  available?: boolean;
+  after?: NameCursor;
   limit: number;
 }
 

@@ -1,7 +1,7 @@
 import { CATEGORY_KIND_LABEL, type Category, type CategoryTreeNode, hasRole } from "@larder/shared";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { categoryTreeQuery, useCategoryMutations } from "@/api/categories.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
@@ -35,7 +35,7 @@ interface RowActions {
   remove: (category: Category) => void;
 }
 
-function CategoriesView({ barId, canEdit }: { barId: string; canEdit: boolean }) {
+function CategoriesView({ barId, canEdit }: Readonly<{ barId: string; canEdit: boolean }>) {
   const tree = useQuery(categoryTreeQuery(barId));
   const { remove } = useCategoryMutations(barId);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -59,6 +59,23 @@ function CategoriesView({ barId, canEdit }: { barId: string; canEdit: boolean })
     remove: setDeleting,
   };
 
+  let content: ReactNode;
+  if (tree.isPending) {
+    content = <LoadingState label="Loading categories…" />;
+  } else if (tree.isError) {
+    content = <ErrorState error={tree.error} onRetry={() => tree.refetch()} />;
+  } else if (tree.data.length === 0) {
+    content = (
+      <EmptyState title="No categories yet">Add one to start organising your bar.</EmptyState>
+    );
+  } else {
+    content = (
+      <nav aria-label="Category tree">
+        <TreeList nodes={tree.data} depth={0} actions={actions} />
+      </nav>
+    );
+  }
+
   return (
     <>
       <div className="flex items-center justify-between gap-2">
@@ -71,17 +88,7 @@ function CategoriesView({ barId, canEdit }: { barId: string; canEdit: boolean })
         )}
       </div>
 
-      {tree.isPending ? (
-        <LoadingState label="Loading categories…" />
-      ) : tree.isError ? (
-        <ErrorState error={tree.error} onRetry={() => tree.refetch()} />
-      ) : tree.data.length === 0 ? (
-        <EmptyState title="No categories yet">Add one to start organising your bar.</EmptyState>
-      ) : (
-        <nav aria-label="Category tree">
-          <TreeList nodes={tree.data} depth={0} actions={actions} />
-        </nav>
-      )}
+      {content}
 
       <CategorySheet
         barId={barId}
@@ -109,11 +116,11 @@ function TreeList({
   nodes,
   depth,
   actions,
-}: {
+}: Readonly<{
   nodes: CategoryTreeNode[];
   depth: number;
   actions: RowActions;
-}) {
+}>) {
   return (
     <ul
       className={
@@ -131,11 +138,11 @@ function TreeRow({
   node,
   depth,
   actions,
-}: {
+}: Readonly<{
   node: CategoryTreeNode;
   depth: number;
   actions: RowActions;
-}) {
+}>) {
   const { children, ...category } = node;
   const open = actions.expanded.has(node.id);
   return (
