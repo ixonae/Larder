@@ -51,6 +51,10 @@ export const catalogueSourceSchema = catalogueCategorySchema.extend({ key: z.str
       type: z.literal("product"),
       name: createProductSchema.shape.name,
       product_abv: createProductSchema.shape.abv,
+      /** ISO 3166-1 alpha-2 code: an unknown one fails the catalogue's validation. */
+      country: createProductSchema.shape.country,
+      /** Where within the country ("Scotland", "Kentucky"). */
+      region: createProductSchema.shape.region,
     }),
     z.object({ type: z.literal("pantry"), name: createPantryIngredientSchema.shape.name }),
   ]),
@@ -242,6 +246,8 @@ function insertCatalogue(
           name,
           category_id,
           abv: source.product_abv,
+          country: source.country,
+          region: source.region,
         });
       bottles.set(key, id);
       trackImage(`product:${name}`, "products", id);

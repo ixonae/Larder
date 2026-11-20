@@ -1,4 +1,4 @@
-import { INVITATION_ROLES, ROLES } from "@larder/shared";
+import { CURRENCY_CODES, DEFAULT_CURRENCY, INVITATION_ROLES, ROLES } from "@larder/shared";
 import { sql } from "drizzle-orm";
 import { check, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { createdAt, id, nocaseText, sqlList, timestamps } from "./columns.ts";
@@ -21,9 +21,13 @@ export const bars = sqliteTable(
     owner_id: text("owner_id")
       .notNull()
       .references(() => users.id),
+    currency: text("currency", { enum: CURRENCY_CODES }).notNull().default(DEFAULT_CURRENCY),
     ...timestamps(),
   },
-  (t) => [index("bars_owner_id_idx").on(t.owner_id)],
+  (t) => [
+    index("bars_owner_id_idx").on(t.owner_id),
+    check("bars_currency_check", sql`${t.currency} IN (${sqlList(CURRENCY_CODES)})`),
+  ],
 );
 
 export const barMembers = sqliteTable(

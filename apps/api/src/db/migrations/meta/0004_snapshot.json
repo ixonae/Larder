@@ -1,0 +1,2643 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "c0ef51b6-00e7-4eac-950d-5667c3352ac9",
+  "prevId": "b530787e-7bc7-4602-b2d5-9087855fbcaf",
+  "tables": {
+    "installation_settings": {
+      "name": "installation_settings",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "signup_mode": {
+          "name": "signup_mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "password_credentials": {
+      "name": "password_credentials",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "password_credentials_user_id_users_id_fk": {
+          "name": "password_credentials_user_id_users_id_fk",
+          "tableFrom": "password_credentials",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "sessions": {
+      "name": "sessions",
+      "columns": {
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "sessions_user_id_idx": {
+          "name": "sessions_user_id_idx",
+          "columns": ["user_id"],
+          "isUnique": false
+        },
+        "sessions_expires_at_idx": {
+          "name": "sessions_expires_at_idx",
+          "columns": ["expires_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "sessions_user_id_users_id_fk": {
+          "name": "sessions_user_id_users_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "categories": {
+      "name": "categories",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text COLLATE NOCASE",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "default_abv": {
+          "name": "default_abv",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "image_id": {
+          "name": "image_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "categories_created_by_idx": {
+          "name": "categories_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "categories_image_id_idx": {
+          "name": "categories_image_id_idx",
+          "columns": ["image_id"],
+          "isUnique": false
+        },
+        "categories_bar_id_id_unique": {
+          "name": "categories_bar_id_id_unique",
+          "columns": ["bar_id", "id"],
+          "isUnique": true
+        },
+        "categories_child_name_unique": {
+          "name": "categories_child_name_unique",
+          "columns": ["bar_id", "parent_id", "larder_name_key(\"name\")"],
+          "isUnique": true,
+          "where": "\"categories\".\"parent_id\" IS NOT NULL"
+        },
+        "categories_root_name_unique": {
+          "name": "categories_root_name_unique",
+          "columns": ["bar_id", "larder_name_key(\"name\")"],
+          "isUnique": true,
+          "where": "\"categories\".\"parent_id\" IS NULL"
+        }
+      },
+      "foreignKeys": {
+        "categories_bar_id_bars_id_fk": {
+          "name": "categories_bar_id_bars_id_fk",
+          "tableFrom": "categories",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "categories_image_id_images_id_fk": {
+          "name": "categories_image_id_images_id_fk",
+          "tableFrom": "categories",
+          "tableTo": "images",
+          "columnsFrom": ["image_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "categories_created_by_users_id_fk": {
+          "name": "categories_created_by_users_id_fk",
+          "tableFrom": "categories",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "categories_parent_fk": {
+          "name": "categories_parent_fk",
+          "tableFrom": "categories",
+          "tableTo": "categories",
+          "columnsFrom": ["bar_id", "parent_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "categories_kind_check": {
+          "name": "categories_kind_check",
+          "value": "\"categories\".\"kind\" IN ('spirit', 'liqueur', 'wine', 'beer', 'mixer', 'juice', 'syrup', 'bitters', 'garnish', 'other')"
+        },
+        "categories_default_abv_check": {
+          "name": "categories_default_abv_check",
+          "value": "\"categories\".\"default_abv\" IS NULL OR \"categories\".\"default_abv\" BETWEEN 0 AND 100"
+        }
+      }
+    },
+    "images": {
+      "name": "images",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "storage_key": {
+          "name": "storage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thumb_key": {
+          "name": "thumb_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mime": {
+          "name": "mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "images_created_by_idx": {
+          "name": "images_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "images_bar_id_idx": {
+          "name": "images_bar_id_idx",
+          "columns": ["bar_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "images_bar_id_bars_id_fk": {
+          "name": "images_bar_id_bars_id_fk",
+          "tableFrom": "images",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "images_created_by_users_id_fk": {
+          "name": "images_created_by_users_id_fk",
+          "tableFrom": "images",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "pantry_ingredients": {
+      "name": "pantry_ingredients",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text COLLATE NOCASE",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "in_stock": {
+          "name": "in_stock",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "always_available": {
+          "name": "always_available",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "image_id": {
+          "name": "image_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "pantry_ingredients_created_by_idx": {
+          "name": "pantry_ingredients_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "pantry_ingredients_image_id_idx": {
+          "name": "pantry_ingredients_image_id_idx",
+          "columns": ["image_id"],
+          "isUnique": false
+        },
+        "pantry_ingredients_bar_id_id_unique": {
+          "name": "pantry_ingredients_bar_id_id_unique",
+          "columns": ["bar_id", "id"],
+          "isUnique": true
+        },
+        "pantry_ingredients_name_unique": {
+          "name": "pantry_ingredients_name_unique",
+          "columns": ["bar_id", "larder_name_key(\"name\")", "category_id"],
+          "isUnique": true
+        },
+        "pantry_ingredients_bar_id_category_id_idx": {
+          "name": "pantry_ingredients_bar_id_category_id_idx",
+          "columns": ["bar_id", "category_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "pantry_ingredients_bar_id_bars_id_fk": {
+          "name": "pantry_ingredients_bar_id_bars_id_fk",
+          "tableFrom": "pantry_ingredients",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pantry_ingredients_image_id_images_id_fk": {
+          "name": "pantry_ingredients_image_id_images_id_fk",
+          "tableFrom": "pantry_ingredients",
+          "tableTo": "images",
+          "columnsFrom": ["image_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pantry_ingredients_created_by_users_id_fk": {
+          "name": "pantry_ingredients_created_by_users_id_fk",
+          "tableFrom": "pantry_ingredients",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pantry_ingredients_category_fk": {
+          "name": "pantry_ingredients_category_fk",
+          "tableFrom": "pantry_ingredients",
+          "tableTo": "categories",
+          "columnsFrom": ["bar_id", "category_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "products": {
+      "name": "products",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text COLLATE NOCASE",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "producer": {
+          "name": "producer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "region": {
+          "name": "region",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "abv": {
+          "name": "abv",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "vintage": {
+          "name": "vintage",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "age_years": {
+          "name": "age_years",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "image_id": {
+          "name": "image_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "in_bar": {
+          "name": "in_bar",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "products_created_by_idx": {
+          "name": "products_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "products_image_id_idx": {
+          "name": "products_image_id_idx",
+          "columns": ["image_id"],
+          "isUnique": false
+        },
+        "products_bar_id_id_unique": {
+          "name": "products_bar_id_id_unique",
+          "columns": ["bar_id", "id"],
+          "isUnique": true
+        },
+        "products_bar_id_category_id_idx": {
+          "name": "products_bar_id_category_id_idx",
+          "columns": ["bar_id", "category_id"],
+          "isUnique": false
+        },
+        "products_vintage_name_unique": {
+          "name": "products_vintage_name_unique",
+          "columns": ["bar_id", "larder_name_key(\"name\")", "vintage"],
+          "isUnique": true,
+          "where": "\"products\".\"vintage\" IS NOT NULL"
+        },
+        "products_name_unique": {
+          "name": "products_name_unique",
+          "columns": ["bar_id", "larder_name_key(\"name\")"],
+          "isUnique": true,
+          "where": "\"products\".\"vintage\" IS NULL"
+        }
+      },
+      "foreignKeys": {
+        "products_bar_id_bars_id_fk": {
+          "name": "products_bar_id_bars_id_fk",
+          "tableFrom": "products",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "products_image_id_images_id_fk": {
+          "name": "products_image_id_images_id_fk",
+          "tableFrom": "products",
+          "tableTo": "images",
+          "columnsFrom": ["image_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "products_created_by_users_id_fk": {
+          "name": "products_created_by_users_id_fk",
+          "tableFrom": "products",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "products_category_fk": {
+          "name": "products_category_fk",
+          "tableFrom": "products",
+          "tableTo": "categories",
+          "columnsFrom": ["bar_id", "category_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "products_country_check": {
+          "name": "products_country_check",
+          "value": "\"products\".\"country\" IS NULL OR \"products\".\"country\" IN ('AD', 'AE', 'AF', 'AG', 'AI', 'AL', 'AM', 'AO', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AW', 'AX', 'AZ', 'BA', 'BB', 'BD', 'BE', 'BF', 'BG', 'BH', 'BI', 'BJ', 'BL', 'BM', 'BN', 'BO', 'BQ', 'BR', 'BS', 'BT', 'BV', 'BW', 'BY', 'BZ', 'CA', 'CC', 'CD', 'CF', 'CG', 'CH', 'CI', 'CK', 'CL', 'CM', 'CN', 'CO', 'CR', 'CU', 'CV', 'CW', 'CX', 'CY', 'CZ', 'DE', 'DJ', 'DK', 'DM', 'DO', 'DZ', 'EC', 'EE', 'EG', 'EH', 'ER', 'ES', 'ET', 'FI', 'FJ', 'FK', 'FM', 'FO', 'FR', 'GA', 'GB', 'GD', 'GE', 'GF', 'GG', 'GH', 'GI', 'GL', 'GM', 'GN', 'GP', 'GQ', 'GR', 'GS', 'GT', 'GU', 'GW', 'GY', 'HK', 'HM', 'HN', 'HR', 'HT', 'HU', 'ID', 'IE', 'IL', 'IM', 'IN', 'IO', 'IQ', 'IR', 'IS', 'IT', 'JE', 'JM', 'JO', 'JP', 'KE', 'KG', 'KH', 'KI', 'KM', 'KN', 'KP', 'KR', 'KW', 'KY', 'KZ', 'LA', 'LB', 'LC', 'LI', 'LK', 'LR', 'LS', 'LT', 'LU', 'LV', 'LY', 'MA', 'MC', 'MD', 'ME', 'MF', 'MG', 'MH', 'MK', 'ML', 'MM', 'MN', 'MO', 'MP', 'MQ', 'MR', 'MS', 'MT', 'MU', 'MV', 'MW', 'MX', 'MY', 'MZ', 'NA', 'NC', 'NE', 'NF', 'NG', 'NI', 'NL', 'NO', 'NP', 'NR', 'NU', 'NZ', 'OM', 'PA', 'PE', 'PF', 'PG', 'PH', 'PK', 'PL', 'PM', 'PN', 'PR', 'PS', 'PT', 'PW', 'PY', 'QA', 'RE', 'RO', 'RS', 'RU', 'RW', 'SA', 'SB', 'SC', 'SD', 'SE', 'SG', 'SH', 'SI', 'SJ', 'SK', 'SL', 'SM', 'SN', 'SO', 'SR', 'SS', 'ST', 'SV', 'SX', 'SY', 'SZ', 'TC', 'TD', 'TF', 'TG', 'TH', 'TJ', 'TK', 'TL', 'TM', 'TN', 'TO', 'TR', 'TT', 'TV', 'TW', 'TZ', 'UA', 'UG', 'UM', 'US', 'UY', 'UZ', 'VA', 'VC', 'VE', 'VG', 'VI', 'VN', 'VU', 'WF', 'WS', 'YE', 'YT', 'ZA', 'ZM', 'ZW')"
+        },
+        "products_abv_check": {
+          "name": "products_abv_check",
+          "value": "\"products\".\"abv\" IS NULL OR \"products\".\"abv\" BETWEEN 0 AND 100"
+        },
+        "products_age_years_check": {
+          "name": "products_age_years_check",
+          "value": "\"products\".\"age_years\" IS NULL OR \"products\".\"age_years\" >= 0"
+        }
+      }
+    },
+    "utensils": {
+      "name": "utensils",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text COLLATE NOCASE",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "capacity_ml": {
+          "name": "capacity_ml",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "image_id": {
+          "name": "image_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "utensils_created_by_idx": {
+          "name": "utensils_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "utensils_image_id_idx": {
+          "name": "utensils_image_id_idx",
+          "columns": ["image_id"],
+          "isUnique": false
+        },
+        "utensils_bar_id_id_unique": {
+          "name": "utensils_bar_id_id_unique",
+          "columns": ["bar_id", "id"],
+          "isUnique": true
+        },
+        "utensils_name_unique": {
+          "name": "utensils_name_unique",
+          "columns": ["bar_id", "larder_name_key(\"name\")"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "utensils_bar_id_bars_id_fk": {
+          "name": "utensils_bar_id_bars_id_fk",
+          "tableFrom": "utensils",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "utensils_image_id_images_id_fk": {
+          "name": "utensils_image_id_images_id_fk",
+          "tableFrom": "utensils",
+          "tableTo": "images",
+          "columnsFrom": ["image_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "utensils_created_by_users_id_fk": {
+          "name": "utensils_created_by_users_id_fk",
+          "tableFrom": "utensils",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "utensils_kind_check": {
+          "name": "utensils_kind_check",
+          "value": "\"utensils\".\"kind\" IN ('glass', 'tool')"
+        },
+        "utensils_capacity_check": {
+          "name": "utensils_capacity_check",
+          "value": "\"utensils\".\"capacity_ml\" IS NULL OR (\"utensils\".\"kind\" = 'glass' AND \"utensils\".\"capacity_ml\" > 0)"
+        }
+      }
+    },
+    "cocktail_ingredient_alternatives": {
+      "name": "cocktail_ingredient_alternatives",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pantry_ingredient_id": {
+          "name": "pantry_ingredient_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ingredient_id": {
+          "name": "ingredient_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "cocktail_ingredient_alternatives_created_by_idx": {
+          "name": "cocktail_ingredient_alternatives_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "cocktail_ingredient_alternatives_position_unique": {
+          "name": "cocktail_ingredient_alternatives_position_unique",
+          "columns": ["bar_id", "ingredient_id", "position"],
+          "isUnique": true
+        },
+        "cocktail_ingredient_alternatives_bar_id_category_id_idx": {
+          "name": "cocktail_ingredient_alternatives_bar_id_category_id_idx",
+          "columns": ["bar_id", "category_id"],
+          "isUnique": false
+        },
+        "cocktail_ingredient_alternatives_bar_id_product_id_idx": {
+          "name": "cocktail_ingredient_alternatives_bar_id_product_id_idx",
+          "columns": ["bar_id", "product_id"],
+          "isUnique": false
+        },
+        "cocktail_ingredient_alternatives_bar_id_pantry_ingredient_id_idx": {
+          "name": "cocktail_ingredient_alternatives_bar_id_pantry_ingredient_id_idx",
+          "columns": ["bar_id", "pantry_ingredient_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "cocktail_ingredient_alternatives_bar_id_bars_id_fk": {
+          "name": "cocktail_ingredient_alternatives_bar_id_bars_id_fk",
+          "tableFrom": "cocktail_ingredient_alternatives",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cocktail_ingredient_alternatives_created_by_users_id_fk": {
+          "name": "cocktail_ingredient_alternatives_created_by_users_id_fk",
+          "tableFrom": "cocktail_ingredient_alternatives",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktail_ingredient_alternatives_ingredient_fk": {
+          "name": "cocktail_ingredient_alternatives_ingredient_fk",
+          "tableFrom": "cocktail_ingredient_alternatives",
+          "tableTo": "cocktail_ingredients",
+          "columnsFrom": ["bar_id", "ingredient_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cocktail_ingredient_alternatives_category_fk": {
+          "name": "cocktail_ingredient_alternatives_category_fk",
+          "tableFrom": "cocktail_ingredient_alternatives",
+          "tableTo": "categories",
+          "columnsFrom": ["bar_id", "category_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktail_ingredient_alternatives_product_fk": {
+          "name": "cocktail_ingredient_alternatives_product_fk",
+          "tableFrom": "cocktail_ingredient_alternatives",
+          "tableTo": "products",
+          "columnsFrom": ["bar_id", "product_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktail_ingredient_alternatives_pantry_fk": {
+          "name": "cocktail_ingredient_alternatives_pantry_fk",
+          "tableFrom": "cocktail_ingredient_alternatives",
+          "tableTo": "pantry_ingredients",
+          "columnsFrom": ["bar_id", "pantry_ingredient_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "cocktail_ingredient_alternatives_one_source_check": {
+          "name": "cocktail_ingredient_alternatives_one_source_check",
+          "value": "(\"cocktail_ingredient_alternatives\".\"category_id\" IS NOT NULL) + (\"cocktail_ingredient_alternatives\".\"product_id\" IS NOT NULL) + (\"cocktail_ingredient_alternatives\".\"pantry_ingredient_id\" IS NOT NULL) = 1"
+        }
+      }
+    },
+    "cocktail_ingredients": {
+      "name": "cocktail_ingredients",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pantry_ingredient_id": {
+          "name": "pantry_ingredient_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cocktail_id": {
+          "name": "cocktail_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "optional": {
+          "name": "optional",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "preparation_only": {
+          "name": "preparation_only",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "cocktail_ingredients_created_by_idx": {
+          "name": "cocktail_ingredients_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "cocktail_ingredients_bar_id_id_unique": {
+          "name": "cocktail_ingredients_bar_id_id_unique",
+          "columns": ["bar_id", "id"],
+          "isUnique": true
+        },
+        "cocktail_ingredients_position_unique": {
+          "name": "cocktail_ingredients_position_unique",
+          "columns": ["bar_id", "cocktail_id", "position"],
+          "isUnique": true
+        },
+        "cocktail_ingredients_bar_id_category_id_idx": {
+          "name": "cocktail_ingredients_bar_id_category_id_idx",
+          "columns": ["bar_id", "category_id"],
+          "isUnique": false
+        },
+        "cocktail_ingredients_bar_id_product_id_idx": {
+          "name": "cocktail_ingredients_bar_id_product_id_idx",
+          "columns": ["bar_id", "product_id"],
+          "isUnique": false
+        },
+        "cocktail_ingredients_bar_id_pantry_ingredient_id_idx": {
+          "name": "cocktail_ingredients_bar_id_pantry_ingredient_id_idx",
+          "columns": ["bar_id", "pantry_ingredient_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "cocktail_ingredients_bar_id_bars_id_fk": {
+          "name": "cocktail_ingredients_bar_id_bars_id_fk",
+          "tableFrom": "cocktail_ingredients",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cocktail_ingredients_created_by_users_id_fk": {
+          "name": "cocktail_ingredients_created_by_users_id_fk",
+          "tableFrom": "cocktail_ingredients",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktail_ingredients_cocktail_fk": {
+          "name": "cocktail_ingredients_cocktail_fk",
+          "tableFrom": "cocktail_ingredients",
+          "tableTo": "cocktails",
+          "columnsFrom": ["bar_id", "cocktail_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cocktail_ingredients_category_fk": {
+          "name": "cocktail_ingredients_category_fk",
+          "tableFrom": "cocktail_ingredients",
+          "tableTo": "categories",
+          "columnsFrom": ["bar_id", "category_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktail_ingredients_product_fk": {
+          "name": "cocktail_ingredients_product_fk",
+          "tableFrom": "cocktail_ingredients",
+          "tableTo": "products",
+          "columnsFrom": ["bar_id", "product_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktail_ingredients_pantry_fk": {
+          "name": "cocktail_ingredients_pantry_fk",
+          "tableFrom": "cocktail_ingredients",
+          "tableTo": "pantry_ingredients",
+          "columnsFrom": ["bar_id", "pantry_ingredient_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "cocktail_ingredients_one_source_check": {
+          "name": "cocktail_ingredients_one_source_check",
+          "value": "(\"cocktail_ingredients\".\"category_id\" IS NOT NULL) + (\"cocktail_ingredients\".\"product_id\" IS NOT NULL) + (\"cocktail_ingredients\".\"pantry_ingredient_id\" IS NOT NULL) = 1"
+        },
+        "cocktail_ingredients_unit_check": {
+          "name": "cocktail_ingredients_unit_check",
+          "value": "\"cocktail_ingredients\".\"unit\" IN ('ml', 'cl', 'oz', 'tsp', 'barspoon', 'tbsp', 'dash', 'drop', 'splash', 'piece', 'slice', 'wedge', 'sprig', 'leaf', 'top', 'to_taste')"
+        },
+        "cocktail_ingredients_amount_check": {
+          "name": "cocktail_ingredients_amount_check",
+          "value": "(\"cocktail_ingredients\".\"amount\" IS NULL AND \"cocktail_ingredients\".\"unit\" IN ('top', 'to_taste')) OR (\"cocktail_ingredients\".\"amount\" IS NOT NULL AND \"cocktail_ingredients\".\"amount\" > 0)"
+        }
+      }
+    },
+    "cocktail_steps": {
+      "name": "cocktail_steps",
+      "columns": {
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cocktail_id": {
+          "name": "cocktail_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "cocktail_steps_created_by_idx": {
+          "name": "cocktail_steps_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "cocktail_steps_position_unique": {
+          "name": "cocktail_steps_position_unique",
+          "columns": ["bar_id", "cocktail_id", "position"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "cocktail_steps_bar_id_bars_id_fk": {
+          "name": "cocktail_steps_bar_id_bars_id_fk",
+          "tableFrom": "cocktail_steps",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cocktail_steps_created_by_users_id_fk": {
+          "name": "cocktail_steps_created_by_users_id_fk",
+          "tableFrom": "cocktail_steps",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktail_steps_cocktail_fk": {
+          "name": "cocktail_steps_cocktail_fk",
+          "tableFrom": "cocktail_steps",
+          "tableTo": "cocktails",
+          "columnsFrom": ["bar_id", "cocktail_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "cocktail_tags": {
+      "name": "cocktail_tags",
+      "columns": {
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cocktail_id": {
+          "name": "cocktail_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tag_id": {
+          "name": "tag_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "cocktail_tags_created_by_idx": {
+          "name": "cocktail_tags_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "cocktail_tags_bar_id_cocktail_id_idx": {
+          "name": "cocktail_tags_bar_id_cocktail_id_idx",
+          "columns": ["bar_id", "cocktail_id"],
+          "isUnique": false
+        },
+        "cocktail_tags_bar_id_tag_id_idx": {
+          "name": "cocktail_tags_bar_id_tag_id_idx",
+          "columns": ["bar_id", "tag_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "cocktail_tags_bar_id_bars_id_fk": {
+          "name": "cocktail_tags_bar_id_bars_id_fk",
+          "tableFrom": "cocktail_tags",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cocktail_tags_created_by_users_id_fk": {
+          "name": "cocktail_tags_created_by_users_id_fk",
+          "tableFrom": "cocktail_tags",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktail_tags_cocktail_fk": {
+          "name": "cocktail_tags_cocktail_fk",
+          "tableFrom": "cocktail_tags",
+          "tableTo": "cocktails",
+          "columnsFrom": ["bar_id", "cocktail_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cocktail_tags_tag_fk": {
+          "name": "cocktail_tags_tag_fk",
+          "tableFrom": "cocktail_tags",
+          "tableTo": "tags",
+          "columnsFrom": ["bar_id", "tag_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "cocktail_tags_cocktail_id_tag_id_pk": {
+          "columns": ["cocktail_id", "tag_id"],
+          "name": "cocktail_tags_cocktail_id_tag_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "cocktail_utensils": {
+      "name": "cocktail_utensils",
+      "columns": {
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cocktail_id": {
+          "name": "cocktail_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "utensil_id": {
+          "name": "utensil_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "cocktail_utensils_created_by_idx": {
+          "name": "cocktail_utensils_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "cocktail_utensils_bar_id_cocktail_id_idx": {
+          "name": "cocktail_utensils_bar_id_cocktail_id_idx",
+          "columns": ["bar_id", "cocktail_id"],
+          "isUnique": false
+        },
+        "cocktail_utensils_bar_id_utensil_id_idx": {
+          "name": "cocktail_utensils_bar_id_utensil_id_idx",
+          "columns": ["bar_id", "utensil_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "cocktail_utensils_bar_id_bars_id_fk": {
+          "name": "cocktail_utensils_bar_id_bars_id_fk",
+          "tableFrom": "cocktail_utensils",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cocktail_utensils_created_by_users_id_fk": {
+          "name": "cocktail_utensils_created_by_users_id_fk",
+          "tableFrom": "cocktail_utensils",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktail_utensils_cocktail_fk": {
+          "name": "cocktail_utensils_cocktail_fk",
+          "tableFrom": "cocktail_utensils",
+          "tableTo": "cocktails",
+          "columnsFrom": ["bar_id", "cocktail_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cocktail_utensils_utensil_fk": {
+          "name": "cocktail_utensils_utensil_fk",
+          "tableFrom": "cocktail_utensils",
+          "tableTo": "utensils",
+          "columnsFrom": ["bar_id", "utensil_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "cocktail_utensils_cocktail_id_utensil_id_pk": {
+          "columns": ["cocktail_id", "utensil_id"],
+          "name": "cocktail_utensils_cocktail_id_utensil_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "tags": {
+      "name": "tags",
+      "columns": {
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text COLLATE NOCASE",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "tags_created_by_idx": {
+          "name": "tags_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "tags_bar_id_id_unique": {
+          "name": "tags_bar_id_id_unique",
+          "columns": ["bar_id", "id"],
+          "isUnique": true
+        },
+        "tags_name_unique": {
+          "name": "tags_name_unique",
+          "columns": ["bar_id", "larder_name_key(\"name\")"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "tags_bar_id_bars_id_fk": {
+          "name": "tags_bar_id_bars_id_fk",
+          "tableFrom": "tags",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "tags_created_by_users_id_fk": {
+          "name": "tags_created_by_users_id_fk",
+          "tableFrom": "tags",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "cocktails": {
+      "name": "cocktails",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text COLLATE NOCASE",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ice": {
+          "name": "ice",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'none'"
+        },
+        "garnish": {
+          "name": "garnish",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "glass_id": {
+          "name": "glass_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "serving_notes": {
+          "name": "serving_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "servings": {
+          "name": "servings",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "image_id": {
+          "name": "image_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "variant_of_id": {
+          "name": "variant_of_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "variant_note": {
+          "name": "variant_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "cocktails_created_by_idx": {
+          "name": "cocktails_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "cocktails_image_id_idx": {
+          "name": "cocktails_image_id_idx",
+          "columns": ["image_id"],
+          "isUnique": false
+        },
+        "cocktails_bar_id_id_unique": {
+          "name": "cocktails_bar_id_id_unique",
+          "columns": ["bar_id", "id"],
+          "isUnique": true
+        },
+        "cocktails_name_unique": {
+          "name": "cocktails_name_unique",
+          "columns": ["bar_id", "larder_name_key(\"name\")"],
+          "isUnique": true
+        },
+        "cocktails_bar_id_glass_id_idx": {
+          "name": "cocktails_bar_id_glass_id_idx",
+          "columns": ["bar_id", "glass_id"],
+          "isUnique": false
+        },
+        "cocktails_bar_id_variant_of_id_idx": {
+          "name": "cocktails_bar_id_variant_of_id_idx",
+          "columns": ["bar_id", "variant_of_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "cocktails_bar_id_bars_id_fk": {
+          "name": "cocktails_bar_id_bars_id_fk",
+          "tableFrom": "cocktails",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cocktails_created_by_users_id_fk": {
+          "name": "cocktails_created_by_users_id_fk",
+          "tableFrom": "cocktails",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktails_image_id_images_id_fk": {
+          "name": "cocktails_image_id_images_id_fk",
+          "tableFrom": "cocktails",
+          "tableTo": "images",
+          "columnsFrom": ["image_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktails_glass_fk": {
+          "name": "cocktails_glass_fk",
+          "tableFrom": "cocktails",
+          "tableTo": "utensils",
+          "columnsFrom": ["bar_id", "glass_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cocktails_variant_fk": {
+          "name": "cocktails_variant_fk",
+          "tableFrom": "cocktails",
+          "tableTo": "cocktails",
+          "columnsFrom": ["bar_id", "variant_of_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "cocktails_method_check": {
+          "name": "cocktails_method_check",
+          "value": "\"cocktails\".\"method\" IN ('shaken', 'stirred', 'built', 'blended', 'thrown', 'other')"
+        },
+        "cocktails_ice_check": {
+          "name": "cocktails_ice_check",
+          "value": "\"cocktails\".\"ice\" IN ('none', 'cubes', 'crushed', 'large_cube', 'other')"
+        },
+        "cocktails_servings_check": {
+          "name": "cocktails_servings_check",
+          "value": "\"cocktails\".\"servings\" > 0"
+        }
+      }
+    },
+    "comments": {
+      "name": "comments",
+      "columns": {
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cocktail_id": {
+          "name": "cocktail_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "is_private": {
+          "name": "is_private",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "comments_created_by_idx": {
+          "name": "comments_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "comments_bar_id_cocktail_id_created_at_idx": {
+          "name": "comments_bar_id_cocktail_id_created_at_idx",
+          "columns": ["bar_id", "cocktail_id", "created_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "comments_bar_id_bars_id_fk": {
+          "name": "comments_bar_id_bars_id_fk",
+          "tableFrom": "comments",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "comments_created_by_users_id_fk": {
+          "name": "comments_created_by_users_id_fk",
+          "tableFrom": "comments",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "comments_cocktail_fk": {
+          "name": "comments_cocktail_fk",
+          "tableFrom": "comments",
+          "tableTo": "cocktails",
+          "columnsFrom": ["bar_id", "cocktail_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "comments_body_check": {
+          "name": "comments_body_check",
+          "value": "length(\"comments\".\"body\") BETWEEN 1 AND 2000"
+        }
+      }
+    },
+    "favourites": {
+      "name": "favourites",
+      "columns": {
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cocktail_id": {
+          "name": "cocktail_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "favourites_created_by_idx": {
+          "name": "favourites_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "favourites_user_cocktail_unique": {
+          "name": "favourites_user_cocktail_unique",
+          "columns": ["bar_id", "created_by", "cocktail_id"],
+          "isUnique": true
+        },
+        "favourites_bar_id_cocktail_id_idx": {
+          "name": "favourites_bar_id_cocktail_id_idx",
+          "columns": ["bar_id", "cocktail_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "favourites_bar_id_bars_id_fk": {
+          "name": "favourites_bar_id_bars_id_fk",
+          "tableFrom": "favourites",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "favourites_created_by_users_id_fk": {
+          "name": "favourites_created_by_users_id_fk",
+          "tableFrom": "favourites",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "favourites_cocktail_fk": {
+          "name": "favourites_cocktail_fk",
+          "tableFrom": "favourites",
+          "tableTo": "cocktails",
+          "columnsFrom": ["bar_id", "cocktail_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "ratings": {
+      "name": "ratings",
+      "columns": {
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cocktail_id": {
+          "name": "cocktail_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "score": {
+          "name": "score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ratings_created_by_idx": {
+          "name": "ratings_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        },
+        "ratings_cocktail_user_unique": {
+          "name": "ratings_cocktail_user_unique",
+          "columns": ["bar_id", "cocktail_id", "created_by"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "ratings_bar_id_bars_id_fk": {
+          "name": "ratings_bar_id_bars_id_fk",
+          "tableFrom": "ratings",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "ratings_created_by_users_id_fk": {
+          "name": "ratings_created_by_users_id_fk",
+          "tableFrom": "ratings",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "ratings_cocktail_fk": {
+          "name": "ratings_cocktail_fk",
+          "tableFrom": "ratings",
+          "tableTo": "cocktails",
+          "columnsFrom": ["bar_id", "cocktail_id"],
+          "columnsTo": ["bar_id", "id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "ratings_score_check": {
+          "name": "ratings_score_check",
+          "value": "\"ratings\".\"score\" BETWEEN 1 AND 5"
+        }
+      }
+    },
+    "bar_data_migrations": {
+      "name": "bar_data_migrations",
+      "columns": {
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "migration": {
+          "name": "migration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "bar_data_migrations_bar_id_bars_id_fk": {
+          "name": "bar_data_migrations_bar_id_bars_id_fk",
+          "tableFrom": "bar_data_migrations",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "bar_data_migrations_bar_id_migration_pk": {
+          "columns": ["bar_id", "migration"],
+          "name": "bar_data_migrations_bar_id_migration_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "bar_invitations": {
+      "name": "bar_invitations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "bar_invitations_token_hash_unique": {
+          "name": "bar_invitations_token_hash_unique",
+          "columns": ["token_hash"],
+          "isUnique": true
+        },
+        "bar_invitations_bar_id_expires_at_idx": {
+          "name": "bar_invitations_bar_id_expires_at_idx",
+          "columns": ["bar_id", "expires_at"],
+          "isUnique": false
+        },
+        "bar_invitations_created_by_idx": {
+          "name": "bar_invitations_created_by_idx",
+          "columns": ["created_by"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "bar_invitations_bar_id_bars_id_fk": {
+          "name": "bar_invitations_bar_id_bars_id_fk",
+          "tableFrom": "bar_invitations",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "bar_invitations_created_by_users_id_fk": {
+          "name": "bar_invitations_created_by_users_id_fk",
+          "tableFrom": "bar_invitations",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "bar_invitations_role_check": {
+          "name": "bar_invitations_role_check",
+          "value": "\"bar_invitations\".\"role\" IN ('viewer', 'editor')"
+        }
+      }
+    },
+    "bar_members": {
+      "name": "bar_members",
+      "columns": {
+        "bar_id": {
+          "name": "bar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "bar_members_user_id_idx": {
+          "name": "bar_members_user_id_idx",
+          "columns": ["user_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "bar_members_bar_id_bars_id_fk": {
+          "name": "bar_members_bar_id_bars_id_fk",
+          "tableFrom": "bar_members",
+          "tableTo": "bars",
+          "columnsFrom": ["bar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "bar_members_user_id_users_id_fk": {
+          "name": "bar_members_user_id_users_id_fk",
+          "tableFrom": "bar_members",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "bar_members_bar_id_user_id_pk": {
+          "columns": ["bar_id", "user_id"],
+          "name": "bar_members_bar_id_user_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "bar_members_role_check": {
+          "name": "bar_members_role_check",
+          "value": "\"bar_members\".\"role\" IN ('viewer', 'editor', 'owner')"
+        }
+      }
+    },
+    "bars": {
+      "name": "bars",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text COLLATE NOCASE",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'JPY'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "bars_owner_id_idx": {
+          "name": "bars_owner_id_idx",
+          "columns": ["owner_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "bars_owner_id_users_id_fk": {
+          "name": "bars_owner_id_users_id_fk",
+          "tableFrom": "bars",
+          "tableTo": "users",
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "bars_currency_check": {
+          "name": "bars_currency_check",
+          "value": "\"bars\".\"currency\" IN ('AED', 'AFN', 'ALL', 'AMD', 'AOA', 'ARS', 'AUD', 'AWG', 'AZN', 'BAM', 'BBD', 'BDT', 'BHD', 'BIF', 'BMD', 'BND', 'BOB', 'BRL', 'BSD', 'BTN', 'BWP', 'BYN', 'BZD', 'CAD', 'CDF', 'CHF', 'CLP', 'CNY', 'COP', 'CRC', 'CUP', 'CVE', 'CZK', 'DJF', 'DKK', 'DOP', 'DZD', 'EGP', 'ERN', 'ETB', 'EUR', 'FJD', 'FKP', 'GBP', 'GEL', 'GHS', 'GIP', 'GMD', 'GNF', 'GTQ', 'GYD', 'HKD', 'HNL', 'HTG', 'HUF', 'IDR', 'ILS', 'INR', 'IQD', 'IRR', 'ISK', 'JMD', 'JOD', 'JPY', 'KES', 'KGS', 'KHR', 'KMF', 'KPW', 'KRW', 'KWD', 'KYD', 'KZT', 'LAK', 'LBP', 'LKR', 'LRD', 'LSL', 'LYD', 'MAD', 'MDL', 'MGA', 'MKD', 'MMK', 'MNT', 'MOP', 'MRU', 'MUR', 'MVR', 'MWK', 'MXN', 'MYR', 'MZN', 'NAD', 'NGN', 'NIO', 'NOK', 'NPR', 'NZD', 'OMR', 'PAB', 'PEN', 'PGK', 'PHP', 'PKR', 'PLN', 'PYG', 'QAR', 'RON', 'RSD', 'RUB', 'RWF', 'SAR', 'SBD', 'SCR', 'SDG', 'SEK', 'SGD', 'SHP', 'SLE', 'SOS', 'SRD', 'SSP', 'STN', 'SVC', 'SYP', 'SZL', 'THB', 'TJS', 'TMT', 'TND', 'TOP', 'TRY', 'TTD', 'TWD', 'TZS', 'UAH', 'UGX', 'USD', 'UYU', 'UZS', 'VED', 'VES', 'VND', 'VUV', 'WST', 'YER', 'ZAR', 'ZMW', 'ZWG')"
+        }
+      }
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text COLLATE NOCASE",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text COLLATE NOCASE",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "is_admin": {
+          "name": "is_admin",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "disabled": {
+          "name": "disabled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "last_login_at": {
+          "name": "last_login_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "columns": ["email"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {
+      "categories_child_name_unique": {
+        "columns": {
+          "larder_name_key(\"name\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "categories_root_name_unique": {
+        "columns": {
+          "larder_name_key(\"name\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "pantry_ingredients_name_unique": {
+        "columns": {
+          "larder_name_key(\"name\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "products_vintage_name_unique": {
+        "columns": {
+          "larder_name_key(\"name\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "products_name_unique": {
+        "columns": {
+          "larder_name_key(\"name\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "utensils_name_unique": {
+        "columns": {
+          "larder_name_key(\"name\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "tags_name_unique": {
+        "columns": {
+          "larder_name_key(\"name\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "cocktails_name_unique": {
+        "columns": {
+          "larder_name_key(\"name\")": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

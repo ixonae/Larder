@@ -1,4 +1,11 @@
-import { type BarSummary, hasRole, idSchema, PRODUCT_NAME_MAX } from "@larder/shared";
+import {
+  type BarSummary,
+  countryName,
+  countrySchema,
+  hasRole,
+  idSchema,
+  PRODUCT_NAME_MAX,
+} from "@larder/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { Plus, Wine } from "lucide-react";
@@ -8,6 +15,7 @@ import { categoryTreeQuery } from "@/api/categories.ts";
 import { productListQuery } from "@/api/products.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { Combobox } from "@/components/combobox.tsx";
+import { CountryPicker } from "@/components/country-picker.tsx";
 import { SearchInput } from "@/components/search-input.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Thumbnail } from "@/components/thumbnail.tsx";
@@ -22,6 +30,7 @@ export const bottlesSearchSchema = z.object({
   q: z.string().max(PRODUCT_NAME_MAX).optional().catch(undefined),
   category: idSchema.optional().catch(undefined),
   in_bar: z.boolean().optional().catch(undefined),
+  country: countrySchema.optional().catch(undefined),
 });
 export type BottlesSearch = z.infer<typeof bottlesSearchSchema>;
 
@@ -48,10 +57,13 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
       q: search.q?.trim() || undefined,
       category_id: search.category,
       in_bar: search.in_bar,
+      country: search.country,
     }),
   );
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
-  const filtered = Boolean(search.q || search.category || search.in_bar !== undefined);
+  const filtered = Boolean(
+    search.q || search.category || search.country || search.in_bar !== undefined,
+  );
 
   let content: ReactNode;
   if (list.isPending) {
@@ -83,7 +95,13 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
                   {product.name}
                 </Link>
                 <p className="truncate text-muted-foreground text-sm">
-                  {[product.category_name, product.producer].filter(Boolean).join(" · ")}
+                  {[
+                    product.category_name,
+                    product.producer,
+                    product.country && countryName(product.country),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
               </div>
               <InBarToggle barId={bar.id} product={product} canEdit={canEdit} />
@@ -115,8 +133,9 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
         )}
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+      <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-[1fr_auto_auto_auto]">
         <SearchInput
+          className="sm:col-span-3 lg:col-span-1"
           maxLength={PRODUCT_NAME_MAX}
           aria-label="Search bottles"
           placeholder="Search name or producer"
@@ -125,16 +144,23 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
         />
         <Combobox
           aria-label="Category"
-          className="sm:w-48"
+          className="lg:w-48"
           value={search.category}
           onChange={(value) => setSearch({ category: value || undefined })}
           options={bottleCategoryOptions(tree.data ?? [], search.category)}
           clearLabel="All categories"
           searchPlaceholder="Search categories"
         />
+        <CountryPicker
+          aria-label="Country"
+          className="lg:w-44"
+          value={search.country}
+          onChange={(value) => setSearch({ country: countrySchema.safeParse(value).data })}
+          clearLabel="All countries"
+        />
         <Combobox
           aria-label="In the bar"
-          className="sm:w-44"
+          className="lg:w-44"
           value={search.in_bar === undefined ? "" : String(search.in_bar)}
           onChange={(value) => setSearch({ in_bar: value ? value === "true" : undefined })}
           options={[

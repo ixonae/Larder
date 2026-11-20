@@ -27,7 +27,12 @@ import {
   tags,
   utensils,
 } from "../schema/index.ts";
-import { type Catalogue, categoryPictureKey, importCatalogue } from "./import.ts";
+import {
+  type Catalogue,
+  catalogueSourceSchema,
+  categoryPictureKey,
+  importCatalogue,
+} from "./import.ts";
 import { migrateStarterCatalogues, seedStarterCatalogue, skipStarterCatalogue } from "./starter.ts";
 
 it("bundles a transparent original and thumbnail for each catalogue icon", async () => {
@@ -627,6 +632,35 @@ it("uses seeded bottle ABVs and excludes rinses from the served drink", async ()
   const absinthe = db.select().from(categories).where(eq(categories.name, "Absinthe")).get();
   const filtered = await app.request(`${base}?q=Sazerac&alcohol=${absinthe?.id}`);
   expect(await filtered.json()).toMatchObject({ items: [] });
+});
+
+it("stores a bottle's country code and region, and refuses an unknown code", async () => {
+  const { db, storage, alice } = createTestApp();
+  const source = {
+    key: "bottle",
+    type: "product",
+    name: "Skye bottle",
+    kind: "spirit",
+    path: ["Other spirits"],
+    country: "GB",
+    region: "Skye",
+  };
+  const pack: Catalogue = {
+    ...sample,
+    id: "country-v1",
+    sources: [catalogueSourceSchema.parse(source)],
+  };
+  await importCatalogue(db, storage, alice.barId, pack);
+  await importCatalogue(db, storage, alice.barId, pack);
+  const bottles = db.select().from(products).where(eq(products.name, "Skye bottle")).all();
+  expect(bottles).toHaveLength(1);
+  expect(bottles[0]).toMatchObject({ country: "GB", region: "Skye" });
+  for (const country of ["Scotland", "gb", "XX"]) {
+    expect(catalogueSourceSchema.safeParse({ ...source, country }).success).toBe(false);
+  }
+  expect(catalogueSourceSchema.parse({ ...source, country: undefined })).toMatchObject({
+    name: "Skye bottle",
+  });
 });
 
 const sample: Catalogue = {

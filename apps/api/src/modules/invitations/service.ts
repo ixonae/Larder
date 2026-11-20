@@ -16,6 +16,7 @@ import { hashToken, newToken } from "../../auth/token.ts";
 import type { Db, Executor, Tx } from "../../db/client.ts";
 import { conflict, notFound, parseId } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
+import { resolveBarAccess } from "../bars/service.ts";
 import * as repo from "./repo.ts";
 
 const INVITATION_TTL = 7 * 24 * 60 * 60 * 1000;
@@ -55,7 +56,7 @@ function join(
     throw conflict("You are already a member of this bar");
   }
   repo.deleteInvitation(tx, invitation.bar_id, invitation.id);
-  return { id: invitation.bar_id, name: invitation.bar_name, role: invitation.role };
+  return resolveBarAccess(tx, invitation.bar_id, userId);
 }
 
 export function acceptInvitation(db: Db, token: string, userId: string): BarSummary {

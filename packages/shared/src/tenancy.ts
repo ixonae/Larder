@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { currencySchema, DEFAULT_CURRENCY } from "./currency.ts";
 import { idSchema } from "./id.ts";
 
 export const ROLES = ["viewer", "editor", "owner"] as const;
@@ -22,6 +23,8 @@ export type User = z.infer<typeof userSchema>;
 export const barSummarySchema = z.object({
   id: idSchema,
   name: z.string(),
+  /** ISO 4217 code that prices in this bar are given in. */
+  currency: currencySchema,
   role: roleSchema,
 });
 export type BarSummary = z.infer<typeof barSummarySchema>;
@@ -33,14 +36,23 @@ export const meSchema = z.object({
 });
 export type Me = z.infer<typeof meSchema>;
 
-export const createBarSchema = z.object({
+/** What an owner can set on a bar. */
+export const barFieldsSchema = z.object({
   name: z.string().trim().min(1).max(80),
+  currency: currencySchema,
+});
+
+export const createBarSchema = barFieldsSchema.extend({
+  currency: currencySchema.default(DEFAULT_CURRENCY),
   seed_data: z.boolean().default(false),
 });
 export type CreateBar = z.output<typeof createBarSchema>;
 
-export const renameBarSchema = createBarSchema.pick({ name: true });
-export type RenameBar = z.output<typeof renameBarSchema>;
+/** `PATCH /api/bars/:barId`: the owner changes the name, the currency, or both. */
+export const updateBarSchema = barFieldsSchema
+  .partial()
+  .refine((patch) => Object.keys(patch).length > 0, "Send at least one field to change");
+export type UpdateBar = z.output<typeof updateBarSchema>;
 export const deleteBarSchema = z.object({ name: z.string().min(1) });
 
 export const barMemberSchema = authorSchema.extend({ role: roleSchema });
@@ -56,6 +68,8 @@ export const adminUsersSchema = z.object({ users: z.array(adminUserSchema) });
 export const userAccessSchema = adminUserSchema.pick({ disabled: true });
 export const deleteUserSchema = userSchema.pick({ email: true });
 
-export const adminBarSchema = barSummarySchema.omit({ role: true }).extend({ owner: authorSchema });
+export const adminBarSchema = barSummarySchema
+  .omit({ role: true, currency: true })
+  .extend({ owner: authorSchema });
 export type AdminBar = z.output<typeof adminBarSchema>;
 export const adminBarsSchema = z.object({ bars: z.array(adminBarSchema) });

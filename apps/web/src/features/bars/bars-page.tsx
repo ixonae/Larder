@@ -1,12 +1,14 @@
-import { type BarSummary, type CreateBar, createBarSchema } from "@larder/shared";
+import { type BarSummary, type CreateBar, createBarSchema, DEFAULT_CURRENCY } from "@larder/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/api/client.ts";
 import { meQuery } from "@/api/queries.ts";
+import { currencyLabel, currencyPicker } from "@/components/currency-options.ts";
 import { ErrorState, LoadingState } from "@/components/states.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { FormError, FormField, useZodForm } from "@/lib/form.tsx";
+import { ComboboxField, FormError, FormField, useZodForm } from "@/lib/form.tsx";
 import { useSignedIn } from "./active-bar.tsx";
+import { ChangeCurrencyButton } from "./bar-currency.tsx";
 import { DeleteBarButton } from "./delete-bar.tsx";
 import { InvitationManager } from "./invitation-manager.tsx";
 import { RenameBarButton } from "./rename-bar.tsx";
@@ -23,14 +25,25 @@ export function BarsPage() {
             <h2 className="text-xl">Your bars</h2>
             {me.bars.length ? (
               <ul aria-label="Your bars" className="divide-y">
-                {me.bars.map(({ id, name, role }) => (
-                  <li key={id} className="flex items-center justify-between gap-3 py-3">
+                {me.bars.map(({ id, name, currency, role }) => (
+                  <li
+                    key={id}
+                    className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
                     <div className="min-w-0">
                       <p className="break-words font-medium">{name}</p>
                       <p className="text-muted-foreground text-sm capitalize">{role}</p>
+                      <p className="text-muted-foreground text-sm">
+                        Currency: {currencyLabel(currency)}
+                      </p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                      {role === "owner" && <RenameBarButton bar={{ id, name }} />}
+                    <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
+                      {role === "owner" && (
+                        <>
+                          <RenameBarButton bar={{ id, name }} />
+                          <ChangeCurrencyButton bar={{ id, name, currency }} />
+                        </>
+                      )}
                       <Button
                         variant="outline"
                         aria-label={`Open ${name}`}
@@ -116,7 +129,9 @@ export function BarsPage() {
 
 function NewBarForm({ onCreate }: Readonly<{ onCreate: (id: string) => Promise<void> }>) {
   const client = useQueryClient();
-  const form = useZodForm(createBarSchema, { defaultValues: { seed_data: false } });
+  const form = useZodForm(createBarSchema, {
+    defaultValues: { currency: DEFAULT_CURRENCY, seed_data: false },
+  });
   const create = useMutation({
     mutationFn: async (data: CreateBar) => unwrap(await api.api.bars.$post({ json: data })),
     onSuccess: async ({ id }) => {
@@ -133,6 +148,7 @@ function NewBarForm({ onCreate }: Readonly<{ onCreate: (id: string) => Promise<v
       <FormField form={form} name="name" label="Bar name">
         {(control) => <Input {...control} {...form.register("name")} />}
       </FormField>
+      <ComboboxField form={form} name="currency" label="Currency" {...currencyPicker} />
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" {...form.register("seed_data")} />
         Add starter recipes and catalogue

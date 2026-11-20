@@ -1,4 +1,4 @@
-import type { CreateProduct, Page, Product, UpdateProduct } from "@larder/shared";
+import type { CountryCode, CreateProduct, Page, Product, UpdateProduct } from "@larder/shared";
 import {
   hashKey,
   type InfiniteData,
@@ -19,6 +19,7 @@ export interface ProductFilters {
   q?: string;
   category_id?: string;
   in_bar?: boolean;
+  country?: CountryCode;
   limit?: number;
 }
 
@@ -31,6 +32,7 @@ export const productListQuery = (barId: string, filters: ProductFilters) =>
         limit: filters.limit?.toString(),
         ...(filters.q && { q: filters.q }),
         ...(filters.category_id && { category_id: filters.category_id }),
+        ...(filters.country && { country: filters.country }),
         ...(filters.in_bar !== undefined && { in_bar: String(filters.in_bar) }),
         ...(pageParam && { cursor: pageParam }),
       };

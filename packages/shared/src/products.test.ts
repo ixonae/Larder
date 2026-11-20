@@ -22,16 +22,24 @@ describe("createProductSchema", () => {
       name: "x",
       category_id: ID,
       producer: " ",
-      country: " Scotland ",
+      country: "GB",
       region: "",
       description: "  ",
     });
     expect(parsed).toMatchObject({
       producer: null,
-      country: "Scotland",
+      country: "GB",
       region: null,
       description: null,
     });
+  });
+
+  it("accepts an ISO country code or null, and refuses anything else", () => {
+    const parse = (country: unknown) =>
+      createProductSchema.safeParse({ name: "x", category_id: ID, country });
+    expect(parse("JP")).toMatchObject({ success: true, data: { country: "JP" } });
+    expect(parse(null)).toMatchObject({ success: true, data: { country: null } });
+    for (const bad of ["jp", "Japan", "Scotland", "XX", ""]) expect(parse(bad).success).toBe(false);
   });
 
   it.each([
@@ -74,9 +82,16 @@ describe("listProductsQuerySchema", () => {
       { limit: 50, q: "gin", category_id: ID, in_bar: false },
     );
     expect(listProductsQuerySchema.parse({ in_bar: "true" }).in_bar).toBe(true);
+    expect(listProductsQuerySchema.parse({ country: "JP" }).country).toBe("JP");
   });
 
-  it.each([{ q: "" }, { in_bar: "yes" }, { category_id: "nope" }])("refuses %o", (query) => {
+  it.each([
+    { q: "" },
+    { in_bar: "yes" },
+    { category_id: "nope" },
+    { country: "jp" },
+    { country: "" },
+  ])("refuses %o", (query) => {
     expect(listProductsQuerySchema.safeParse(query).success).toBe(false);
   });
 });

@@ -175,6 +175,26 @@ describe("categories table", () => {
   });
 });
 
+describe("bars table", () => {
+  it("defaults the currency to JPY and refuses an unknown one", () => {
+    const db = freshDb();
+    const { barId } = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
+    const currency = () => db.select().from(bars).where(eq(bars.id, barId)).get()?.currency;
+    expect(currency()).toBe("JPY");
+    for (const bad of ["jpy", "XXX", ""]) {
+      expect(() =>
+        db
+          .update(bars)
+          .set({ currency: bad as "JPY" })
+          .where(eq(bars.id, barId))
+          .run(),
+      ).toThrow(/CHECK/);
+    }
+    db.update(bars).set({ currency: "EUR" }).where(eq(bars.id, barId)).run();
+    expect(currency()).toBe("EUR");
+  });
+});
+
 describe("products table", () => {
   function setup() {
     const db = freshDb();
@@ -190,10 +210,30 @@ describe("products table", () => {
     ["a category from another bar", (c: string) => ({ category_id: c }), /FOREIGN KEY/],
     ["an abv over 100", () => ({ abv: 101 }), /CHECK/],
     ["a negative age", () => ({ age_years: -1 }), /CHECK/],
+    ["a country name", () => ({ country: "Japan" }), /CHECK/],
+    ["a lowercase country code", () => ({ country: "jp" }), /CHECK/],
   ])("refuses %s", (_, override, error) => {
     const { db, row, aliceCat, bobCat } = setup();
-    const values = { ...row, category_id: aliceCat, ...override(bobCat) };
+    // Bypasses the column's TypeScript type on purpose: the database must refuse it too.
+    const values = {
+      ...row,
+      category_id: aliceCat,
+      ...override(bobCat),
+    } as typeof products.$inferInsert;
     expect(() => db.insert(products).values(values).run()).toThrow(error);
+  });
+
+  it("accepts a country code or no country", () => {
+    const { db, row, aliceCat } = setup();
+    db.insert(products)
+      .values({ ...row, category_id: aliceCat, country: "JP" })
+      .run();
+    db.insert(products)
+      .values({ ...row, name: "Y", category_id: aliceCat, country: null })
+      .run();
+    expect(db.select({ country: products.country }).from(products).all()).toEqual(
+      expect.arrayContaining([{ country: "JP" }, { country: null }]),
+    );
   });
 });
 

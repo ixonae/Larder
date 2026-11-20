@@ -4,11 +4,12 @@ import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
 import { failure, page } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
-import { renderWithProviders } from "@/test/render.tsx";
+import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const second: BarSummary = {
   id: "01a1f326-d941-7d74-8a40-504a488cd390",
   name: "Patio",
+  currency: "JPY",
   role: "viewer",
 };
 const pending = {
@@ -57,7 +58,7 @@ it("creates a new bar, handles failure, and selects it", async () => {
     ),
     http.post("/api/bars", () => failure("INTERNAL", 500, "Could not create"), { once: true }),
     http.post("/api/bars", async ({ request }) => {
-      expect(await request.json()).toEqual({ name: second.name, seed_data: true });
+      expect(await request.json()).toEqual({ name: second.name, currency: "JPY", seed_data: true });
       bar = created;
       return HttpResponse.json(created, { status: 201 });
     }),
@@ -284,7 +285,10 @@ it("renames an owned bar from its row and refreshes the active bar label", async
   let name = "Home bar";
   server.use(
     http.get("/api/me", () =>
-      HttpResponse.json({ ...meFixture, bars: [{ id: BAR_ID, name, role: "owner" }, second] }),
+      HttpResponse.json({
+        ...meFixture,
+        bars: [{ id: BAR_ID, name, currency: "JPY", role: "owner" }, second],
+      }),
     ),
     http.patch(`/api/bars/${BAR_ID}`, () => failure("INTERNAL", 500, "Rename failed"), {
       once: true,
@@ -292,7 +296,7 @@ it("renames an owned bar from its row and refreshes the active bar label", async
     http.patch(`/api/bars/${BAR_ID}`, async ({ request }) => {
       expect(await request.json()).toEqual({ name: "Rooftop" });
       name = "Rooftop";
-      return HttpResponse.json({ id: BAR_ID, name, role: "owner" });
+      return HttpResponse.json({ id: BAR_ID, name, currency: "JPY", role: "owner" });
     }),
   );
   const { user } = renderWithProviders("/bars");
@@ -309,4 +313,75 @@ it("renames an owned bar from its row and refreshes the active bar label", async
   await user.click(save);
   expect(await screen.findByRole("button", { name: "Rename Rooftop" })).toBeVisible();
   expect(screen.getByTestId("bar-name")).toHaveTextContent("Rooftop");
+});
+
+it("creates a bar in the chosen currency", async () => {
+  let body: unknown;
+  server.use(
+    http.post("/api/bars", async ({ request }) => {
+      body = await request.json();
+      return HttpResponse.json({ ...second, currency: "EUR", role: "owner" }, { status: 201 });
+    }),
+    http.get(`/api/bars/${second.id}/cocktails`, () => page([])),
+  );
+  const { user } = renderWithProviders("/bars");
+  await user.type(await screen.findByLabelText("Bar name"), second.name);
+  const picker = screen.getByRole("combobox", { name: "Currency" });
+  expect(picker).toHaveTextContent(/JPY — Japanese yen/i);
+  await choose(user, "Currency", /EUR — Euro/i);
+  await user.click(screen.getByRole("button", { name: "Create bar" }));
+  await waitFor(() => expect(body).toEqual({ name: "Patio", currency: "EUR", seed_data: false }));
+});
+
+it("lets the owner change the bar currency from a searchable list", async () => {
+  let currency = "JPY";
+  server.use(
+    http.get("/api/me", () =>
+      HttpResponse.json({
+        ...meFixture,
+        bars: [{ id: BAR_ID, name: "Home bar", currency, role: "owner" }, second],
+      }),
+    ),
+    http.patch(`/api/bars/${BAR_ID}`, () => failure("INTERNAL", 500, "Currency failed"), {
+      once: true,
+    }),
+    http.patch(`/api/bars/${BAR_ID}`, async ({ request }) => {
+      const body = (await request.json()) as { currency: string };
+      expect(Object.keys(body)).toEqual(["currency"]);
+      currency = body.currency;
+      return HttpResponse.json({ id: BAR_ID, name: "Home bar", currency, role: "owner" });
+    }),
+  );
+  const { user } = renderWithProviders("/bars");
+  const row = within(await screen.findByRole("list", { name: "Your bars" }));
+  expect(row.getAllByText(/Currency: JPY — Japanese yen/i)).toHaveLength(2);
+  expect(screen.queryByRole("button", { name: "Change currency of Patio" })).toBeNull();
+  await user.click(await screen.findByRole("button", { name: "Change currency of Home bar" }));
+  const dialog = within(await screen.findByRole("dialog", { name: "Bar currency" }));
+  const picker = dialog.getByRole("combobox", { name: "Bar currency" });
+  expect(picker).toHaveTextContent(/JPY — Japanese yen/i);
+  await user.click(picker);
+  await user.type(screen.getByLabelText("Search currencies"), "kuwait");
+  await user.click(screen.getByRole("option", { name: /KWD — Kuwaiti Dinar/i }));
+  const save = dialog.getByRole("button", { name: "Save currency" });
+  await user.click(save);
+  expect(await dialog.findByText("Currency failed")).toBeVisible();
+  await user.click(save);
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(await screen.findByText(/Currency: KWD — Kuwaiti dinar/i)).toBeVisible();
+});
+
+it("shows the currency read-only to editors and viewers", async () => {
+  server.use(
+    http.get("/api/me", () =>
+      HttpResponse.json({
+        ...meFixture,
+        bars: [{ id: BAR_ID, name: "Home bar", currency: "USD", role: "editor" }, second],
+      }),
+    ),
+  );
+  renderWithProviders("/bars");
+  expect(await screen.findByText(/Currency: USD — US dollar/i)).toBeVisible();
+  expect(screen.getByText(/Currency: JPY — Japanese yen/i)).toBeVisible();
+  expect(screen.queryByRole("button", { name: /Change currency/ })).not.toBeInTheDocument();
 });

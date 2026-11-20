@@ -131,7 +131,12 @@ describe("bars and invitations", () => {
     ]);
     expect(responses.map((res) => res.status).sort()).toEqual([200, 404]);
     const bob = await t.getMe(t.bobCookie);
-    expect(bob.bars).toContainEqual({ id: t.alice.barId, name: "Alice's bar", role: "viewer" });
+    expect(bob.bars).toContainEqual({
+      id: t.alice.barId,
+      name: "Alice's bar",
+      currency: "JPY",
+      role: "viewer",
+    });
     expect(
       (await t.app.request(`${t.bars(t.alice.barId)}/cocktails`, t.auth(t.bobCookie, "GET")))
         .status,
@@ -171,7 +176,9 @@ describe("bars and invitations", () => {
     const cookie = response.headers.get("Set-Cookie")?.split(";")[0] as string;
     const { user, bars } = await t.getMe(cookie);
     expect(user).toMatchObject({ display_name: "Charlie", email });
-    expect(bars).toEqual([{ id: t.alice.barId, name: "Alice's bar", role: "editor" }]);
+    expect(bars).toEqual([
+      { id: t.alice.barId, name: "Alice's bar", currency: "JPY", role: "editor" },
+    ]);
     expect((await t.app.request(t.bars(t.bob.barId), t.auth(cookie, "GET"))).status).toBe(403);
     const result = await t.app.request(
       `${t.bars(t.alice.barId)}/cocktails`,

@@ -67,11 +67,13 @@ function useFakeApi() {
       const q = params.get("q")?.toLowerCase();
       const cat = params.get("category_id");
       const inBar = params.get("in_bar");
+      const country = params.get("country");
       const ids = cat ? subtreeIds(categories, cat) : null;
       const matches = [...store]
         .sort((a, b) => a.name.localeCompare(b.name))
         .filter((p) => !q || p.name.toLowerCase().includes(q))
         .filter((p) => !ids || ids.has(p.category_id))
+        .filter((p) => !country || p.country === country)
         .filter((p) => inBar === null || String(p.in_bar) === inBar);
       const start = Number(params.get("cursor") ?? 0);
       const next = start + PAGE < matches.length ? String(start + PAGE) : null;
@@ -171,6 +173,35 @@ describe("BottlesPage", () => {
     await choose(user, "In the bar", "In the bar or not");
     await waitFor(() => expect(names()).toHaveLength(2));
     expect(router.state.location.search).toEqual({});
+  });
+
+  it("shows the country name, not the code, and filters by country", async () => {
+    store.push(product("Akashi", whisky, { country: "JP" }));
+    store.push(product("Ardbeg 10", scotch, { country: "GB", region: "Islay" }));
+    const { user, router } = await openList();
+    await waitFor(() => expect(within(list()).getByText("Whisky · Japan")).toBeInTheDocument());
+    expect(screen.queryByText("JP")).not.toBeInTheDocument();
+
+    await choose(user, "Country", "Japan");
+    await waitFor(() => expect(names()).toEqual(["Akashi"]));
+    expect(router.state.location.search).toEqual({ country: "JP" });
+    await choose(user, "Country", "United Kingdom");
+    await waitFor(() => expect(names()).toEqual(["Ardbeg 10"]));
+    await choose(user, "Country", "All countries");
+    await waitFor(() => expect(names()).toHaveLength(2));
+    expect(router.state.location.search).toEqual({});
+  });
+
+  it("explains an empty country filter", async () => {
+    renderWithProviders("/bottles?country=FR");
+    expect(await screen.findByText("No bottles match")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Country" })).toHaveTextContent("France");
+  });
+
+  it("drops a country that is not a code from the URL", async () => {
+    await openList("/bottles?country=Japan");
+    expect(names()).toEqual(["Blended whisky", "Hendrick's"]);
+    expect(screen.getByRole("combobox", { name: "Country" })).toHaveTextContent("All countries");
   });
 
   it("reads filters from the URL and ignores bad ones", async () => {
@@ -305,6 +336,25 @@ describe("ProductSheet", () => {
     expect(await screen.findByText("Bottle added")).toBeInTheDocument();
   });
 
+  it("finds a country by a partial, accent-free name and saves its code", async () => {
+    store.push(product("Hibiki", whisky));
+    const { user } = await openList();
+    await user.click(screen.getByRole("button", { name: "Add bottle" }));
+    const sheet = await screen.findByRole("dialog", { name: "New bottle" });
+    await user.type(within(sheet).getByLabelText("Name"), "Nikka");
+    await choose(user, "Category", "Scotch");
+    await user.click(within(sheet).getByLabelText("Country"));
+    expect(screen.getByRole("option", { name: "No country" })).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Search countries"), "JAP");
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    await user.click(screen.getByRole("option", { name: "Japan" }));
+    expect(within(sheet).getByLabelText("Country")).toHaveTextContent("Japan");
+    await user.type(within(sheet).getByLabelText("Region"), "Hokkaido");
+    await user.click(within(sheet).getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]?.body).toMatchObject({ country: "JP", region: "Hokkaido" });
+  });
+
   it("shows a duplicate name on the field and other errors in a toast", async () => {
     const { user } = await openList();
     await user.click(screen.getByRole("button", { name: "Add bottle" }));
@@ -387,14 +437,17 @@ describe("BottleDetailPage", () => {
   });
 
   it("edits the bottle", async () => {
-    store.push(product("Glenlivet 12", scotch, { vintage: 2010, country: "Scotland" }));
+    store.push(
+      product("Glenlivet 12", scotch, { vintage: 2010, country: "GB", region: "Scotland" }),
+    );
     const { user } = await openDetail("Glenlivet 12");
     await user.click(screen.getByRole("button", { name: "Edit bottle" }));
     const sheet = await screen.findByRole("dialog", { name: "Edit Glenlivet 12" });
     expect(within(sheet).getByLabelText("Category")).toHaveTextContent("Scotch");
     expect(within(sheet).getByLabelText("Vintage")).toHaveValue(2010);
     await user.clear(within(sheet).getByLabelText("Vintage"));
-    await user.clear(within(sheet).getByLabelText("Country"));
+    expect(within(sheet).getByLabelText("Country")).toHaveTextContent("United Kingdom");
+    await choose(user, "Country", "No country");
     await choose(user, "Category", "Whisky");
     await user.click(within(sheet).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Bottle saved")).toBeInTheDocument();
@@ -404,6 +457,30 @@ describe("BottleDetailPage", () => {
       country: null,
     });
     expect(await screen.findByText("Whisky")).toBeInTheDocument();
+  });
+
+  it("matches accents loosely when searching countries", async () => {
+    store.push(product("Rhum", gin, { country: "RE" }));
+    const { user } = await openDetail("Rhum");
+    await user.click(screen.getByRole("button", { name: "Edit bottle" }));
+    const sheet = await screen.findByRole("dialog", { name: "Edit Rhum" });
+    const picker = within(sheet).getByLabelText("Country");
+    expect(picker).toHaveTextContent("Réunion");
+    await user.click(picker);
+    await user.type(screen.getByLabelText("Search countries"), "reunion");
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    await user.click(screen.getByRole("option", { name: "Réunion" }));
+    expect(picker).toHaveTextContent("Réunion");
+    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0]?.body).toMatchObject({ country: "RE" });
+  });
+
+  it("shows the country name among the facts", async () => {
+    store.push(product("Yamazaki 12", whisky, { country: "JP" }));
+    await openDetail("Yamazaki 12");
+    expect(screen.getByText("Japan")).toBeInTheDocument();
+    expect(screen.queryByText("JP")).not.toBeInTheDocument();
   });
 
   it("waits for the categories before showing the form", async () => {

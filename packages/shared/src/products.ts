@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DESCRIPTION_MAX } from "./categories.ts";
+import { countrySchema } from "./countries.ts";
 import { idSchema } from "./id.ts";
 import { booleanQuerySchema, paginationQuerySchema } from "./pagination.ts";
 import { optionalText } from "./text.ts";
@@ -18,7 +19,8 @@ export const productSchema = z.object({
   /** Name of the category, for lists. */
   category_name: z.string(),
   producer: z.string().nullable(),
-  country: z.string().nullable(),
+  /** ISO 3166-1 alpha-2 code; the more precise place ("Scotland", "Kentucky") goes in `region`. */
+  country: countrySchema.nullable(),
   region: z.string().nullable(),
   /** Percent, 0–100. */
   abv: z.number().nullable(),
@@ -38,7 +40,7 @@ const fields = {
   name: z.string().trim().min(1).max(PRODUCT_NAME_MAX),
   category_id: idSchema,
   producer: optionalText(PRODUCT_TEXT_MAX),
-  country: optionalText(PRODUCT_TEXT_MAX),
+  country: countrySchema.nullable(),
   region: optionalText(PRODUCT_TEXT_MAX),
   abv: z.number().min(0).max(100).nullable(),
   vintage: z.number().int().min(VINTAGE_MIN).max(VINTAGE_MAX).nullable(),
@@ -71,5 +73,7 @@ export const listProductsQuerySchema = paginationQuerySchema.extend({
   /** The category or any of its sub-categories. */
   category_id: idSchema.optional(),
   in_bar: booleanQuerySchema.optional(),
+  /** Bottles from this country. */
+  country: countrySchema.optional(),
 });
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;

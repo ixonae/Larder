@@ -12,7 +12,9 @@ describe("GET /api/me", () => {
     expect(res.status).toBe(200);
     const me = (await res.json()) as Me;
     expect(me.user).toMatchObject({ id: alice.userId, email: "owner@larder.local" });
-    expect(me.bars).toEqual([{ id: alice.barId, name: "Alice's bar", role: "owner" }]);
+    expect(me.bars).toEqual([
+      { id: alice.barId, name: "Alice's bar", currency: "JPY", role: "owner" },
+    ]);
   });
 
   it("lists every bar the user is a member of, sorted by name", async () => {
@@ -56,6 +58,7 @@ describe("barAccess", () => {
     expect((await res.json()) as BarSummary).toEqual({
       id: alice.barId,
       name: "Alice's bar",
+      currency: "JPY",
       role: "owner",
     });
   });

@@ -1,55 +1,30 @@
-import { type BarSummary, type RenameBar, renameBarSchema } from "@larder/shared";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { api, unwrap } from "@/api/client.ts";
-import { meQuery } from "@/api/queries.ts";
+import { type BarSummary, barFieldsSchema } from "@larder/shared";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet.tsx";
 import { FormError, FormField, useZodForm } from "@/lib/form.tsx";
+import { BarSettingSheet } from "./bar-setting-sheet.tsx";
+import { useUpdateBar } from "./update-bar.ts";
+
+const renameSchema = barFieldsSchema.pick({ name: true });
 
 type NamedBar = Pick<BarSummary, "id" | "name">;
 
 export function RenameBarButton({ bar }: Readonly<{ bar: NamedBar }>) {
-  const [open, setOpen] = useState(false);
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="outline" aria-label={`Rename ${bar.name}`}>
-          Rename
-        </Button>
-      </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-md">
-        <SheetHeader className="px-6 pt-6">
-          <SheetTitle>Rename bar</SheetTitle>
-          <SheetDescription>
-            The new name will be visible to all members of this bar.
-          </SheetDescription>
-        </SheetHeader>
-        <RenameForm bar={bar} onSaved={() => setOpen(false)} />
-      </SheetContent>
-    </Sheet>
+    <BarSettingSheet
+      label="Rename"
+      ariaLabel={`Rename ${bar.name}`}
+      title="Rename bar"
+      description="The new name will be visible to all members of this bar."
+    >
+      {(onSaved) => <RenameForm bar={bar} onSaved={onSaved} />}
+    </BarSettingSheet>
   );
 }
 
 function RenameForm({ bar, onSaved }: Readonly<{ bar: NamedBar; onSaved: () => void }>) {
-  const client = useQueryClient();
-  const form = useZodForm(renameBarSchema, { defaultValues: { name: bar.name } });
-  const rename = useMutation({
-    mutationFn: async (json: RenameBar) =>
-      unwrap(await api.api.bars[":barId"].$patch({ param: { barId: bar.id }, json })),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: meQuery.queryKey });
-      onSaved();
-    },
-  });
+  const form = useZodForm(renameSchema, { defaultValues: { name: bar.name } });
+  const rename = useUpdateBar(bar.id, onSaved);
   return (
     <form
       className="grid gap-4 px-6 pb-6"

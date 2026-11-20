@@ -2,10 +2,11 @@ import type { BarSummary } from "@larder/shared";
 import { asc, eq, sql } from "drizzle-orm";
 import type { Db } from "../../db/client.ts";
 import { barMembers, bars } from "../../db/schema/index.ts";
+import { barSummaryColumns } from "../bars/repo.ts";
 
 export function listBarsForUser(db: Db, userId: string): BarSummary[] {
   return db
-    .select({ id: bars.id, name: bars.name, role: barMembers.role })
+    .select({ ...barSummaryColumns, role: barMembers.role })
     .from(barMembers)
     .innerJoin(bars, eq(bars.id, barMembers.bar_id))
     .where(eq(barMembers.user_id, userId))

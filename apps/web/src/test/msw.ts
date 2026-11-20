@@ -12,7 +12,7 @@ export const meFixture: Me = {
     display_name: "Owner",
     is_admin: true,
   },
-  bars: [{ id: BAR_ID, name: "Home bar", role: "owner" }],
+  bars: [{ id: BAR_ID, name: "Home bar", currency: "JPY", role: "owner" }],
 };
 
 export const handlers = [

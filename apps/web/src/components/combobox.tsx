@@ -105,21 +105,18 @@ export function Combobox({
     else groups.set(heading, [option]);
   }
 
+  const close = () => {
+    setOpen(false);
+    setQuery("");
+    onBlur?.();
+  };
   const choose = (next: string, nextLabel: string) => {
     onChange(next, nextLabel);
-    setOpen(false);
+    close();
   };
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) return;
-        setQuery("");
-        onBlur?.();
-      }}
-    >
+    <Popover open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
       <PopoverTrigger
         type="button"
         role="combobox"

@@ -2,7 +2,7 @@ import {
   createBarSchema,
   createInvitationSchema,
   deleteBarSchema,
-  renameBarSchema,
+  updateBarSchema,
 } from "@larder/shared";
 import { Hono } from "hono";
 import { barAccess, requireRole } from "../../middleware/context.ts";
@@ -16,7 +16,7 @@ import { pantryRoutes } from "../pantry/routes.ts";
 import { productRoutes } from "../products/routes.ts";
 import { utensilRoutes } from "../utensils/routes.ts";
 
-import { barMembers, createOwnedBar, removeBar, renameBar } from "./service.ts";
+import { barMembers, createOwnedBar, removeBar, updateBar } from "./service.ts";
 
 export const barDirectoryRoutes = new Hono<AppEnv>().post(
   "/",
@@ -30,8 +30,8 @@ export const barRoutes = new Hono<AppEnv>()
   .use(barAccess)
   // barAccess has already loaded the bar and the member's role through the bars service.
   .get("/", (c) => c.json(c.var.bar))
-  .patch("/", requireRole("owner"), validate("json", renameBarSchema), (c) =>
-    c.json(renameBar(c.var.ctx, c.req.valid("json"))),
+  .patch("/", requireRole("owner"), validate("json", updateBarSchema), (c) =>
+    c.json(updateBar(c.var.ctx, c.var.bar, c.req.valid("json"))),
   )
   .delete("/", requireRole("owner"), validate("json", deleteBarSchema), async (c) => {
     const { db, storage, barId } = c.var.ctx;

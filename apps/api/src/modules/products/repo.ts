@@ -1,4 +1,4 @@
-import type { Product } from "@larder/shared";
+import type { CountryCode, Product } from "@larder/shared";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import type { SelectedFields } from "drizzle-orm/sqlite-core";
 import type { Executor } from "../../db/client.ts";
@@ -47,6 +47,7 @@ export interface ProductFilter {
   /** Any of these categories. */
   categoryIds?: string[];
   in_bar?: boolean;
+  country?: CountryCode;
   after?: NameCursor;
   limit: number;
 }
@@ -65,7 +66,7 @@ const selectProducts = <E extends SelectedFields>(db: Executor, extra: E) =>
 export function listProducts(
   db: Executor,
   barId: string,
-  { q, categoryIds, in_bar, after, limit }: ProductFilter,
+  { q, categoryIds, in_bar, country, after, limit }: ProductFilter,
 ): (Product & { key: string })[] {
   const needle = sql`larder_name_key(${q})`;
   return selectProducts(db, { key: nameKey })
@@ -80,6 +81,7 @@ export function listProducts(
             ),
         categoryIds === undefined ? undefined : inArray(products.category_id, categoryIds),
         in_bar === undefined ? undefined : eq(products.in_bar, in_bar),
+        country === undefined ? undefined : eq(products.country, country),
         afterName(nameKey, products.id, after),
       ),
     )

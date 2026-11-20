@@ -1,4 +1,4 @@
-import { CATEGORY_KINDS, UTENSIL_KINDS } from "@larder/shared";
+import { CATEGORY_KINDS, COUNTRY_CODES, UTENSIL_KINDS } from "@larder/shared";
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -138,7 +138,7 @@ export const products = sqliteTable(
     category_id: text("category_id").notNull(),
     name: nocaseText("name").notNull(),
     producer: text("producer"),
-    country: text("country"),
+    country: text("country", { enum: COUNTRY_CODES }),
     region: text("region"),
     abv: real("abv"),
     vintage: integer("vintage"),
@@ -172,6 +172,10 @@ export const products = sqliteTable(
     uniqueIndex("products_name_unique")
       .on(t.bar_id, sql`larder_name_key(${t.name})`)
       .where(sql`${t.vintage} IS NULL`),
+    check(
+      "products_country_check",
+      sql`${t.country} IS NULL OR ${t.country} IN (${sqlList(COUNTRY_CODES)})`,
+    ),
     check("products_abv_check", sql`${t.abv} IS NULL OR ${t.abv} BETWEEN 0 AND 100`),
     check("products_age_years_check", sql`${t.age_years} IS NULL OR ${t.age_years} >= 0`),
   ],

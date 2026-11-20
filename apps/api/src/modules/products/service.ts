@@ -28,6 +28,7 @@ export function listProducts(ctx: Ctx, query: ListProductsQuery): Page<Product> 
     q: query.q,
     categoryIds,
     in_bar: query.in_bar,
+    country: query.country,
     after: query.cursor === undefined ? undefined : decodeCursor(query.cursor),
     limit: query.limit + 1,
   });

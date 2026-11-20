@@ -1,6 +1,7 @@
 import { type CategoryTreeNode, createProductSchema, type Product } from "@larder/shared";
 import { useMemo } from "react";
 import { useProductMutations } from "@/api/products.ts";
+import { countryPicker } from "@/components/country-picker.tsx";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -81,7 +82,7 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
       name: editing?.name ?? "",
       category_id: editing?.category_id ?? "",
       producer: editing?.producer ?? "",
-      country: editing?.country ?? "",
+      country: editing?.country ?? null,
       region: editing?.region ?? "",
       abv: editing?.abv ?? null,
       vintage: editing?.vintage ?? null,
@@ -104,7 +105,7 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
     }
   });
 
-  const text = (name: "name" | "producer" | "country" | "region", label: string) => (
+  const text = (name: "name" | "producer" | "region", label: string) => (
     <FormField form={form} name={name} label={label}>
       {(control) => <Input autoComplete="off" {...control} {...form.register(name)} />}
     </FormField>
@@ -136,10 +137,15 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
       />
 
       {text("producer", "Producer")}
-      <div className="grid grid-cols-2 gap-4">
-        {text("country", "Country")}
-        {text("region", "Region")}
-      </div>
+      <ComboboxField
+        form={form}
+        name="country"
+        label="Country"
+        {...countryPicker}
+        clearLabel="No country"
+        toValue={(value) => value || null}
+      />
+      {text("region", "Region")}
 
       <div className="grid grid-cols-3 gap-4">
         {number("abv", "ABV (%)")}

@@ -60,7 +60,7 @@ describe("POST /products", () => {
     const res = await t.send("POST", "", {
       name: " Grey Goose ",
       category_id: t.cat("Vodka"),
-      country: "France",
+      country: "FR",
       region: " ",
     });
     expect(res.status).toBe(201);
@@ -70,7 +70,7 @@ describe("POST /products", () => {
       category_id: t.cat("Vodka"),
       category_name: "Vodka",
       producer: null,
-      country: "France",
+      country: "FR",
       region: null,
       abv: null,
       vintage: null,
@@ -87,6 +87,9 @@ describe("POST /products", () => {
     ["a missing category", { name: "X" }],
     ["an abv over 100", { name: "X", category_id: UNKNOWN, abv: 101 }],
     ["a fractional vintage", { name: "X", category_id: UNKNOWN, vintage: 2001.5 }],
+    ["a country name", { name: "X", category_id: UNKNOWN, country: "Japan" }],
+    ["a lowercase country code", { name: "X", category_id: UNKNOWN, country: "jp" }],
+    ["a code that is not assigned", { name: "X", category_id: UNKNOWN, country: "XX" }],
   ])("refuses %s", async (_, body) => {
     const t = setup();
     const res = await t.send("POST", "", body);
@@ -224,12 +227,47 @@ describe("GET /products", () => {
     expect(await t.names(`?category_id=${UNKNOWN}`)).toEqual([]);
   });
 
-  it.each(["?cursor=nope", "?in_bar=yes", "?category_id=nope"])("refuses %s", async (query) => {
+  it("filters by country, leaving out bottles without one", async () => {
     const t = setup();
-    const res = await t.send("GET", query);
-    expect(res.status).toBe(400);
-    expect((await errorOf(res)).code).toBe("VALIDATION");
+    await t.create({ name: "Yamazaki", category_id: t.cat("Whisky"), country: "JP" });
+    await t.create({
+      name: "Talisker",
+      category_id: t.cat("Scotch"),
+      country: "GB",
+      region: "Skye",
+    });
+    await t.create({ name: "Mystery", category_id: t.cat("Whisky") });
+    expect(await t.names("?country=JP")).toEqual(["Yamazaki"]);
+    expect(await t.names("?country=GB")).toEqual(["Talisker"]);
+    expect(await t.names("?country=FR")).toEqual([]);
+    expect(await t.names("")).toEqual(["Mystery", "Talisker", "Yamazaki"]);
   });
+
+  it("keeps the country filter inside the bar", async () => {
+    const t = setup();
+    await t.create({ name: "Yamazaki", category_id: t.cat("Whisky"), country: "JP" });
+    t.db
+      .insert(products)
+      .values({
+        bar_id: t.bob.barId,
+        created_by: t.bob.userId,
+        name: "Hibiki",
+        category_id: t.cat("Whisky", t.bob.barId),
+        country: "JP",
+      })
+      .run();
+    expect(await t.names("?country=JP")).toEqual(["Yamazaki"]);
+  });
+
+  it.each(["?cursor=nope", "?in_bar=yes", "?category_id=nope", "?country=jp", "?country=Japan"])(
+    "refuses %s",
+    async (query) => {
+      const t = setup();
+      const res = await t.send("GET", query);
+      expect(res.status).toBe(400);
+      expect((await errorOf(res)).code).toBe("VALIDATION");
+    },
+  );
 });
 
 describe("GET /products/:id", () => {
@@ -268,6 +306,21 @@ describe("PATCH /products/:id", () => {
       abv: 45.8,
       in_bar: true,
     });
+  });
+
+  it("sets, changes and clears the country, and refuses a bad code", async () => {
+    const t = setup();
+    const { buffalo } = await stock(t);
+    const patch = (body: unknown) => t.send("PATCH", `/${buffalo.id}`, body);
+    expect(await json(await patch({ country: "US", region: "Kentucky" }))).toMatchObject({
+      country: "US",
+      region: "Kentucky",
+    });
+    expect(await json(await patch({ country: "CA" }))).toMatchObject({ country: "CA" });
+    expect(await json(await patch({ country: null }))).toMatchObject({ country: null });
+    const bad = await patch({ country: "Scotland" });
+    expect(bad.status).toBe(400);
+    expect((await errorOf(bad)).code).toBe("VALIDATION");
   });
 
   it("accepts the unchanged category alongside other fields, as forms send it", async () => {

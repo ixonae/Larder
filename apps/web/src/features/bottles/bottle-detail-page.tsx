@@ -1,4 +1,4 @@
-import { type BarSummary, hasRole, imageUrl, type Product } from "@larder/shared";
+import { type BarSummary, countryName, hasRole, imageUrl, type Product } from "@larder/shared";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
@@ -64,7 +64,7 @@ function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Pr
   const facts: [string, string | number | null][] = [
     ["Category", product.category_name],
     ["Producer", product.producer],
-    ["Country", product.country],
+    ["Country", product.country && countryName(product.country)],
     ["Region", product.region],
     ["ABV", product.abv === null ? null : `${product.abv}%`],
     ["Vintage", product.vintage],

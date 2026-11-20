@@ -428,10 +428,16 @@ it("lets a bar owner rename their bar and preserves existing memberships and inv
   expect(barSummarySchema.parse(await result.json())).toEqual({
     id: t.alice.barId,
     name: "Rooftop",
+    currency: "JPY",
     role: "owner",
   });
   const me = meSchema.parse(await (await t.request("/api/me", "GET", undefined, t.member)).json());
-  expect(me.bars).toContainEqual({ id: t.alice.barId, name: "Rooftop", role: "editor" });
+  expect(me.bars).toContainEqual({
+    id: t.alice.barId,
+    name: "Rooftop",
+    currency: "JPY",
+    role: "editor",
+  });
   expect(
     await (await t.request("/api/invitations/preview", "POST", { token }, "")).json(),
   ).toMatchObject({ bar_name: "Rooftop" });
