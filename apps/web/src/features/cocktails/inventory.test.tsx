@@ -123,15 +123,20 @@ it("shows what is missing on the recipe and lets you pick an owned bottle for a 
         ["Beefeater", "Tanqueray"],
         [source(3, "London dry", ["Tanqueray", "Sipsmith"])],
       ),
-      line(2, "Lemon"),
+      line(2, "Lemon", [], [source(4, "Bottled lemon")]),
     ],
   });
   server.use(http.get(`${base}/cocktails/${recipe.id}`, () => HttpResponse.json(recipe)));
   const { user } = renderWithProviders(`/cocktails/${recipe.id}`);
-  const notice = (await screen.findByText("Missing 1 ingredient")).parentElement as HTMLElement;
-  expect(within(notice).getByText("Lemon or Bottled lemon")).toBeInTheDocument();
-  const lemon = (await screen.findByText(/Lemon$/)).closest("li") as HTMLElement;
+  const ingredients = await screen.findByRole("region", { name: "Ingredients" });
+  const lemon = within(ingredients)
+    .getByText(/Lemon or Bottled lemon/)
+    .closest("li") as HTMLElement;
   expect(within(lemon).getByText("Missing")).toBeInTheDocument();
+  const availability = within(ingredients).getByText("Missing ingredients: 1");
+  expect(availability).toHaveAttribute("role", "status");
+  expect(availability).toHaveClass("sr-only");
+  expect(within(ingredients).queryByText("Can make now")).toBeNull();
   expect(screen.queryByRole("combobox", { name: /for Lemon/ })).toBeNull();
 
   const picker = screen.getByRole("combobox", { name: "Use this bottle for Gin" });
@@ -161,18 +166,22 @@ it("shows what is missing on the recipe and lets you pick an owned bottle for a 
   );
 });
 
-it.each([
-  { recipe: ready, text: "You can make this now." },
-  {
-    recipe: cocktail(4, "Ramos", {
-      missing: [lemonMissing, { ...lemonMissing, id: id(9), name: "Egg", alternatives: [] }],
-    }),
-    text: "Missing 2 ingredients",
-  },
-])("summarises stock: $text", async ({ recipe, text }) => {
-  server.use(http.get(`${base}/cocktails/${recipe.id}`, () => HttpResponse.json(recipe)));
-  renderWithProviders(`/cocktails/${recipe.id}`);
-  expect(await screen.findByText(text)).toBeInTheDocument();
+it("updates the same live availability status when stock changes while viewing a recipe", async () => {
+  const recipe = { ...ready, ingredients: [line(2, "Lemon")] };
+  let missing: MissingIngredient[] = [];
+  server.use(
+    http.get(`${base}/cocktails/${recipe.id}`, () => HttpResponse.json({ ...recipe, missing })),
+  );
+  const { queryClient } = renderWithProviders(`/cocktails/${recipe.id}`);
+  const ingredients = await screen.findByRole("region", { name: "Ingredients" });
+  const availability = within(ingredients).getByText("Can make now");
+  expect(availability).toHaveAttribute("role", "status");
+
+  missing = [{ ...lemonMissing, alternatives: [] }];
+  await act(() => queryClient.invalidateQueries({ queryKey: cocktailsKey(BAR_ID) }));
+  expect(await within(ingredients).findByText("Missing ingredients: 1")).toBe(availability);
+  expect(availability).toHaveClass("sr-only");
+  expect(within(ingredients).getByText("Missing")).toBeInTheDocument();
 });
 
 /** Each row is a hook that returns a function running one stock mutation. */

@@ -5,11 +5,10 @@ import {
   formatAmount,
   hasRole,
   imageUrl,
-  type MissingIngredient,
 } from "@larder/shared";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { Fragment, useState } from "react";
 import { ApiError } from "@/api/client.ts";
 import { cocktailQuery } from "@/api/cocktails.ts";
@@ -19,56 +18,76 @@ import { BarGate } from "@/components/bar-gate.tsx";
 import { Combobox } from "@/components/combobox.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { missingLabel } from "./missing-label.ts";
 
 const route = getRouteApi("/cocktails/$cocktailId");
 
 export function CocktailDetailPage() {
   const { cocktailId } = route.useParams();
-  const search = route.useSearch();
   return (
     <BarGate title="Cocktail">
-      {(bar) => (
-        <section className="mx-auto flex max-w-3xl flex-col gap-4">
-          <Link
-            to="/cocktails"
-            search={search}
-            className="flex items-center gap-1 text-muted-foreground text-sm hover:underline"
-          >
-            <ArrowLeft className="size-4" aria-hidden />
-            All cocktails
-          </Link>
-          <CocktailView key={`${bar.id}/${cocktailId}`} bar={bar} id={cocktailId} />
-        </section>
-      )}
+      {(bar) => <CocktailView key={`${bar.id}/${cocktailId}`} bar={bar} id={cocktailId} />}
     </BarGate>
   );
 }
 
 function CocktailView({ bar, id }: { bar: BarSummary; id: string }) {
   const search = route.useSearch();
-  const barId = bar.id;
-  const recipe = useQuery(cocktailQuery(barId, id));
-  if (recipe.isPending) return <LoadingState label="Loading cocktail…" />;
-  if (recipe.isError) {
-    if (recipe.error instanceof ApiError && recipe.error.code === "NOT_FOUND") {
-      return <EmptyState title="Cocktail not found" />;
-    }
-    return <ErrorState error={recipe.error} onRetry={() => recipe.refetch()} />;
-  }
+  const recipe = useQuery(cocktailQuery(bar.id, id));
   return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-3xl">{recipe.data.name}</h1>
-        {hasRole(bar.role, "editor") && (
-          <Button asChild variant="outline">
+    <section className="mx-auto flex max-w-5xl flex-col gap-4">
+      <nav
+        aria-label="Cocktail actions"
+        className="flex flex-wrap items-center justify-between gap-2"
+      >
+        <Link
+          to="/cocktails"
+          search={search}
+          className="flex items-center gap-1 text-muted-foreground text-sm hover:underline"
+        >
+          <ArrowLeft className="size-4" aria-hidden />
+          All cocktails
+        </Link>
+        {recipe.isSuccess && hasRole(bar.role, "editor") && (
+          <Button asChild size="sm" variant="ghost" className="text-muted-foreground">
             <Link to="/cocktails/$cocktailId/edit" params={{ cocktailId: id }} search={search}>
+              <Pencil aria-hidden />
               Edit cocktail
             </Link>
           </Button>
         )}
+      </nav>
+      {recipe.isPending ? (
+        <LoadingState label="Loading cocktail…" />
+      ) : recipe.isError ? (
+        recipe.error instanceof ApiError && recipe.error.code === "NOT_FOUND" ? (
+          <EmptyState title="Cocktail not found" />
+        ) : (
+          <ErrorState error={recipe.error} onRetry={() => recipe.refetch()} />
+        )
+      ) : (
+        <CocktailRecipe barId={bar.id} recipe={recipe.data} />
+      )}
+    </section>
+  );
+}
+
+function CocktailRecipe({ barId, recipe }: { barId: string; recipe: CocktailDetail }) {
+  return (
+    <>
+      <h1 className="wrap-anywhere text-3xl">{recipe.name}</h1>
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-[auto] lg:gap-6 lg:has-[>img]:grid-rows-[auto_1fr]">
+        {recipe.image_id && (
+          <img
+            src={imageUrl(recipe.image_id)}
+            alt={recipe.name}
+            className="mx-auto h-auto max-h-96 w-auto max-w-full rounded-xl shadow-sm lg:col-start-1 lg:row-start-1"
+          />
+        )}
+        <div className="flex min-w-0 flex-col gap-4 wrap-anywhere lg:col-start-2 lg:row-span-full">
+          <CocktailDetails barId={barId} recipe={recipe} />
+        </div>
+        <CocktailFacts barId={barId} recipe={recipe} />
       </div>
-      <CocktailDetails barId={barId} recipe={recipe.data} />
     </>
   );
 }
@@ -82,73 +101,70 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
   const scaled = useQuery(
     cocktailQuery(barId, recipe.id, count === recipe.servings ? undefined : count),
   );
-  const glass = useQuery({
-    ...utensilQuery(barId, recipe.glass_id ?? ""),
-    enabled: recipe.glass_id !== null,
-  });
-  const facts = [
-    ["Method", recipe.method],
-    ["Ice", recipe.ice.replaceAll("_", " ")],
-    ["Glass", glass.data?.name],
-    ["Serving notes", recipe.serving_notes],
-    ["Tools", recipe.tools.map(({ name }) => name).join(", ")],
-    ["Garnish", recipe.garnish],
-    ["Tags", recipe.tags.map(({ name }) => name).join(", ")],
-    ["Source", recipe.source],
-    ["Notes", recipe.notes],
-  ];
-
+  const computed = scaled.isSuccess ? scaled.data.computed : null;
+  const missingCount = (scaled.data ?? recipe).missing.length;
   return (
     <>
-      {recipe.image_id && (
-        <img
-          src={imageUrl(recipe.image_id)}
-          alt={recipe.name}
-          className="max-h-80 w-full rounded-xl object-cover shadow-sm"
-        />
-      )}
       {recipe.description && <p className="whitespace-pre-line">{recipe.description}</p>}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <fieldset className="flex items-center gap-2" aria-label="Servings">
-          <Button
-            size="icon"
-            variant="outline"
-            aria-label="Fewer servings"
-            disabled={count === 1}
-            onClick={() => setServings(count - 1)}
-          >
-            −
-          </Button>
-          <output aria-live="polite">
-            {count} {count === 1 ? "serving" : "servings"}
-          </output>
-          <Button
-            size="icon"
-            variant="outline"
-            aria-label="More servings"
-            disabled={count === Number.MAX_SAFE_INTEGER}
-            onClick={() => setServings(count + 1)}
-          >
-            +
-          </Button>
-        </fieldset>
-        <fieldset className="flex gap-1" aria-label="Display units">
-          {(["ml", "oz"] as const).map((option) => (
+      <section
+        aria-labelledby="cocktail-ingredients"
+        className="grid gap-3 rounded-xl border bg-card p-4 shadow-xs sm:p-5"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="cocktail-ingredients" className="font-semibold text-lg">
+            Ingredients
+          </h2>
+          <span role="status" className={missingCount === 0 ? badge({ tone: "brand" }) : "sr-only"}>
+            {missingCount === 0 ? "Can make now" : `Missing ingredients: ${missingCount}`}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b pb-3">
+          <fieldset className="flex items-center gap-2" aria-label="Servings">
             <Button
-              key={option}
-              variant={unit === option ? "default" : "outline"}
-              aria-pressed={unit === option}
-              onClick={() => setUnit(option)}
+              size="icon-sm"
+              variant="outline"
+              aria-label="Fewer servings"
+              disabled={count === 1}
+              onClick={() => setServings(count - 1)}
             >
-              {option}
+              −
             </Button>
-          ))}
-        </fieldset>
-      </div>
+            <output className="text-sm tabular-nums" aria-live="polite">
+              {count} {count === 1 ? "serving" : "servings"}
+            </output>
+            <Button
+              size="icon-sm"
+              variant="outline"
+              aria-label="More servings"
+              disabled={count === Number.MAX_SAFE_INTEGER}
+              onClick={() => setServings(count + 1)}
+            >
+              +
+            </Button>
+          </fieldset>
+          <fieldset className="flex gap-0.5 rounded-md border p-0.5" aria-label="Display units">
+            {(["ml", "oz"] as const).map((option) => (
+              <Button
+                key={option}
+                size="sm"
+                variant={unit === option ? "secondary" : "ghost"}
+                aria-pressed={unit === option}
+                onClick={() => setUnit(option)}
+              >
+                {option}
+              </Button>
+            ))}
+          </fieldset>
+          {computed && (
+            <p className="text-muted-foreground text-sm tabular-nums">
+              ≈ {Math.round(computed.abv)}% ABV ·{" "}
+              {computed.volume_ml === null
+                ? "Volume unavailable"
+                : formatAmount(computed.volume_ml, "ml", unit)}
+            </p>
+          )}
+        </div>
 
-      <StockNotice missing={(scaled.data ?? recipe).missing} />
-      <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-xs sm:p-5">
-        <h2 className="font-semibold text-lg">Ingredients</h2>
         {scaled.isPending ? (
           <LoadingState label="Scaling recipe…" />
         ) : scaled.isError ? (
@@ -175,7 +191,30 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
           </ol>
         </section>
       )}
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border bg-card p-4 text-sm shadow-xs sm:p-5">
+    </>
+  );
+}
+
+function CocktailFacts({ barId, recipe }: { barId: string; recipe: CocktailDetail }) {
+  const glass = useQuery({
+    ...utensilQuery(barId, recipe.glass_id ?? ""),
+    enabled: recipe.glass_id !== null,
+  });
+  const facts = [
+    ["Method", recipe.method],
+    ["Ice", recipe.ice.replaceAll("_", " ")],
+    ["Glass", glass.data?.name],
+    ["Serving notes", recipe.serving_notes],
+    ["Tools", recipe.tools.map(({ name }) => name).join(", ")],
+    ["Garnish", recipe.garnish],
+    ["Tags", recipe.tags.map(({ name }) => name).join(", ")],
+    ["Source", recipe.source],
+    ["Notes", recipe.notes],
+  ];
+
+  return (
+    <div className="grid min-w-0 gap-4 lg:col-start-1">
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 rounded-xl border bg-card p-4 text-sm shadow-xs sm:p-5">
         {facts
           .filter(([, value]) => value)
           .map(([label, value]) => (
@@ -186,28 +225,6 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
           ))}
       </dl>
       {glass.isError && <ErrorState error={glass.error} onRetry={() => glass.refetch()} />}
-    </>
-  );
-}
-
-function StockNotice({ missing }: { missing: MissingIngredient[] }) {
-  if (missing.length === 0) {
-    return (
-      <p role="status" className="rounded-xl bg-brand/10 px-4 py-3 text-brand text-sm">
-        You can make this now.
-      </p>
-    );
-  }
-  return (
-    <div role="status" className="rounded-xl bg-muted px-4 py-3 text-sm">
-      <p className="font-medium">
-        Missing {missing.length} {missing.length === 1 ? "ingredient" : "ingredients"}
-      </p>
-      <ul className="list-disc pl-5 text-muted-foreground">
-        {missing.map((line) => (
-          <li key={line.id}>{missingLabel(line)}</li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -223,63 +240,50 @@ function IngredientList({
   poured: Record<string, string>;
   onPour: (lineId: string, productId: string) => void;
 }) {
-  const { abv, volume_ml } = recipe.computed;
   const missing = new Set(recipe.missing.map(({ id }) => id));
-  return (
-    <>
-      <p className="text-muted-foreground text-sm">
-        ≈ {Math.round(abv)}% ABV ·{" "}
-        {volume_ml === null ? "Volume unavailable" : formatAmount(volume_ml, "ml", unit)}
-      </p>
-      {recipe.ingredients.length === 0 ? (
-        <p>No ingredients yet.</p>
-      ) : (
-        <ul className="space-y-2">
-          {recipe.ingredients.map((line) => {
-            const sources = [line, ...line.alternatives];
-            // A bottle can match several sources (Gin, or London dry gin): list it once.
-            const bottles = [
-              ...new Map(
-                sources.flatMap((source) => source.matching_bottles).map((b) => [b.id, b]),
-              ).values(),
-            ];
-            return (
-              <li key={line.id} className="grid gap-1">
-                <span>
-                  <strong className="font-medium">
-                    {formatAmount(line.amount, line.unit, unit)}
-                  </strong>{" "}
-                  {sources.map((source, index) => (
-                    <Fragment key={source.id}>
-                      {index > 0 && " or "}
-                      {source.name}
-                      {source.note && ` (${source.note})`}
-                    </Fragment>
-                  ))}
-                  {line.optional && " (optional)"}
-                  {missing.has(line.id) && (
-                    <span className={badge({ tone: "destructive", className: "ml-2" })}>
-                      Missing
-                    </span>
-                  )}
-                </span>
-                {bottles.length > 0 && (
-                  <Combobox
-                    aria-label={`Use this bottle for ${line.name}`}
-                    className="max-w-xs"
-                    value={poured[line.id]}
-                    onChange={(value) => onPour(line.id, value)}
-                    options={bottles.map(({ id, name }) => ({ value: id, label: name }))}
-                    clearLabel="Any bottle"
-                    fallbackLabel="Bottle no longer in the bar"
-                    searchPlaceholder="Search bottles"
-                  />
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </>
+  return recipe.ingredients.length === 0 ? (
+    <p>No ingredients yet.</p>
+  ) : (
+    <ul className="space-y-2">
+      {recipe.ingredients.map((line) => {
+        const sources = [line, ...line.alternatives];
+        // A bottle can match several sources (Gin, or London dry gin): list it once.
+        const bottles = [
+          ...new Map(
+            sources.flatMap((source) => source.matching_bottles).map((b) => [b.id, b]),
+          ).values(),
+        ];
+        return (
+          <li key={line.id} className="grid gap-1">
+            <span>
+              <strong className="font-medium">{formatAmount(line.amount, line.unit, unit)}</strong>{" "}
+              {sources.map((source, index) => (
+                <Fragment key={source.id}>
+                  {index > 0 && " or "}
+                  {source.name}
+                  {source.note && ` (${source.note})`}
+                </Fragment>
+              ))}
+              {line.optional && " (optional)"}
+              {missing.has(line.id) && (
+                <span className={badge({ tone: "destructive", className: "ml-2" })}>Missing</span>
+              )}
+            </span>
+            {bottles.length > 0 && (
+              <Combobox
+                aria-label={`Use this bottle for ${line.name}`}
+                className="max-w-xs"
+                value={poured[line.id]}
+                onChange={(value) => onPour(line.id, value)}
+                options={bottles.map(({ id, name }) => ({ value: id, label: name }))}
+                clearLabel="Any bottle"
+                fallbackLabel="Bottle no longer in the bar"
+                searchPlaceholder="Search bottles"
+              />
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

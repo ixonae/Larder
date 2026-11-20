@@ -217,8 +217,10 @@ it("shows the recipe, shares quantities across alternatives, and scales servings
   expect(fewer).toBeDisabled();
   await user.click(more);
   expect(await screen.findByText("60 ml")).toBeInTheDocument();
+  expect(screen.getByText("≈ 18% ABV · 60 ml")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "oz" }));
   expect(screen.getByText("2 oz")).toBeInTheDocument();
+  expect(screen.getByText("≈ 18% ABV · 2 oz")).toBeInTheDocument();
   expect(screen.getByText("2 dashes")).toBeInTheDocument();
   await user.click(more);
   const alert = await screen.findByRole("alert");
@@ -496,7 +498,8 @@ it("edits the original recipe after scaling, preserves input on a conflict, and 
   const { user } = renderWithProviders(`/cocktails/${recipe.id}`);
   await user.click(await screen.findByRole("button", { name: "More servings" }));
   expect(await screen.findByText("60 ml")).toBeInTheDocument();
-  await user.click(screen.getByRole("link", { name: "Edit cocktail" }));
+  const actions = screen.getByRole("navigation", { name: "Cocktail actions" });
+  await user.click(within(actions).getByRole("link", { name: "Edit cocktail" }));
   const name = await screen.findByLabelText("Name");
   expect(name).toHaveValue("Gimlet");
   expect(screen.getByLabelText("Servings")).toHaveValue(1);

@@ -118,7 +118,7 @@ function Ingredient({
   });
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_16rem]">
+      <div className="grid gap-3 @md:grid-cols-[minmax(0,1fr)_minmax(10rem,40%)]">
         <SourceField form={form} catalogue={catalogue} path={path} label="Preferred source" />
         <FormField form={form} name={`${path}.amount`} label="Quantity">
           {(control) => (
