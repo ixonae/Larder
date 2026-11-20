@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { openDb } from "./client.ts";
 import { runMigrations } from "./migrate.ts";
 import {
+  barDataMigrations,
   barMembers,
   bars,
   categories,
@@ -43,9 +44,16 @@ describe("openDb", () => {
 });
 
 describe("runMigrations", () => {
-  it("can run twice", () => {
+  it("applies migrations once and can run again without changing their history", () => {
     const db = freshDb();
-    expect(() => runMigrations(db)).not.toThrow();
+    const history = db.$client.prepare(
+      "SELECT hash, created_at FROM __drizzle_migrations ORDER BY created_at",
+    );
+    const initial = history.all();
+    expect(initial).not.toHaveLength(0);
+    runMigrations(db);
+    expect(history.all()).toEqual(initial);
+    expect(db.$client.pragma("foreign_key_check")).toEqual([]);
   });
 
   it("refuses unknown roles", () => {
@@ -231,6 +239,7 @@ describe("utensils table", () => {
 describe("schema", () => {
   it.each([
     [bars, [["owner_id", "users"]]],
+    [barDataMigrations, [["bar_id", "bars"]]],
     [
       tags,
       [

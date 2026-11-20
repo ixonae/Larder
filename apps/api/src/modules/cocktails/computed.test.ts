@@ -33,8 +33,9 @@ async function setup() {
   const { id: zero } = await readJson<Product>(
     await post("products", { name: "Zero-proof bottle", category_id: leaf.id, abv: 0 }),
   );
+  const citrus = await addCategory({ name: "Citrus", kind: "garnish" });
   const { id: garnish } = await readJson<PantryIngredient>(
-    await post("pantry-ingredients", { name: "Peel", category_id: mixer.id }),
+    await post("pantry-ingredients", { name: "Peel", category_id: citrus.id }),
   );
   const create = async (name: string, patch: object) =>
     cocktailDetailSchema.parse(

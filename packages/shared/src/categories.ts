@@ -2,7 +2,7 @@ import { z } from "zod";
 import { idSchema } from "./id.ts";
 import { paginationQuerySchema } from "./pagination.ts";
 import { optionalText } from "./text.ts";
-import type { TreeNode } from "./tree.ts";
+import { ancestry, type TreeNode } from "./tree.ts";
 
 export const CATEGORY_KINDS = [
   "spirit",
@@ -19,6 +19,12 @@ export const CATEGORY_KINDS = [
 export const categoryKindSchema = z.enum(CATEGORY_KINDS);
 export type CategoryKind = z.infer<typeof categoryKindSchema>;
 
+const PANTRY_KINDS: ReadonlySet<CategoryKind> = new Set(["other", "garnish", "syrup"]);
+
+export function isPantryCategoryKind(kind: CategoryKind): boolean {
+  return PANTRY_KINDS.has(kind);
+}
+
 export const CATEGORY_KIND_LABEL: Record<CategoryKind, string> = {
   spirit: "Spirit",
   liqueur: "Liqueur",
@@ -34,6 +40,26 @@ export const CATEGORY_KIND_LABEL: Record<CategoryKind, string> = {
 
 /** The starter category that groups kitchen supplies; new pantry ingredients default to it. */
 export const PANTRY_CATEGORY_NAME = "Pantry";
+
+export function isPantryRoot(category: Pick<Category, "parent_id" | "name">): boolean {
+  return (
+    category.parent_id === null &&
+    category.name.toLowerCase() === PANTRY_CATEGORY_NAME.toLowerCase()
+  );
+}
+
+type CategoryLocation = Pick<Category, "id" | "parent_id" | "name" | "kind">;
+
+export function isBottleCategory(
+  category: CategoryLocation,
+  byId: Pick<ReadonlyMap<string, CategoryLocation>, "get">,
+): boolean {
+  return (
+    category.kind !== "syrup" &&
+    category.kind !== "garnish" &&
+    !ancestry(byId, category.id).some(isPantryRoot)
+  );
+}
 
 export const CATEGORY_NAME_MAX = 100;
 export const DESCRIPTION_MAX = 2000;

@@ -1,7 +1,7 @@
 import type { Page, PantryIngredient } from "@larder/shared";
 import { and, count, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { barMembers, categories, pantryIngredients } from "../../db/schema/index.ts";
+import { barMembers, categories, pantryIngredients, products } from "../../db/schema/index.ts";
 import { createTestApp, errorOf, readJson as json, jsonRequest } from "../../test/app.ts";
 
 const UNKNOWN = "01a1f326-d941-7d74-8a40-504a488cd388";
@@ -126,6 +126,24 @@ describe("POST /pantry-ingredients", () => {
       .where(eq(pantryIngredients.id, created.id))
       .get();
     expect(row).toMatchObject({ bar_id: t.alice.barId, created_by: t.alice.userId });
+  });
+
+  it("accepts syrup in Pantry and refuses bottle categories for additions or moves", async () => {
+    const t = setup();
+    const syrup = await t.send("POST", "", { name: "Maple syrup", category_id: t.cat("Syrup") });
+    expect(syrup.status).toBe(201);
+    const { id } = await json<PantryIngredient>(syrup);
+    const category_id = t.cat("Gin");
+    for (const res of [
+      await t.send("POST", "", { name: "Gin", category_id }),
+      await t.send("POST", "", { name: "Packaged juice", category_id: t.cat("Orange juice") }),
+      await t.send("PATCH", `/${id}`, { category_id }),
+    ]) {
+      expect(res.status).toBe(400);
+      expect((await errorOf(res)).details).toEqual([
+        { path: ["category_id"], message: "Choose a category for pantry ingredients" },
+      ]);
+    }
   });
 
   it("accepts both flags", async () => {
@@ -294,17 +312,22 @@ describe("deleting a category used by pantry ingredients", () => {
     expect(t.cat("Garnish")).toBeTruthy();
   });
 
-  it("lists every kind of use in the message", async () => {
+  it("lists every kind of use in the message, including a legacy garnish bottle", async () => {
     const t = setup();
     const categoriesUrl = `${t.bar(t.alice.barId)}/categories`;
     await t.app.request(
       categoriesUrl,
       jsonRequest("POST", { name: "Citrus", parent_id: t.cat("Garnish") }),
     );
-    await t.app.request(
-      `${t.bar(t.alice.barId)}/products`,
-      jsonRequest("POST", { name: "Angostura orange", category_id: t.cat("Garnish") }),
-    );
+    t.db
+      .insert(products)
+      .values({
+        bar_id: t.alice.barId,
+        created_by: t.alice.userId,
+        name: "Angostura orange",
+        category_id: t.cat("Garnish"),
+      })
+      .run();
     const res = await t.app.request(`${categoriesUrl}/${t.cat("Garnish")}`, { method: "DELETE" });
     expect((await errorOf(res)).message).toBe(
       '"Garnish" still has sub-categories, bottles and pantry ingredients',

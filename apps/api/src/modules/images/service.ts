@@ -26,7 +26,10 @@ const toImage = ({ id, mime, width, height, size_bytes, created_at }: repo.Store
 type Files = Pick<repo.StoredImage, "storage_key" | "thumb_key">;
 
 /** Best effort: a file left behind wastes space but breaks nothing, so it never fails the request. */
-async function removeFiles(storage: ImageStorage, files: Files | undefined): Promise<void> {
+export async function removeImageFiles(
+  storage: ImageStorage,
+  files: Files | undefined,
+): Promise<void> {
   if (!files) return;
   await Promise.allSettled([storage.delete(files.storage_key), storage.delete(files.thumb_key)]);
 }
@@ -51,13 +54,46 @@ export async function deleteWithImage(
   remove: (tx: Executor) => string | null,
 ): Promise<void> {
   const files = ctx.db.transaction((tx) => dropImage(tx, ctx.barId, remove(tx)));
-  await removeFiles(ctx.storage, files);
+  await removeImageFiles(ctx.storage, files);
 }
 
 function requireOwner(db: Executor, entity: ImageEntity, barId: string, id: string) {
   const owner = repo.findOwnerImage(db, entity, barId, id);
   if (!owner) throw notFound(LABEL[entity]);
   return owner;
+}
+
+/** Write the full image and thumbnail before inserting their metadata in a transaction. */
+export async function stageImage(
+  { barId, userId, storage }: Pick<Ctx, "barId" | "userId" | "storage">,
+  data: Uint8Array,
+) {
+  const processed = await processImage(data);
+  const id = newId();
+  const files = {
+    storage_key: `${barId}/${id}.webp`,
+    thumb_key: `${barId}/${id}-thumb.webp`,
+  };
+  // Both writes settle before cleanup, so a pending write cannot recreate a deleted file.
+  const writes = await Promise.allSettled([
+    storage.put(files.storage_key, processed.full),
+    storage.put(files.thumb_key, processed.thumb),
+  ]);
+  const failed = writes.find((write) => write.status === "rejected");
+  if (failed) {
+    await removeImageFiles(storage, files);
+    throw failed.reason;
+  }
+  return {
+    id,
+    bar_id: barId,
+    created_by: userId,
+    ...files,
+    mime: "image/webp",
+    width: processed.width,
+    height: processed.height,
+    size_bytes: processed.full.byteLength,
+  };
 }
 
 /**
@@ -73,43 +109,22 @@ export async function uploadImage(
 ): Promise<Image> {
   const ownerId = parseId(id, LABEL[entity]);
   requireOwner(ctx.db, entity, ctx.barId, ownerId);
-  const processed = await processImage(new Uint8Array(await file.arrayBuffer()));
-  const imageId = newId();
-  const files = {
-    storage_key: `${ctx.barId}/${imageId}.webp`,
-    thumb_key: `${ctx.barId}/${imageId}-thumb.webp`,
-  };
+  const staged = await stageImage(ctx, new Uint8Array(await file.arrayBuffer()));
   let result: { image: repo.StoredImage; replaced: Files | undefined };
   try {
-    // Both writes settle before any cleanup, so a file still being written cannot outlive it.
-    const writes = await Promise.allSettled([
-      ctx.storage.put(files.storage_key, processed.full),
-      ctx.storage.put(files.thumb_key, processed.thumb),
-    ]);
-    const failed = writes.find((w) => w.status === "rejected");
-    if (failed) throw failed.reason;
     result = ctx.db.transaction((tx) => {
       // Checked again: the item may have been deleted while the picture was processed.
       const owner = requireOwner(tx, entity, ctx.barId, ownerId);
-      const image = repo.insertImage(tx, {
-        id: imageId,
-        bar_id: ctx.barId,
-        created_by: ctx.userId,
-        ...files,
-        mime: "image/webp",
-        width: processed.width,
-        height: processed.height,
-        size_bytes: processed.full.byteLength,
-      });
+      const image = repo.insertImage(tx, staged);
       repo.setOwnerImage(tx, entity, ctx.barId, ownerId, image.id);
       return { image, replaced: dropImage(tx, ctx.barId, owner.image_id) };
     });
   } catch (err) {
     // Whatever was written (one file, both, or none) goes: no row points at it.
-    await removeFiles(ctx.storage, files);
+    await removeImageFiles(ctx.storage, staged);
     throw err;
   }
-  await removeFiles(ctx.storage, result.replaced);
+  await removeImageFiles(ctx.storage, result.replaced);
   return toImage(result.image);
 }
 
@@ -125,7 +140,7 @@ export async function removeImage(
     repo.setOwnerImage(tx, entity, ctx.barId, ownerId, null);
     return dropImage(tx, ctx.barId, owner.image_id);
   });
-  await removeFiles(ctx.storage, removed);
+  await removeImageFiles(ctx.storage, removed);
 }
 
 /**

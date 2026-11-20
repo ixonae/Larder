@@ -35,6 +35,8 @@ const quantity = z.object({
   amount: z.number().positive().nullable().optional(),
   unit: unitSchema,
   optional: z.boolean().default(false),
+  /** Required for preparation but left out of the served drink (for example a rinse). */
+  preparation_only: z.boolean().default(false),
 });
 
 const alternativeInput = ingredientSourceSchema.and(preparation);
@@ -61,6 +63,7 @@ export const cocktailIngredientSchema = resolvedSource.extend({
   amount: z.number().nullable(),
   unit: unitSchema,
   optional: z.boolean(),
+  preparation_only: z.boolean().default(false),
   alternatives: resolvedSource.array(),
 });
 export type CocktailIngredient = z.infer<typeof cocktailIngredientSchema>;

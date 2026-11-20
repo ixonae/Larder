@@ -1,5 +1,6 @@
 import {
   type CreatePantryIngredient,
+  isPantryCategoryKind,
   type ListPantryIngredientsQuery,
   type Page,
   type PantryIngredient,
@@ -9,7 +10,7 @@ import {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
+import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { listAllCategories } from "../categories/repo.ts";
 import { requireCategoryRef } from "../categories/service.ts";
@@ -51,9 +52,17 @@ export function getPantryIngredient(ctx: Ctx, id: string | undefined): PantryIng
   return requireIngredient(ctx.db, ctx.barId, id);
 }
 
+function requirePantryCategory(db: Executor, barId: string, categoryId: string) {
+  const category = requireCategoryRef(db, barId, categoryId);
+  if (!isPantryCategoryKind(category.kind)) {
+    const message = "Choose a category for pantry ingredients";
+    throw invalid(message, [{ path: ["category_id"], message }]);
+  }
+}
+
 export function createPantryIngredient(ctx: Ctx, input: CreatePantryIngredient): PantryIngredient {
   return ctx.db.transaction((tx) => {
-    requireCategoryRef(tx, ctx.barId, input.category_id);
+    requirePantryCategory(tx, ctx.barId, input.category_id);
     // Flags left out take the column defaults (false).
     const id = onUniqueViolation(
       () =>
@@ -72,7 +81,7 @@ export function updatePantryIngredient(
   return ctx.db.transaction((tx) => {
     const existing = requireIngredient(tx, ctx.barId, id);
     if (patch.category_id && patch.category_id !== existing.category_id) {
-      requireCategoryRef(tx, ctx.barId, patch.category_id);
+      requirePantryCategory(tx, ctx.barId, patch.category_id);
     }
     onUniqueViolation(
       () => repo.updatePantryIngredient(tx, ctx.barId, existing.id, patch),

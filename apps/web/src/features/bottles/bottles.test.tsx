@@ -24,7 +24,9 @@ const spirit = category(1, "Spirit");
 const whisky = category(2, "Whisky", spirit);
 const scotch = category(3, "Scotch", whisky);
 const gin = category(4, "Gin", spirit);
-const categories = [spirit, whisky, scotch, gin];
+const syrup = { ...category(5, "Syrup"), kind: "syrup" as const };
+const juice = { ...category(6, "Juice"), kind: "juice" as const };
+const categories = [spirit, whisky, scotch, gin, syrup, juice];
 
 let seq = 100;
 const product = (name: string, cat: Category, extra: Partial<Product> = {}): Product => ({
@@ -293,6 +295,9 @@ describe("ProductSheet", () => {
     const { user } = await openList();
     await user.click(screen.getByRole("button", { name: "Add bottle" }));
     const sheet = await screen.findByRole("dialog", { name: "New bottle" });
+    const picker = await within(sheet).findByLabelText("Category");
+    expect(within(picker).getByRole("option", { name: "Juice" })).toBeInTheDocument();
+    expect(within(picker).queryByRole("option", { name: "Syrup" })).not.toBeInTheDocument();
     await user.type(within(sheet).getByLabelText("Name"), "Ardbeg 10");
     await user.click(within(sheet).getByRole("button", { name: "Add" }));
     expect(await within(sheet).findByText("Choose a category")).toBeInTheDocument();

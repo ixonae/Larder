@@ -1,4 +1,4 @@
-import { type BarSummary, flattenTree, hasRole, idSchema, PRODUCT_NAME_MAX } from "@larder/shared";
+import { type BarSummary, hasRole, idSchema, PRODUCT_NAME_MAX } from "@larder/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { Plus, Search } from "lucide-react";
@@ -12,7 +12,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Thumbnail } from "@/components/thumbnail.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { CategoryOptions } from "@/features/categories/category-options.tsx";
+import { bottleCategoryOptions, CategoryOptions } from "@/features/categories/category-options.tsx";
 import { useDebouncedSearch } from "@/lib/debounced-search.ts";
 import { InBarToggle } from "./in-bar-toggle.tsx";
 import { ProductSheet, type ProductTarget } from "./product-sheet.tsx";
@@ -87,7 +87,7 @@ function BottlesView({ bar }: { bar: BarSummary }) {
           onChange={(e) => setSearch({ category: e.target.value || undefined })}
         >
           <option value="">All categories</option>
-          <CategoryOptions items={flattenTree(tree.data ?? [])} />
+          <CategoryOptions items={bottleCategoryOptions(tree.data ?? [], search.category)} />
         </NativeSelect>
         <NativeSelect
           aria-label="In the bar"

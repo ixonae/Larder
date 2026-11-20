@@ -95,6 +95,39 @@ describe("POST /products", () => {
     expect(t.count()).toBe(0);
   });
 
+  it("refuses bottle additions and moves into pantry categories", async () => {
+    const t = setup();
+    const product = await t.create({
+      name: "Bottled orange juice",
+      category_id: t.cat("Orange juice"),
+    });
+    const child = t.db
+      .insert(categories)
+      .values({
+        bar_id: t.alice.barId,
+        created_by: t.alice.userId,
+        name: "Freezer",
+        kind: "other",
+        parent_id: t.cat("Pantry"),
+      })
+      .returning({ id: categories.id })
+      .get();
+    for (const res of [
+      await t.send("POST", "", { name: "Honey syrup", category_id: t.cat("Honey syrup") }),
+      await t.send("POST", "", { name: "Orange peel", category_id: t.cat("Garnish") }),
+      await t.send("POST", "", { name: "Ice", category_id: t.cat("Pantry") }),
+      await t.send("PATCH", `/${product.id}`, { category_id: child.id }),
+    ]) {
+      expect(res.status).toBe(400);
+      expect((await errorOf(res)).details).toEqual([
+        {
+          path: ["category_id"],
+          message: "Choose a bottle category. Track syrups and garnishes in Pantry.",
+        },
+      ]);
+    }
+  });
+
   it("refuses a category from another bar", async () => {
     const t = setup();
     const res = await t.send("POST", "", { name: "X", category_id: t.cat("Gin", t.bob.barId) });

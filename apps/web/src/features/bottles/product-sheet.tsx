@@ -1,9 +1,4 @@
-import {
-  type CategoryTreeNode,
-  createProductSchema,
-  flattenTree,
-  type Product,
-} from "@larder/shared";
+import { type CategoryTreeNode, createProductSchema, type Product } from "@larder/shared";
 import { useMemo } from "react";
 import { useProductMutations } from "@/api/products.ts";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
@@ -21,6 +16,7 @@ import {
 } from "@/components/ui/sheet.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import {
+  bottleCategoryOptions,
   CategoryOptions,
   CategoryTreeLoader,
   categoryIdField,
@@ -70,7 +66,11 @@ interface FormProps {
 function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: CategoryTreeNode[] }) {
   const { create, update } = useProductMutations(barId);
   const picture = useImageField(barId, "products");
-  const categories = useMemo(() => flattenTree(tree), [tree]);
+  const currentCategoryId = editing?.category_id;
+  const categories = useMemo(
+    () => bottleCategoryOptions(tree, currentCategoryId),
+    [tree, currentCategoryId],
+  );
 
   const form = useZodForm(formSchema, {
     defaultValues: {

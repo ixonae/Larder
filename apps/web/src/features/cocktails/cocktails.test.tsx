@@ -32,6 +32,7 @@ const ingredient: CocktailIngredient = {
   unit: "ml",
   amount: 30,
   optional: false,
+  preparation_only: false,
   alternatives: [],
 };
 const recipe: CocktailDetail = {
@@ -344,6 +345,7 @@ it("creates a recipe with reordered ingredients, alternatives, steps, tools, tag
   expect(await screen.findByText("Enter an amount for this unit")).toBeInTheDocument();
   await user.type(row(1).getByLabelText("Amount"), "30");
   await user.type(row(1).getByLabelText("Preparation note"), "London dry style");
+  await user.click(row(1).getByLabelText(/Preparation only/));
   await user.click(row(1).getByRole("button", { name: "Add alternative" }));
   const alternative = within(row(1).getByRole("group", { name: "Alternative 1" }));
   await user.selectOptions(alternative.getByLabelText("Substitute"), `product_id:${bottle.id}`);
@@ -416,6 +418,7 @@ it("creates a recipe with reordered ingredients, alternatives, steps, tools, tag
         amount: 30,
         unit: "ml",
         optional: false,
+        preparation_only: true,
         note: "London dry style",
         alternatives: [{ product_id: bottle.id, note: "Chilled" }],
       },
@@ -770,7 +773,7 @@ it("loads ingredient sources on demand, retries failed pages, and keeps selectio
   const choice = await screen.findByRole("option", { name: /London Dry/ });
   const select = screen.getByLabelText("Preferred source");
   await user.selectOptions(select, choice);
-  await user.type(screen.getByRole("searchbox", { name: "Search bottles and pantry" }), "Lime");
+  await user.type(screen.getByRole("searchbox", { name: "Search ingredients" }), "Lime");
   expect(await screen.findByRole("option", { name: /Lime/ })).toBeInTheDocument();
   expect(select).toHaveValue(`product_id:${bottle.id}`);
   expect(screen.getByRole("option", { name: /London Dry/ })).toBeInTheDocument();
@@ -778,6 +781,48 @@ it("loads ingredient sources on demand, retries failed pages, and keeps selectio
   expect(select).toHaveValue("");
   expect(cursors).toEqual([null, "bottles-next", "bottles-next", null]);
   expect(queries).toEqual([null, null, null, "Lime"]);
+});
+
+it("limits category options, loads more, and searches full paths while retaining the selection", async () => {
+  editorCatalogue();
+  const category = {
+    ...time,
+    ...gin,
+    kind: "spirit",
+    parent_id: null,
+    default_abv: 40,
+    description: null,
+    image_id: null,
+    children: [],
+  };
+  const children = Array.from({ length: 27 }, (_, index) => ({
+    ...category,
+    id: id(200 + index),
+    name: `Style ${index + 1}`,
+    parent_id: gin.id,
+  }));
+  server.use(
+    http.get(`${base}/categories/tree`, () =>
+      HttpResponse.json({ items: [{ ...category, children }] }),
+    ),
+  );
+  const { user } = renderWithProviders("/cocktails/new");
+  await user.click(await screen.findByRole("button", { name: "Add ingredient" }));
+  const picker = screen.getByLabelText("Preferred source");
+  const options = within(picker);
+  expect(options.queryByRole("option", { name: "Gin › Style 27" })).not.toBeInTheDocument();
+  await user.click(await screen.findByRole("button", { name: "Load more ingredient choices" }));
+  await user.selectOptions(picker, options.getByRole("option", { name: "Gin › Style 27" }));
+  const search = screen.getByRole("searchbox", { name: "Search ingredients" });
+  await user.type(search, "GIN › STYLE 25");
+  expect(await options.findByRole("option", { name: "Gin › Style 25" })).toBeInTheDocument();
+  expect(options.queryByRole("option", { name: "Gin › Style 24" })).not.toBeInTheDocument();
+  expect(options.getAllByRole("option", { name: "Gin › Style 27" })).toHaveLength(1);
+  expect(picker).toHaveValue(`category_id:${id(226)}`);
+  await user.clear(search);
+  await waitFor(() =>
+    expect(options.queryByRole("option", { name: "Gin › Style 26" })).not.toBeInTheDocument(),
+  );
 });
 
 it("retries an initial ingredient search error without closing the editor", async () => {

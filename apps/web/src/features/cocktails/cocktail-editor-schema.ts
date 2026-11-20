@@ -38,6 +38,7 @@ const ingredient = z
     amount: z.number().nullable(),
     unit: unitSchema,
     optional: z.boolean(),
+    preparation_only: z.boolean(),
     alternatives: preparation.array(),
   })
   .transform(
@@ -114,13 +115,16 @@ export function cocktailDefaults(recipe?: CocktailDetail): EditorInput {
     source: recipe?.source ?? "",
     notes: recipe?.notes ?? "",
     ingredients:
-      recipe?.ingredients.map(({ amount, unit, optional, alternatives, ...line }) => ({
-        ...sourceDefaults(line),
-        amount,
-        unit,
-        optional,
-        alternatives: alternatives.map(sourceDefaults),
-      })) ?? [],
+      recipe?.ingredients.map(
+        ({ amount, unit, optional, preparation_only, alternatives, ...line }) => ({
+          ...sourceDefaults(line),
+          amount,
+          unit,
+          optional,
+          preparation_only,
+          alternatives: alternatives.map(sourceDefaults),
+        }),
+      ) ?? [],
     steps: recipe?.steps.map(({ text }) => ({ text })) ?? [],
     tool_ids: recipe?.tools.map(({ id }) => id) ?? [],
     tags: recipe?.tags.map(({ name }) => ({ name })) ?? [],

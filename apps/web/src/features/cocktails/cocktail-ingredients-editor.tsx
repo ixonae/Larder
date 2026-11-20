@@ -65,6 +65,7 @@ export function CocktailIngredientsEditor({
             amount: null,
             unit: "ml",
             optional: false,
+            preparation_only: false,
             alternatives: [],
           })
         }
@@ -113,6 +114,10 @@ function Ingredient({
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" className="size-4" {...form.register(`${path}.optional`)} />
         Optional
+      </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" className="size-4" {...form.register(`${path}.preparation_only`)} />
+        Preparation only (for example, a glass rinse)
       </label>
       {alternatives.fields.map(({ id }, alternativeIndex) => (
         <fieldset key={id} className="grid min-w-0 gap-3 rounded-md border p-3">

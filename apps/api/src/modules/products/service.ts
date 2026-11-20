@@ -1,5 +1,6 @@
 import {
   type CreateProduct,
+  isBottleCategory,
   type ListProductsQuery,
   type Page,
   type Product,
@@ -9,9 +10,9 @@ import {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
+import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
-import { listAllCategories } from "../categories/repo.ts";
+import { findCategory, listAllCategories } from "../categories/repo.ts";
 import { requireCategoryRef } from "../categories/service.ts";
 import { listIngredientUsage } from "../cocktails/ingredients-repo.ts";
 import { deleteWithImage } from "../images/service.ts";
@@ -52,9 +53,21 @@ export function getProduct(ctx: Ctx, id: string | undefined): Product {
   return requireProduct(ctx.db, ctx.barId, id);
 }
 
+function requireBottleCategory(db: Executor, barId: string, categoryId: string) {
+  const category = requireCategoryRef(db, barId, categoryId);
+  if (
+    !isBottleCategory(category, {
+      get: (id) => (id === category.id ? category : findCategory(db, barId, id)),
+    })
+  ) {
+    const message = "Choose a bottle category. Track syrups and garnishes in Pantry.";
+    throw invalid(message, [{ path: ["category_id"], message }]);
+  }
+}
+
 export function createProduct(ctx: Ctx, input: CreateProduct): Product {
   return ctx.db.transaction((tx) => {
-    requireCategoryRef(tx, ctx.barId, input.category_id);
+    requireBottleCategory(tx, ctx.barId, input.category_id);
     // Fields left out take the column defaults (null, or false for in_bar).
     const id = onUniqueViolation(
       () => repo.insertProduct(tx, { ...input, bar_id: ctx.barId, created_by: ctx.userId }),
@@ -68,7 +81,7 @@ export function updateProduct(ctx: Ctx, id: string | undefined, patch: UpdatePro
   return ctx.db.transaction((tx) => {
     const existing = requireProduct(tx, ctx.barId, id);
     if (patch.category_id && patch.category_id !== existing.category_id) {
-      requireCategoryRef(tx, ctx.barId, patch.category_id);
+      requireBottleCategory(tx, ctx.barId, patch.category_id);
     }
     const name = patch.name ?? existing.name;
     const vintage = patch.vintage === undefined ? existing.vintage : patch.vintage;

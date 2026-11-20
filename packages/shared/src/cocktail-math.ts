@@ -3,8 +3,11 @@ import type { CocktailMethod, ComputedCocktail } from "./cocktails.ts";
 import { scale, toMl, UNIT_INFO, type Unit } from "./units.ts";
 
 type Quantity = { amount: number | null; unit: Unit };
-type VolumeLine = Quantity & { optional: boolean };
-type SpiritLine = { category_path: readonly Pick<Category, "id" | "name" | "kind">[] };
+type PreparationLine = { preparation_only?: boolean };
+type VolumeLine = Quantity & PreparationLine & { optional: boolean };
+type SpiritLine = PreparationLine & {
+  category_path: readonly Pick<Category, "id" | "name" | "kind">[];
+};
 
 const dilution: Record<CocktailMethod, number> = {
   shaken: 0.25,
@@ -16,7 +19,7 @@ const dilution: Record<CocktailMethod, number> = {
 };
 
 function includedAmount(line: VolumeLine, includeOptional: boolean): number {
-  return line.optional && !includeOptional ? 0 : (line.amount ?? 0);
+  return line.preparation_only || (line.optional && !includeOptional) ? 0 : (line.amount ?? 0);
 }
 
 /** Measured volume before dilution, or null if the total overflows. */
@@ -60,7 +63,8 @@ export function computeAbv(
 /** Distinct spirit families in preferred ingredient order. Paths run from root to leaf. */
 export function spiritsContained(lines: readonly SpiritLine[]): ComputedCocktail["spirits"] {
   const spirits = new Map<string, { id: string; name: string }>();
-  for (const { category_path: path } of lines) {
+  for (const { category_path: path, preparation_only } of lines) {
+    if (preparation_only) continue;
     const leaf = path.at(-1);
     if (leaf?.kind !== "spirit") continue;
     const root = path.findIndex(({ kind }) => kind === "spirit");

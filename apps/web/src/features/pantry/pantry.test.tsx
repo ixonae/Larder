@@ -254,11 +254,22 @@ describe("PantryPage", () => {
 });
 
 describe("IngredientSheet", () => {
-  it("adds an ingredient under Pantry by default, in stock", async () => {
+  it("adds an ingredient under Pantry by default and offers only relevant categories", async () => {
+    useFakeApi(200, [
+      garnish,
+      pantry,
+      { ...category("Syrup"), kind: "syrup" },
+      { ...category("Gin"), kind: "spirit" },
+      { ...category("Juice"), kind: "juice" },
+    ]);
     const { user } = await open();
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
     const sheet = await screen.findByRole("dialog", { name: "New ingredient" });
-    expect(await within(sheet).findByLabelText("Category")).toHaveValue(pantry.id);
+    const picker = await within(sheet).findByLabelText("Category");
+    expect(picker).toHaveValue(pantry.id);
+    expect(within(picker).getByRole("option", { name: "Syrup" })).toBeInTheDocument();
+    expect(within(picker).queryByRole("option", { name: "Gin" })).not.toBeInTheDocument();
+    expect(within(picker).queryByRole("option", { name: "Juice" })).not.toBeInTheDocument();
     await user.type(within(sheet).getByLabelText("Name"), "Honey");
     await user.click(within(sheet).getByRole("button", { name: "Add" }));
     expect(await screen.findByText("Ingredient added")).toBeInTheDocument();

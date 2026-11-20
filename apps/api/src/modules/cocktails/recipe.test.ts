@@ -73,6 +73,25 @@ test("replaces recipe lists independently, keeps step order and reuses normalize
   expect((await listed("")).items).toEqual(recipe.tags);
 });
 
+test("keeps step order across insert batches and can replace every step", async () => {
+  const { app, cocktails, create } = setup();
+  const steps = Array.from({ length: 251 }, (_, position) => ({ text: `Action ${position + 1}` }));
+  const response = await create("Long recipe", { steps });
+  expect(response.status).toBe(201);
+  const recipe = cocktailDetailSchema.parse(await response.json());
+  expect(recipe.steps.map(({ position, text }) => ({ position, text }))).toEqual(
+    steps.map(({ text }, position) => ({ position, text })),
+  );
+  const replaced = await app.request(
+    `${cocktails}/${recipe.id}`,
+    jsonRequest("PATCH", { steps: [{ text: "Serve" }] }),
+  );
+  expect(replaced.status).toBe(200);
+  expect(cocktailDetailSchema.parse(await replaced.json()).steps).toMatchObject([
+    { position: 0, text: "Serve" },
+  ]);
+});
+
 test("another bar's tool and tags stay isolated, and a glass cannot be used as a tool", async () => {
   const { app, bar, db, bob, cocktails, create, utensil } = setup();
   const audit = { bar_id: bob.barId, created_by: bob.userId };

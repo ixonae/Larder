@@ -1,9 +1,9 @@
 import {
+  ancestry,
   type BarSummary,
   COCKTAIL_ICE,
   COCKTAIL_METHODS,
   type CocktailDetail,
-  flattenTree,
   hasRole,
   type Utensil,
 } from "@larder/shared";
@@ -22,6 +22,7 @@ import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
+import { bottleCategoryOptions } from "@/features/categories/category-options.tsx";
 import { applyServerErrors, FormField, useZodForm } from "@/lib/form.tsx";
 import {
   type CocktailForm,
@@ -95,8 +96,17 @@ function EditorLoader({
     return <LoadingState label="Loading recipe editor…" />;
   }
   const refreshError = queries.find((query) => query.isRefetchError);
-  const categoryOptions = flattenTree(categories.data).map(({ item, depth }) =>
-    sourceOption("category_id", item.id, `${"  ".repeat(depth)}${item.name}`),
+  const options = bottleCategoryOptions(categories.data);
+  const byId = new Map(options.map(({ item }) => [item.id, item]));
+  const categoryOptions = options.map(({ item }) =>
+    sourceOption(
+      "category_id",
+      item.id,
+      ancestry(byId, item.id)
+        .reverse()
+        .map(({ name }) => name)
+        .join(" › "),
+    ),
   );
   return (
     <>

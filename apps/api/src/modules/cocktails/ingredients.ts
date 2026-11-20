@@ -38,6 +38,16 @@ export function replaceIngredients(
   input: CocktailIngredientInput[],
 ) {
   repo.deleteIngredients(db, barId, cocktailId);
+  insertIngredients(db, barId, userId, cocktailId, input);
+}
+
+export function insertIngredients(
+  db: Executor,
+  barId: string,
+  userId: string,
+  cocktailId: string,
+  input: CocktailIngredientInput[],
+) {
   const audit = { bar_id: barId, created_by: userId };
   for (const [position, { alternatives, ...line }] of input.entries()) {
     const path = ["ingredients", position];

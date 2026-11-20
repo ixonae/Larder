@@ -2,7 +2,8 @@ import {
   type CategoryTreeNode,
   createPantryIngredientSchema,
   flattenTree,
-  PANTRY_CATEGORY_NAME,
+  isPantryCategoryKind,
+  isPantryRoot,
   type PantryIngredient,
 } from "@larder/shared";
 import { useMemo } from "react";
@@ -45,9 +46,7 @@ export function IngredientSheet({
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{editing ? `Edit ${editing.name}` : "New ingredient"}</SheetTitle>
-          <SheetDescription>
-            Something you keep that is not a bottle: fruit, eggs, salt…
-          </SheetDescription>
+          <SheetDescription>Track fruit, syrups, garnishes and other ingredients.</SheetDescription>
         </SheetHeader>
         {target && (
           <CategoryTreeLoader barId={barId}>
@@ -77,11 +76,16 @@ function IngredientForm({
   tree,
 }: FormProps & { tree: CategoryTreeNode[] }) {
   const { create, update } = usePantryMutations(barId);
-  const categories = useMemo(() => flattenTree(tree), [tree]);
-  // New ingredients go under the starter Pantry grouping when the bar still has it.
-  const pantry = categories.find(
-    ({ item }) => item.parent_id === null && item.name === PANTRY_CATEGORY_NAME,
+  const currentCategoryId = editing?.category_id;
+  const categories = useMemo(
+    () =>
+      flattenTree(tree).filter(
+        ({ item }) => isPantryCategoryKind(item.kind) || item.id === currentCategoryId,
+      ),
+    [tree, currentCategoryId],
   );
+  // New ingredients go under the starter Pantry grouping when the bar still has it.
+  const pantry = categories.find(({ item }) => isPantryRoot(item));
 
   const form = useZodForm(formSchema, {
     defaultValues: {

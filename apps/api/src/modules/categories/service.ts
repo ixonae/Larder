@@ -46,10 +46,12 @@ function requireCategory(db: Executor, barId: string, id: string | undefined): C
  * For items filed under a category (bottles, pantry ingredients): the category must exist in the bar.
  * Reported on the `category_id` field, so forms can show it there.
  */
-export function requireCategoryRef(db: Executor, barId: string, categoryId: string): void {
-  if (!repo.findCategory(db, barId, categoryId)) {
+export function requireCategoryRef(db: Executor, barId: string, categoryId: string): Category {
+  const category = repo.findCategory(db, barId, categoryId);
+  if (!category) {
     throw invalid("Category not found", [{ path: ["category_id"], message: "Category not found" }]);
   }
+  return category;
 }
 
 function requireParent(db: Executor, barId: string, parentId: string): Category {

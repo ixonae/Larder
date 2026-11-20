@@ -1,4 +1,10 @@
-import { type Category, type CategoryTreeNode, idSchema } from "@larder/shared";
+import {
+  type Category,
+  type CategoryTreeNode,
+  flattenTree,
+  idSchema,
+  isBottleCategory,
+} from "@larder/shared";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { z } from "zod";
@@ -13,6 +19,12 @@ export function CategoryOptions({ items }: { items: { item: Category; depth: num
       {item.name}
     </option>
   ));
+}
+
+export function bottleCategoryOptions(tree: readonly CategoryTreeNode[], currentId?: string) {
+  const options = flattenTree(tree);
+  const byId = new Map(options.map(({ item }) => [item.id, item]));
+  return options.filter(({ item }) => item.id === currentId || isBottleCategory(item, byId));
 }
 
 /** A form's `category_id`: the picker's empty "Choose…" option is refused with a message. */

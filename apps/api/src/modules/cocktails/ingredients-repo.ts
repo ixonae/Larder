@@ -88,6 +88,7 @@ export function usesSpiritCategories(db: Executor, barId: string, categoryIds: s
       and(
         eq(ingredients.bar_id, barId),
         eq(ingredients.cocktail_id, cocktails.id),
+        eq(ingredients.preparation_only, false),
         // One parameter keeps large subtrees within SQLite's bind limit.
         sql`${sourceCategoryId(ingredients)} IN (SELECT value FROM json_each(${JSON.stringify(categoryIds)}))`,
       ),

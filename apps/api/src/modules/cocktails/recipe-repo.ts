@@ -18,15 +18,25 @@ const tagColumns = { id: tags.id, name: tags.name };
 const tagKey = sql<string>`larder_name_key(${tags.name})`;
 type RecipeOwner = { bar_id: string; created_by: string; cocktail_id: string };
 
+/** Keep each insert below SQLite's parameter limit even for a large recipe. */
+const STEP_BATCH_SIZE = 250;
+
+export function insertSteps(db: Executor, owner: RecipeOwner, input: { text: string }[]) {
+  for (let offset = 0; offset < input.length; offset += STEP_BATCH_SIZE) {
+    const batch = input.slice(offset, offset + STEP_BATCH_SIZE).map(({ text }, index) => ({
+      ...owner,
+      position: offset + index,
+      text,
+    }));
+    db.insert(steps).values(batch).run();
+  }
+}
+
 export function replaceSteps(db: Executor, owner: RecipeOwner, input: { text: string }[]) {
   db.delete(steps)
     .where(and(eq(steps.bar_id, owner.bar_id), eq(steps.cocktail_id, owner.cocktail_id)))
     .run();
-  for (const [position, step] of input.entries()) {
-    db.insert(steps)
-      .values({ ...owner, position, text: step.text })
-      .run();
-  }
+  insertSteps(db, owner, input);
 }
 
 export function replaceTools(db: Executor, owner: RecipeOwner, toolIds: string[]) {

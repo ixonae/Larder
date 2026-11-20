@@ -57,6 +57,10 @@ with any username and the password. The health check at `/api/health` stays publ
 
 Requires Node 26.13.1 (see `.nvmrc`) and pnpm 12.
 
+Databases created before the consolidated initial migration need a fresh data directory. Set
+`DATA_DIR` for local development or `LARDER_DATA_DIR` for Docker to use a new directory and keep
+the old one. Larder imports the starter catalogue automatically on first startup.
+
 ```bash
 nvm install && nvm use
 pnpm install

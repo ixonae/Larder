@@ -26,6 +26,7 @@ export function IngredientSourcePicker({
   field,
   ...control
 }: ControlProps & { barId: string; categories: SourceOption[]; field: PickerField }) {
+  const [categoryLimit, setCategoryLimit] = useState(SOURCE_PAGE_SIZE);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useDebouncedSearch(query, setQuery);
   const filters = { q: query.trim() || undefined, limit: SOURCE_PAGE_SIZE };
@@ -34,8 +35,13 @@ export function IngredientSourcePicker({
     placeholderData: undefined,
   });
   const pantry = useInfiniteQuery(pantryListQuery(barId, filters));
+  const categoryQuery = query.trim().normalize("NFC").toLowerCase();
+  const matchingCategories = categoryQuery
+    ? categories.filter(({ name }) => name.normalize("NFC").toLowerCase().includes(categoryQuery))
+    : categories;
+  const moreCategories = matchingCategories.length > categoryLimit;
   const groups = [
-    { label: "Bottle categories", options: categories },
+    { label: "Bottle categories", options: matchingCategories.slice(0, categoryLimit) },
     {
       label: "Bottles",
       options:
@@ -88,11 +94,14 @@ export function IngredientSourcePicker({
       </NativeSelect>
       <Input
         type="search"
-        aria-label="Search bottles and pantry"
-        placeholder="Search bottles and pantry"
+        aria-label="Search ingredients"
+        placeholder="Search ingredients"
         maxLength={PANTRY_INGREDIENT_NAME_MAX}
         value={search}
-        onChange={(event) => setSearch(event.target.value)}
+        onChange={(event) => {
+          setCategoryLimit(SOURCE_PAGE_SIZE);
+          setSearch(event.target.value);
+        }}
       />
       {loading && (
         <p role="status" className="text-muted-foreground text-sm">
@@ -119,14 +128,17 @@ export function IngredientSourcePicker({
           </Button>
         </div>
       ) : (
-        more.length > 0 && (
+        (moreCategories || more.length > 0) && (
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="justify-self-start"
             disabled={loading}
-            onClick={() => Promise.all(more.map((list) => list.fetchNextPage()))}
+            onClick={() => {
+              if (moreCategories) setCategoryLimit((limit) => limit + SOURCE_PAGE_SIZE);
+              return Promise.all(more.map((list) => list.fetchNextPage()));
+            }}
           >
             Load more ingredient choices
           </Button>

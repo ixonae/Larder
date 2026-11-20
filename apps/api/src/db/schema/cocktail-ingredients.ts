@@ -68,6 +68,7 @@ export const cocktailIngredients = sqliteTable(
     amount: real("amount"),
     unit: text("unit", { enum: UNITS }).notNull(),
     optional: integer("optional", { mode: "boolean" }).notNull().default(false),
+    preparation_only: integer("preparation_only", { mode: "boolean" }).notNull().default(false),
   },
   (t) => [
     uniqueIndex("cocktail_ingredients_bar_id_id_unique").on(t.bar_id, t.id),

@@ -1,0 +1,101 @@
+# kind | parent path | children
+spirit|Spirit|Gin, Vodka, Tequila, Mezcal, Rum, Whisky, Brandy, Cachaça, Pisco, Grappa, Absinthe, Aquavit, Genever, Baijiu, Shōchū, Soju, Arak, Rakı, Ouzo, Eau-de-vie, Korn, Fruit spirit
+spirit|Spirit/Gin|Dry gin, Old Tom gin, Plymouth gin, Navy-strength gin, Barrel-aged gin, Contemporary gin
+spirit|Spirit/Gin/Dry gin|London dry gin
+spirit|Spirit/Vodka|Grain vodka, Potato vodka, Corn vodka, Grape vodka, Flavored vodka, Citron vodka, Vanilla vodka
+spirit|Spirit/Tequila|100% agave tequila, Mixto tequila
+spirit|Spirit/Tequila/100% agave tequila|Blanco, Joven, Reposado, Añejo, Extra añejo, Cristalino
+spirit|Spirit/Tequila/Mixto tequila|Blanco, Joven, Reposado, Añejo, Extra añejo
+spirit|Spirit/Mezcal|Espadín mezcal, Tobalá, Tepeztate, Arroqueño, Madrecuixe, Cupreata, Ensamble, Pechuga
+spirit|Spirit|Raicilla, Bacanora, Sotol
+spirit|Spirit/Rum|White rum, Aged rum, Dark rum, Rhum agricole, Spiced rum, Flavored rum, Demerara rum, Cuban rum, Cuban aguardiente, Jamaican rum, Navy rum, Overproof rum, Solera rum, Haitian clairin
+spirit|Spirit/Rum/White rum|White Cuban rum, Jamaican overproof white rum
+spirit|Spirit/Rum/Aged rum|Gold Jamaican rum, Amber Jamaican rum, Gold Puerto Rican rum, Martinique molasses rum
+spirit|Spirit/Rum/Dark rum|Blackstrap rum, Dark Jamaican rum
+spirit|Spirit/Rum/Rhum agricole|Martinique rhum agricole, Guadeloupe rhum agricole
+spirit|Spirit/Whisky|Scotch, Bourbon, Rye, Irish whiskey, Japanese whisky, Canadian whisky, Tennessee whiskey, American single malt, Corn whiskey, Wheat whiskey, Indian whisky, Taiwanese whisky
+spirit|Spirit/Whisky/Scotch|Blended Scotch, Blended malt Scotch, Single grain Scotch, Blended grain Scotch, Islay single malt, Speyside single malt, Highland single malt, Lowland single malt, Campbeltown single malt, Islands single malt
+spirit|Spirit/Whisky/Bourbon|Straight bourbon, Wheated bourbon, High-rye bourbon, Bottled-in-bond bourbon, Barrel-proof bourbon
+spirit|Spirit/Whisky/Rye|Straight rye, Bottled-in-bond rye, Barrel-proof rye
+spirit|Spirit/Whisky/Irish whiskey|Single pot still, Single malt, Single grain, Blended Irish whiskey
+spirit|Spirit/Whisky/Japanese whisky|Single malt, Single grain, Blended Japanese whisky
+spirit|Spirit/Brandy|Cognac, Armagnac, Calvados, Spanish brandy, Grape brandy, Apple brandy, Other fruit brandy
+spirit|Spirit/Brandy/Cognac|VS, VSOP, Napoléon, XO, XXO
+spirit|Spirit/Brandy/Armagnac|Blanche Armagnac, VS, VSOP, XO, Hors d’âge
+spirit|Spirit/Brandy/Calvados|Calvados AOC, Pays d’Auge, Domfrontais
+spirit|Spirit/Pisco|Peruvian pisco, Chilean pisco
+spirit|Spirit/Pisco/Peruvian pisco|Puro, Acholado, Mosto verde
+spirit|Spirit/Cachaça|Unaged cachaça, Aged cachaça
+spirit|Spirit/Grappa|Unaged grappa, Aged grappa
+spirit|Spirit/Shōchū|Barley shōchū, Sweet potato shōchū, Rice shōchū, Awamori
+liqueur|Liqueur|Amaro, Bitter aperitif, Herbal liqueur, Orange liqueur, Coffee liqueur, Cream liqueur, Chocolate liqueur, Crème de cacao, Crème de menthe, Crème de violette, Crème de cassis, Crème de mûre, Cherry liqueur, Maraschino, Raspberry liqueur, Strawberry liqueur, Blackberry liqueur, Banana liqueur, Elderflower liqueur, Apricot brandy, Peach brandy, Peach schnapps, Passion fruit liqueur, Melon liqueur, Coconut liqueur, Amaretto, Hazelnut liqueur, Whisky liqueur, Ginger liqueur, Cinnamon liqueur, Allspice liqueur, Falernum, Pastis, Sambuca, Anisette, Limoncello, Sloe gin
+liqueur|Liqueur/Amaro|Fernet, Artichoke amaro, Alpine amaro, Rabarbaro
+liqueur|Liqueur/Orange liqueur|Triple sec, Orange curaçao, Brandy-based orange liqueur
+liqueur|Liqueur/Crème de cacao|Crème de cacao (dark), Crème de cacao (white)
+liqueur|Liqueur/Crème de menthe|Crème de menthe (green), Crème de menthe (white)
+wine|Wine|Red wine, White wine, Rosé wine, Orange wine, Sparkling wine, Fortified wine, Aromatized wine, Vermouth, Port, Sherry, Madeira, Marsala, Sake
+wine|Wine/Red wine|Cabernet Sauvignon, Merlot, Pinot Noir, Syrah, Shiraz, Grenache, Malbec, Tempranillo, Sangiovese, Nebbiolo, Zinfandel, Cabernet Franc, Gamay, Barbera, Carménère
+wine|Wine/Red wine|France, Italy, Spain, Portugal, United States, Argentina, Chile, Australia, New Zealand, South Africa, Germany, Austria, Greece
+wine|Wine/Red wine/France|Bordeaux, Burgundy, Beaujolais, Rhône Valley, Loire Valley, Languedoc-Roussillon, Provence, Cahors, Madiran
+wine|Wine/Red wine/France/Bordeaux|Médoc, Haut-Médoc, Margaux, Pauillac, Saint-Julien, Saint-Estèphe, Pessac-Léognan, Graves, Saint-Émilion, Pomerol, Fronsac
+wine|Wine/Red wine/France/Burgundy|Côte de Nuits, Côte de Beaune, Côte Chalonnaise
+wine|Wine/Red wine/France/Rhône Valley|Côte-Rôtie, Hermitage, Crozes-Hermitage, Cornas, Châteauneuf-du-Pape, Gigondas, Côtes du Rhône
+wine|Wine/Red wine/Italy|Chianti, Chianti Classico, Brunello di Montalcino, Vino Nobile di Montepulciano, Barolo, Barbaresco, Langhe, Valpolicella, Amarone della Valpolicella, Etna Rosso, Nero d’Avola, Primitivo
+wine|Wine/Red wine/Spain|Rioja, Ribera del Duero, Priorat, Toro, Bierzo, Jumilla, Navarra
+wine|Wine/Red wine/Portugal|Douro, Dão, Alentejo, Bairrada
+wine|Wine/Red wine/United States|Napa Valley, Sonoma County, Paso Robles, Willamette Valley, Columbia Valley, Santa Barbara County
+wine|Wine/Red wine/Argentina|Mendoza, Uco Valley, Salta, Patagonia
+wine|Wine/Red wine/Chile|Maipo Valley, Colchagua Valley, Casablanca Valley, Maule Valley
+wine|Wine/Red wine/Australia|Barossa Valley, McLaren Vale, Coonawarra, Margaret River, Yarra Valley
+wine|Wine/Red wine/New Zealand|Central Otago, Marlborough, Hawke’s Bay, Martinborough
+wine|Wine/Red wine/South Africa|Stellenbosch, Swartland, Paarl, Walker Bay
+wine|Wine/Red wine/Germany|Ahr, Baden, Pfalz
+wine|Wine/Red wine/Austria|Burgenland, Carnuntum
+wine|Wine/Red wine/Greece|Naoussa, Nemea
+wine|Wine/White wine|Dry white wine, Off-dry white wine, Sweet white wine
+wine|Wine/White wine/Dry white wine|Chardonnay, Sauvignon Blanc, Pinot Grigio, Pinot Gris, Riesling, Chenin Blanc, Albariño, Grüner Veltliner, Viognier, Sémillon, Gewürztraminer, Muscadet, Vermentino, Soave
+wine|Wine/White wine/Dry white wine|France, Italy, Spain, Portugal, Germany, Austria, United States, Australia, New Zealand, Chile, South Africa, Greece, Hungary
+wine|Wine/White wine/Dry white wine/France|Bordeaux, Burgundy, Loire Valley, Alsace, Rhône Valley, Jura, Savoie
+wine|Wine/White wine/Dry white wine/France/Bordeaux|Graves, Pessac-Léognan, Entre-deux-Mers
+wine|Wine/White wine/Dry white wine/France/Burgundy|Chablis, Meursault, Puligny-Montrachet, Chassagne-Montrachet, Pouilly-Fuissé, Mâconnais
+wine|Wine/White wine/Dry white wine/France/Loire Valley|Sancerre, Pouilly-Fumé, Muscadet, Vouvray, Savennières
+wine|Wine/White wine/Dry white wine/Italy|Soave, Gavi, Verdicchio, Vermentino di Sardegna, Etna Bianco, Alto Adige, Friuli
+wine|Wine/White wine/Dry white wine/Spain|Rías Baixas, Rueda, Valdeorras, Ribeiro, Penedès
+wine|Wine/White wine/Dry white wine/Portugal|Vinho Verde, Douro, Dão, Alentejo
+wine|Wine/White wine/Dry white wine/Germany|Mosel, Rheingau, Pfalz, Rheinhessen, Nahe, Baden, Franken
+wine|Wine/White wine/Dry white wine/Austria|Wachau, Kamptal, Kremstal, Weinviertel
+wine|Wine/White wine/Dry white wine/United States|Napa Valley, Sonoma County, Russian River Valley, Willamette Valley, Finger Lakes
+wine|Wine/White wine/Dry white wine/Australia|Clare Valley, Eden Valley, Margaret River, Adelaide Hills, Hunter Valley
+wine|Wine/White wine/Dry white wine/New Zealand|Marlborough, Hawke’s Bay, Central Otago
+wine|Wine/White wine/Dry white wine/Chile|Casablanca Valley, Leyda Valley, Limarí Valley
+wine|Wine/White wine/Dry white wine/South Africa|Stellenbosch, Swartland, Constantia, Elgin
+wine|Wine/White wine/Dry white wine/Greece|Santorini, Mantinia
+wine|Wine/White wine/Dry white wine/Hungary|Tokaj, Somló
+wine|Wine/White wine/Off-dry white wine|Riesling, Vouvray demi-sec, Gewürztraminer
+wine|Wine/White wine/Sweet white wine|Sauternes, Barsac, Tokaji Aszú, Icewine, Eiswein, Late-harvest wine, Beerenauslese, Trockenbeerenauslese, Vin Santo, Passito
+wine|Wine/Rosé wine|France, Italy, Spain, United States
+wine|Wine/Rosé wine/France|Provence, Tavel, Bandol, Loire Valley
+wine|Wine/Sparkling wine|Champagne, Prosecco, Cava, Crémant, Franciacorta, Trentodoc, Asti, Lambrusco, Sekt, English sparkling wine, Pét-nat, Cap Classique, American sparkling wine
+wine|Wine/Sparkling wine/Champagne|Brut nature, Extra brut, Brut, Extra dry, Sec, Demi-sec, Doux, Blanc de blancs, Blanc de noirs, Rosé Champagne, Vintage Champagne, Non-vintage Champagne
+wine|Wine/Sparkling wine/Prosecco|Prosecco DOC, Conegliano Valdobbiadene Prosecco Superiore DOCG, Asolo Prosecco DOCG
+wine|Wine/Vermouth|Dry vermouth, Sweet vermouth, Bianco vermouth, Rosé vermouth
+wine|Wine/Aromatized wine|Quinquina, Americano aperitif wine
+wine|Wine/Port|Tawny port, Ruby port, Vintage port, Late bottled vintage, White port, Rosé port
+wine|Wine/Sherry|Fino, Manzanilla, Amontillado, Palo cortado, Oloroso, Pedro Ximénez, Cream sherry, Moscatel
+wine|Wine/Madeira|Sercial, Verdelho, Bual, Malmsey, Rainwater
+wine|Wine/Marsala|Dry Marsala, Sweet Marsala
+wine|Wine/Fortified wine|Pineau des Charentes, Banyuls, Maury, Rivesaltes, Muscat de Beaumes-de-Venise
+wine|Wine/Sake|Junmai, Honjōzō, Ginjo, Daiginjo, Junmai Ginjo, Junmai Daiginjo, Nigori, Sparkling sake, Koshu
+beer|Beer|Lager, Ale, Wheat beer, Sour beer, Wild ale, Cider, Perry, Non-alcoholic beer
+beer|Beer/Lager|Pilsner, Helles, Vienna lager, Märzen, Dunkel, Schwarzbier, Bock, Doppelbock
+beer|Beer/Ale|Pale ale, IPA, Amber ale, Brown ale, Bitter, Porter, Stout, Saison, Belgian dubbel, Belgian tripel, Belgian quadrupel, Barleywine
+beer|Beer/Ale/IPA|West Coast IPA, New England IPA, English IPA, Double IPA, Session IPA
+beer|Beer/Ale/Stout|Dry stout, Milk stout, Oatmeal stout, Imperial stout
+beer|Beer/Wheat beer|Hefeweizen, Witbier, American wheat beer, Dunkelweizen
+beer|Beer/Sour beer|Gose, Berliner Weisse, Lambic, Gueuze, Flanders red ale
+bitters|Bitters|Aromatic bitters, Orange bitters, Creole bitters, Amargo bitters, Grapefruit bitters, Lemon bitters, Celery bitters, Chocolate bitters, Mole bitters, Tiki bitters, Peach bitters, Cardamom bitters, Lavender bitters
+mixer|Mixer|Soda water, Tonic water, Ginger beer, Ginger ale, Cola, Lemon-lime soda, Pink grapefruit soda, Sparkling lemonade, Club soda, Non-alcoholic aperitif
+juice|Juice|Lime juice, Lemon juice, Orange juice, Grapefruit juice, Pineapple juice, Cranberry juice, Tomato juice, Sugarcane juice, Apple juice, Pomegranate juice, Passion fruit juice, Mango juice, Guava juice, Verjus
+syrup|Syrup|Simple syrup, Honey syrup, Demerara syrup, Grenadine, Orgeat, Raspberry syrup, Passion fruit syrup, Agave nectar, Cinnamon syrup, Ginger syrup, Vanilla syrup, Maple syrup, Elderflower cordial, Chamomile cordial
+garnish|Garnish|Citrus, Other fruit, Herbs, Spices, Preserved garnishes
+other|Pantry|Dairy, Eggs, Sweeteners, Seasonings, Infusions, Purées, Coffee and tea

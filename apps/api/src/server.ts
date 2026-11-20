@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.ts";
+import { migrateStarterCatalogues } from "./db/catalogue/starter.ts";
 import { openDb } from "./db/client.ts";
 import { runMigrations } from "./db/migrate.ts";
 import { seed } from "./db/seed.ts";
@@ -17,11 +18,13 @@ mkdirSync(env.DATA_DIR, { recursive: true });
 const db = openDb(join(env.DATA_DIR, "larder.db"));
 runMigrations(db);
 seed(db);
+const storage = createDiskStorage(join(env.DATA_DIR, "uploads"));
+await migrateStarterCatalogues(db, storage);
 
 const app = createApp({
   logger,
   db,
-  storage: createDiskStorage(join(env.DATA_DIR, "uploads")),
+  storage,
   passwordHash: env.LARDER_PASSWORD_HASH,
   webDir: env.WEB_DIR,
   maxBodyBytes: env.MAX_UPLOAD_MB * 1024 * 1024,

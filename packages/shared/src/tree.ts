@@ -28,7 +28,10 @@ export function ancestors<T extends TreeItem>(items: readonly T[], id: string): 
 }
 
 /** The node and its ancestors, nearest first, from an index that can be reused across lookups. */
-export function ancestry<T extends TreeItem>(byId: ReadonlyMap<string, T>, id: string): T[] {
+export function ancestry<T extends TreeItem>(
+  byId: Pick<ReadonlyMap<string, T>, "get">,
+  id: string,
+): T[] {
   const seen = new Set<string>();
   const result: T[] = [];
   let currentId: string | null = id;

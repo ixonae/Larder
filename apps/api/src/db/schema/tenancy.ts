@@ -41,3 +41,15 @@ export const barMembers = sqliteTable(
     check("bar_members_role_check", sql`${t.role} IN ('viewer', 'editor', 'owner')`),
   ],
 );
+
+/** One-time data migrations applied after bar creation, including on a fresh install. */
+export const barDataMigrations = sqliteTable(
+  "bar_data_migrations",
+  {
+    bar_id: text("bar_id")
+      .notNull()
+      .references(() => bars.id, { onDelete: "cascade" }),
+    migration: text("migration").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.bar_id, t.migration] })],
+);
