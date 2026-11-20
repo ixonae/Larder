@@ -1,4 +1,4 @@
-import { listCocktailsQuerySchema } from "@larder/shared";
+import { COCKTAIL_SORTS, listCocktailsQuerySchema } from "@larder/shared";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
@@ -56,6 +56,13 @@ const cocktailsSearchSchema = z.object({
   method: filters.method.catch(undefined),
   tag: filters.tag.catch(undefined),
   missing: z.number().int().nonnegative().optional().catch(undefined),
+  sort: z.enum(COCKTAIL_SORTS).optional().catch(undefined),
+  // Only `true` filters; `false` means the same as leaving it out.
+  favourite: z
+    .boolean()
+    .optional()
+    .catch(undefined)
+    .transform((value: boolean | undefined): true | undefined => value || undefined),
 });
 
 export const routeTree = rootRoute.addChildren([

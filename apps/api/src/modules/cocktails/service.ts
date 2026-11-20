@@ -24,13 +24,15 @@ import {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
+import { conflict, invalid, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { listAllCategories } from "../categories/repo.ts";
 import { deleteWithImage } from "../images/service.ts";
 import { listAvailablePantryIngredientIds } from "../pantry/repo.ts";
 import { listInBarProducts } from "../products/repo.ts";
 import { findUtensil } from "../utensils/repo.ts";
+import { type PersonalSummary, personalSummaries } from "./feedback.ts";
+import { favouriteIds, listRatings } from "./feedback-repo.ts";
 import {
   addAlternatives,
   getAlternatives,
@@ -41,6 +43,7 @@ import {
 } from "./ingredients.ts";
 import * as recipeRepo from "./recipe-repo.ts";
 import * as repo from "./repo.ts";
+import { type CocktailRow, requireCocktail } from "./require-cocktail.ts";
 
 function summarize(
   lines: PreferredIngredient[],
@@ -63,7 +66,10 @@ const loadInventory = (db: Executor, barId: string, categories: Category[]) =>
     listAvailablePantryIngredientIds(db, barId),
   );
 
-export function listCocktails({ db, barId }: Ctx, query: ListCocktailsQuery): Page<Cocktail> {
+export function listCocktails(
+  { db, barId, userId }: Ctx,
+  query: ListCocktailsQuery,
+): Page<Cocktail> {
   const after = query.cursor === undefined ? undefined : decodeCursor(query.cursor);
   // Makeability is computed here, so that filter reads every candidate before paging.
   const filtered = query.missing !== undefined;
@@ -82,6 +88,7 @@ export function listCocktails({ db, barId }: Ctx, query: ListCocktailsQuery): Pa
       { ...query, limit: filtered ? undefined : query.limit + 1 },
       after,
       spiritCategoryIds,
+      userId,
     );
     if (rows.length === 0) return { items: [], next_cursor: null };
     const ids = rows.map(({ id }) => id);
@@ -100,10 +107,17 @@ export function listCocktails({ db, barId }: Ctx, query: ListCocktailsQuery): Pa
       .filter(({ missing }) => !filtered || missing.length === query.missing);
     const page = toPage(kept, query.limit);
     // Only the cocktails on the page need the rest of their computed values.
+    const personal: (id: string) => PersonalSummary = personalSummaries(
+      tx,
+      barId,
+      userId,
+      page.items.map(({ id }) => id),
+    );
     return {
       ...page,
       items: page.items.map((cocktail) => ({
         ...cocktail,
+        ...personal(cocktail.id),
         computed: summarize(linesOf(cocktail.id), cocktail.method),
       })),
     };
@@ -116,14 +130,6 @@ export function listTags(ctx: Ctx, query: ListTagsQuery): Page<Tag> {
     recipeRepo.listTags(ctx.db, ctx.barId, { ...query, limit: query.limit + 1 }, after),
     query.limit,
   );
-}
-
-type CocktailRow = Omit<Cocktail, "computed" | "missing">;
-
-function requireCocktail(db: Executor, barId: string, id: string | undefined): CocktailRow {
-  const cocktail = repo.findCocktail(db, barId, parseId(id, "Cocktail"));
-  if (!cocktail) throw notFound("Cocktail");
-  return cocktail;
 }
 
 function requireUtensilKind(
@@ -157,9 +163,30 @@ const duplicateName = (name: string) => () => {
   return conflict(message, [{ path: ["name"], message }]);
 };
 
+/** The personal summary and other members' ratings of one cocktail, from a single ratings read. */
+function ratingDetail(
+  db: Executor,
+  barId: string,
+  userId: string,
+  cocktailId: string,
+): PersonalSummary & Pick<CocktailDetail, "other_ratings"> {
+  const all = listRatings(db, barId, cocktailId);
+  const mine = all.find(({ user }) => user.id === userId);
+  return {
+    my_rating: mine ? { score: mine.score, updated_at: mine.updated_at } : null,
+    avg_rating: all[0]?.avg ?? null,
+    rating_count: all.length,
+    is_favourite: favouriteIds(db, barId, userId, [cocktailId]).has(cocktailId),
+    other_ratings: all
+      .filter(({ user }) => user.id !== userId)
+      .map(({ avg: _, ...rating }) => rating),
+  };
+}
+
 function detail(
   db: Executor,
   barId: string,
+  userId: string,
   cocktail: CocktailRow,
   servings = cocktail.servings,
 ): CocktailDetail {
@@ -184,6 +211,7 @@ function detail(
   );
   return {
     ...cocktail,
+    ...ratingDetail(db, barId, userId, cocktail.id),
     servings,
     computed: summarize(lines, cocktail.method, scaled),
     missing: makeability(ingredients, inventory),
@@ -195,12 +223,12 @@ function detail(
 }
 
 export function getCocktail(
-  ctx: Ctx,
+  { db, barId, userId }: Ctx,
   id: string | undefined,
   servings: number | undefined,
 ): CocktailDetail {
-  return ctx.db.transaction((tx) =>
-    detail(tx, ctx.barId, requireCocktail(tx, ctx.barId, id), servings),
+  return db.transaction((tx) =>
+    detail(tx, barId, userId, requireCocktail(tx, barId, id), servings),
   );
 }
 
@@ -234,7 +262,7 @@ export function createCocktail(
       duplicateName(input.name),
     );
     replaceRecipeLists(tx, barId, userId, cocktail.id, { ingredients, steps, tool_ids, tags });
-    return detail(tx, barId, cocktail);
+    return detail(tx, barId, userId, cocktail);
   });
 }
 
@@ -251,7 +279,7 @@ export function updateCocktail(
       duplicateName(patch.name ?? existing.name),
     );
     replaceRecipeLists(tx, barId, userId, cocktail.id, { ingredients, steps, tool_ids, tags });
-    return detail(tx, barId, cocktail);
+    return detail(tx, barId, userId, cocktail);
   });
 }
 

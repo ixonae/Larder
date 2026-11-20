@@ -24,8 +24,11 @@ import {
   barMembers,
   bars,
   cocktails,
+  comments,
+  favourites,
   images,
   passwordCredentials,
+  ratings,
   sessions,
   users,
 } from "../../db/schema/index.ts";
@@ -326,6 +329,21 @@ describe("user administration", () => {
     const user = adminUserSchema.parse(await created.json());
     const session = t.cookie(user.id);
     t.db.insert(barMembers).values({ bar_id: t.bob.barId, user_id: user.id, role: "viewer" }).run();
+    // Personal feedback does not block the deletion; it goes with the account.
+    const drinks = `/api/bars/${t.bob.barId}/cocktails`;
+    const drink = await t.request(drinks, "POST", { name: "Negroni", method: "stirred" }, t.member);
+    const feedback = `${drinks}/${((await drink.json()) as { id: string }).id}`;
+    expect((await t.request(`${feedback}/rating`, "PUT", { score: 4 }, session)).status).toBe(200);
+    expect((await t.request(`${feedback}/favourite`, "PUT", undefined, session)).status).toBe(204);
+    for (const is_private of [false, true]) {
+      const res = await t.request(
+        `${feedback}/comments`,
+        "POST",
+        { body: "Hi", is_private },
+        session,
+      );
+      expect(res.status).toBe(201);
+    }
     const path = `/api/admin/users/${user.id}`;
     const confirmation = { email: user.email };
     expect((await t.request(path, "DELETE", confirmation, t.member)).status).toBe(403);
@@ -338,6 +356,9 @@ describe("user administration", () => {
       t.db.select().from(passwordCredentials).where(eq(passwordCredentials.user_id, user.id)).get(),
     ).toBeUndefined();
     expect(t.db.select().from(sessions).where(eq(sessions.user_id, user.id)).get()).toBeUndefined();
+    for (const table of [ratings, favourites, comments]) {
+      expect(t.db.select().from(table).where(eq(table.created_by, user.id)).all()).toEqual([]);
+    }
     expect(
       t.db.select().from(barMembers).where(eq(barMembers.user_id, user.id)).get(),
     ).toBeUndefined();

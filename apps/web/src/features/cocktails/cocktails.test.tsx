@@ -2,7 +2,7 @@ import type { CocktailDetail, CocktailIngredient, CreateCocktail, Utensil } from
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
-import { failure, fixtureId, page, timestamps } from "@/test/fixtures.ts";
+import { failure, fixtureId, page, timestamps, unrated } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
 import { choose, pick, renderWithProviders } from "@/test/render.tsx";
 
@@ -45,6 +45,7 @@ const recipe: CocktailDetail = {
   glass_id: glass.id,
   servings: 1,
   variant_of_id: null,
+  ...unrated,
   description: "Bright and tart.",
   garnish: "Lime wheel",
   serving_notes: "Chill the glass",

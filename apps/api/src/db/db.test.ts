@@ -15,11 +15,14 @@ import {
   cocktails,
   cocktailTags,
   cocktailUtensils,
+  comments,
+  favourites,
   images,
   installationSettings,
   pantryIngredients,
   passwordCredentials,
   products,
+  ratings,
   sessions,
   tags,
   users,
@@ -367,6 +370,17 @@ describe("schema", () => {
         ["created_by", "users"],
       ],
     ],
+    ...[favourites, ratings, comments].map(
+      (table) =>
+        [
+          table,
+          [
+            ["bar_id", "bars"],
+            ["created_by", "users"],
+            ["bar_id", "cocktails"],
+          ],
+        ] as const,
+    ),
   ] as const)("declares the foreign keys of %#", (table, expected) => {
     const fks = getTableConfig(table).foreignKeys.map((fk) => {
       const ref = fk.reference();

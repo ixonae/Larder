@@ -5,6 +5,7 @@ export * from "./cocktail-ingredients.ts";
 export * from "./cocktail-math.ts";
 export * from "./cocktails.ts";
 export * from "./errors.ts";
+export * from "./feedback.ts";
 export * from "./id.ts";
 export * from "./images.ts";
 export * from "./invitations.ts";

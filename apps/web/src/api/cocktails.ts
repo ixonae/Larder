@@ -12,13 +12,23 @@ import { collectPages } from "./pagination.ts";
 
 const bar = api.api.bars[":barId"];
 export const cocktailsKey = (barId: string) => ["bars", barId, "cocktails"] as const;
+/** Every cached cocktail list (any filters). */
+export const cocktailListKey = (barId: string) => [...cocktailsKey(barId), "list"] as const;
+/** Every cached copy of one cocktail (any serving size). */
+export const cocktailDetailKey = (barId: string, id: string) =>
+  [...cocktailsKey(barId), "detail", id] as const;
 export type CocktailFilters = Omit<ListCocktailsQuery, "limit" | "cursor">;
 
 export const cocktailListQuery = (barId: string, filters: CocktailFilters) =>
   infiniteQueryOptions({
-    queryKey: [...cocktailsKey(barId), "list", filters],
+    queryKey: [...cocktailListKey(barId), filters],
     queryFn: async ({ pageParam, signal }) => {
-      const query = { ...filters, missing: filters.missing?.toString(), cursor: pageParam };
+      const query = {
+        ...filters,
+        missing: filters.missing?.toString(),
+        favourite: filters.favourite?.toString(),
+        cursor: pageParam,
+      };
       return unwrap(await bar.cocktails.$get({ param: { barId }, query }, { init: { signal } }));
     },
     initialPageParam: undefined as string | undefined,
@@ -28,7 +38,7 @@ export const cocktailListQuery = (barId: string, filters: CocktailFilters) =>
 
 export const cocktailQuery = (barId: string, id: string, servings?: number) =>
   queryOptions({
-    queryKey: [...cocktailsKey(barId), "detail", id, servings],
+    queryKey: [...cocktailDetailKey(barId, id), servings],
     queryFn: async () =>
       unwrap(
         await bar.cocktails[":id"].$get({

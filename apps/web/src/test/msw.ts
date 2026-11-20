@@ -21,6 +21,7 @@ export const handlers = [
   http.get("/api/bars/:barId/members", () => HttpResponse.json({ members: [] })),
   http.get("/api/bars/:barId/invitations", () => HttpResponse.json({ invitations: [] })),
   http.get("/api/bars/:barId/cocktails", () => page([])),
+  http.get("/api/bars/:barId/cocktails/:id/comments", () => page([])),
   http.get("/api/bars/:barId/tags", () => page([])),
   http.get("/api/bars/:barId/categories/tree", () => HttpResponse.json({ items: [] })),
   http.get("/api/bars/:barId/pantry-ingredients", () => page([])),

@@ -12,7 +12,7 @@ import { cocktailsKey } from "@/api/cocktails.ts";
 import { usePantryMutations } from "@/api/pantry.ts";
 import { useProductMutations, useSetProductInBar } from "@/api/products.ts";
 import { createQueryClient } from "@/api/query-client.ts";
-import { fixtureId, page, timestamps } from "@/test/fixtures.ts";
+import { fixtureId, page, timestamps, unrated } from "@/test/fixtures.ts";
 import { BAR_ID, server } from "@/test/msw.ts";
 import { choose, renderWithProviders } from "@/test/render.tsx";
 
@@ -63,6 +63,7 @@ const cocktail = (
   glass_id: null,
   servings: 1,
   variant_of_id: null,
+  ...unrated,
   description: null,
   garnish: null,
   serving_notes: null,

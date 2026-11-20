@@ -20,6 +20,7 @@ import {
   utensils,
 } from "../../db/schema/index.ts";
 
+/** Shared bar data a user is credited on. Their personal feedback is deleted with them instead. */
 const attributedTables = [
   barInvitations,
   categories,

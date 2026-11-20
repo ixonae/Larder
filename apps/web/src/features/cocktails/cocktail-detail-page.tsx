@@ -6,18 +6,22 @@ import {
   hasRole,
   imageUrl,
 } from "@larder/shared";
-import { useQuery } from "@tanstack/react-query";
+import { type UseMutationResult, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { Fragment, useState } from "react";
 import { ApiError } from "@/api/client.ts";
 import { cocktailQuery } from "@/api/cocktails.ts";
+import { useSetFavourite } from "@/api/feedback.ts";
 import { utensilQuery } from "@/api/utensils.ts";
 import { badge } from "@/components/badge.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { Combobox } from "@/components/combobox.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { CocktailComments } from "./cocktail-comments.tsx";
+import { CocktailRaters, RatingSummary } from "./cocktail-ratings.tsx";
+import { FavouriteButton } from "./favourite-button.tsx";
 
 const route = getRouteApi("/cocktails/$cocktailId");
 
@@ -72,9 +76,22 @@ function CocktailView({ bar, id }: { bar: BarSummary; id: string }) {
 }
 
 function CocktailRecipe({ barId, recipe }: { barId: string; recipe: CocktailDetail }) {
+  const setFavourite: UseMutationResult<unknown, Error, { id: string; favourite: boolean }> =
+    useSetFavourite(barId);
   return (
     <>
-      <h1 className="wrap-anywhere text-3xl">{recipe.name}</h1>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+        <div className="flex min-w-0 items-center gap-1">
+          <h1 className="wrap-anywhere text-3xl">{recipe.name}</h1>
+          <FavouriteButton
+            favourite={recipe.is_favourite}
+            onToggle={(favourite: boolean): void =>
+              setFavourite.mutate({ id: recipe.id, favourite })
+            }
+          />
+        </div>
+        <RatingSummary barId={barId} recipe={recipe} />
+      </div>
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-[auto] lg:gap-6 lg:has-[>img]:grid-rows-[auto_1fr]">
         {recipe.image_id && (
           <img
@@ -191,6 +208,8 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
           </ol>
         </section>
       )}
+      <CocktailRaters recipe={recipe} />
+      <CocktailComments barId={barId} cocktailId={recipe.id} />
     </>
   );
 }

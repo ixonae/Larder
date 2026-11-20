@@ -2,17 +2,22 @@ import {
   type BarSummary,
   COCKTAIL_METHODS,
   type Cocktail,
+  type CocktailSort,
   hasRole,
   type MissingIngredient,
 } from "@larder/shared";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { type UseMutationResult, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
+import { cn } from "cn";
 import { ChevronRight, LayoutGrid, List, Martini } from "lucide-react";
+import type { ChangeEvent, ReactElement } from "react";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { type CocktailFilters, cocktailListQuery, cocktailTagsQuery } from "@/api/cocktails.ts";
+import { useSetFavourite } from "@/api/feedback.ts";
 import { utensilOptionsQuery } from "@/api/utensils.ts";
 import { badge } from "@/components/badge.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
+import { type ChipOption, ChipRadioGroup } from "@/components/chip-radio-group.tsx";
 import { Combobox, type ComboboxOption } from "@/components/combobox.tsx";
 import { SearchInput } from "@/components/search-input.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
@@ -22,6 +27,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { categoryOptions } from "@/features/categories/category-options.tsx";
 import { useDebouncedSearch } from "@/lib/debounced-search.ts";
 import { useStoredState } from "@/lib/stored-state.ts";
+import { FavouriteButton } from "./favourite-button.tsx";
 import { missingLabel } from "./missing-label.ts";
 
 const route = getRouteApi("/cocktails");
@@ -40,7 +46,10 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
   const barId = bar.id;
   const search: CocktailFilters = route.useSearch();
   const navigate = route.useNavigate();
-  const setFilter = (name: keyof CocktailFilters, value: string | number | undefined) =>
+  const setFilter = <K extends keyof CocktailFilters>(
+    name: K,
+    value: CocktailFilters[K] | undefined,
+  ) =>
     navigate({
       to: "/cocktails",
       search: { ...search, [name]: value === "" ? undefined : value },
@@ -50,9 +59,12 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
   const list = useInfiniteQuery(
     cocktailListQuery(barId, { ...search, q: search.q?.trim() || undefined }),
   );
-  const items = list.data?.pages.flatMap((page) => page.items) ?? [];
-  // The router drops unset keys, so every value here is a chosen filter (or a blank search).
-  const filtered = Object.values(search).some((value) => String(value).trim());
+  const items: Cocktail[] = list.data?.pages.flatMap((page) => page.items) ?? [];
+  // The router drops unset keys, so every value here is a chosen filter (or a blank search);
+  // the sort order only reorders the list.
+  const filtered = Object.entries(search).some(
+    ([key, value]) => key !== "sort" && String(value).trim(),
+  );
   const [view, setView] = useStoredState(
     "larder.cocktails.view",
     VIEWS.map(({ value }) => value),
@@ -100,6 +112,12 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
         value={search.missing}
         onChange={(value) => setFilter("missing", value)}
       />
+      <ListOptions
+        sort={search.sort}
+        favourite={search.favourite}
+        onSort={(value: CocktailSort | undefined): unknown => setFilter("sort", value)}
+        onFavourite={(value: true | undefined): unknown => setFilter("favourite", value)}
+      />
       <FilterOptions barId={barId} search={search} setFilter={setFilter} />
 
       {list.isPending ? (
@@ -109,7 +127,7 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
       ) : items.length === 0 ? (
         <EmptyState title={filtered ? "No cocktails match" : "No cocktails yet"} />
       ) : (
-        <CocktailList items={items} search={search} view={view} />
+        <CocktailList barId={barId} items={items} search={search} view={view} />
       )}
       {list.isRefetchError && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
       {list.isFetchNextPageError && (
@@ -139,26 +157,32 @@ const summary = (cocktail: Cocktail) =>
 const LAYOUT = {
   list: {
     list: "flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs",
-    item: "",
-    link: "flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/60",
+    item: "relative",
+    link: "flex items-center gap-3 py-2.5 pr-14 pl-3 transition-colors hover:bg-muted/60",
+    heart: "absolute top-1/2 right-1 -translate-y-1/2",
   },
   grid: {
     list: "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3",
-    item: "min-w-0",
+    item: "relative min-w-0",
     link: "group flex h-full flex-col overflow-hidden rounded-xl border bg-card shadow-xs transition hover:border-foreground/20 hover:shadow-md",
+    heart: "absolute top-1 right-1 bg-background/80",
   },
-} satisfies Record<View, { list: string; item: string; link: string }>;
+} satisfies Record<View, { list: string; item: string; link: string; heart: string }>;
 
 function CocktailList({
+  barId,
   items,
   search,
   view,
 }: {
+  barId: string;
   items: Cocktail[];
   search: CocktailFilters;
   view: View;
 }) {
   const layout = LAYOUT[view];
+  const setFavourite: UseMutationResult<unknown, Error, { id: string; favourite: boolean }> =
+    useSetFavourite(barId);
   return (
     <ul aria-label="Cocktails" className={layout.list}>
       {items.map((cocktail) => (
@@ -175,6 +199,13 @@ function CocktailList({
               <CocktailCard cocktail={cocktail} />
             )}
           </Link>
+          <FavouriteButton
+            favourite={cocktail.is_favourite}
+            onToggle={(favourite: boolean): void =>
+              setFavourite.mutate({ id: cocktail.id, favourite })
+            }
+            className={layout.heart}
+          />
         </li>
       ))}
     </ul>
@@ -191,6 +222,7 @@ function CocktailRow({ cocktail }: { cocktail: Cocktail }) {
           <span className="hidden shrink-0 text-muted-foreground text-xs capitalize sm:inline">
             {summary(cocktail)}
           </span>
+          <RatingLine cocktail={cocktail} className="shrink-0 whitespace-nowrap" />
         </div>
         <span className="truncate text-muted-foreground text-sm">{ingredientList(cocktail)}</span>
         <MissingLine missing={cocktail.missing} />
@@ -217,12 +249,32 @@ function CocktailCard({ cocktail }: { cocktail: Cocktail }) {
         </div>
         <p className="line-clamp-2 text-muted-foreground text-sm">{ingredientList(cocktail)}</p>
         <MissingLine missing={cocktail.missing} />
+        <RatingLine cocktail={cocktail} />
         <div className="mt-auto flex items-center justify-between gap-2 pt-1">
           <span className="text-muted-foreground/80 text-xs capitalize">{summary(cocktail)}</span>
           <StockBadge missing={cocktail.missing} />
         </div>
       </div>
     </>
+  );
+}
+
+/** "★ 4 · avg 4.2": your stars and the average; only the average if you have not rated it. */
+function RatingLine({
+  cocktail,
+  className,
+}: {
+  cocktail: Cocktail;
+  className?: string;
+}): ReactElement | null {
+  const parts: string[] = [];
+  if (cocktail.my_rating) parts.push(`★ ${cocktail.my_rating.score}`);
+  if (cocktail.avg_rating !== null) parts.push(`avg ${cocktail.avg_rating.toFixed(1)}`);
+  if (parts.length === 0) return null;
+  return (
+    <span className={cn("text-muted-foreground text-xs tabular-nums", className)}>
+      {parts.join(" · ")}
+    </span>
   );
 }
 
@@ -246,10 +298,10 @@ function MissingLine({ missing }: { missing: MissingIngredient[] }) {
 }
 
 /** The missing counts offered as chips; any other count still works from the URL. */
-const AVAILABILITY = [
-  { missing: undefined, label: "All" },
-  { missing: 0, label: "Can make now" },
-  { missing: 1, label: "Missing one" },
+const AVAILABILITY: ChipOption<number | undefined>[] = [
+  { value: undefined, label: "All" },
+  { value: 0, label: "Can make now" },
+  { value: 1, label: "Missing one" },
 ];
 
 function AvailabilityFilter({
@@ -260,20 +312,52 @@ function AvailabilityFilter({
   onChange: (missing: number | undefined) => void;
 }) {
   return (
-    <fieldset aria-label="Availability" className="flex flex-wrap gap-2">
-      {AVAILABILITY.map(({ missing, label }) => (
-        <label key={label} className={toggleChip({ size: "sm" })}>
-          <input
-            type="radio"
-            name="availability"
-            className="sr-only"
-            checked={value === missing}
-            onChange={() => onChange(missing)}
-          />
-          {label}
-        </label>
-      ))}
-    </fieldset>
+    <ChipRadioGroup<number | undefined>
+      label="Availability"
+      options={AVAILABILITY}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
+const SORTS: ChipOption<CocktailSort>[] = [
+  { value: "name", label: "By name" },
+  { value: "rating", label: "Top rated" },
+];
+
+/** Name order or best rated first, and only the cocktails you have favourited. */
+function ListOptions({
+  sort,
+  favourite,
+  onSort,
+  onFavourite,
+}: {
+  sort: CocktailSort | undefined;
+  favourite: boolean | undefined;
+  onSort: (sort: CocktailSort | undefined) => unknown;
+  onFavourite: (favourite: true | undefined) => unknown;
+}): ReactElement {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <ChipRadioGroup<CocktailSort>
+        label="Sort"
+        options={SORTS}
+        value={sort ?? "name"}
+        onChange={(value: CocktailSort): unknown => onSort(value === "name" ? undefined : value)}
+      />
+      <label className={toggleChip({ size: "sm" })}>
+        <input
+          type="checkbox"
+          className="sr-only"
+          checked={favourite === true}
+          onChange={(event: ChangeEvent<HTMLInputElement>): unknown =>
+            onFavourite(event.currentTarget.checked ? true : undefined)
+          }
+        />
+        Favourites
+      </label>
+    </div>
   );
 }
 

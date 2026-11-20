@@ -25,3 +25,12 @@ export const failure = (
   message: string = code,
   details?: unknown,
 ) => HttpResponse.json({ error: { code, message, details } }, { status });
+
+/** The rating and favourite fields of a cocktail nobody has rated or favourited. */
+export const unrated: {
+  my_rating: null;
+  avg_rating: null;
+  rating_count: number;
+  is_favourite: boolean;
+  other_ratings: never[];
+} = { my_rating: null, avg_rating: null, rating_count: 0, is_favourite: false, other_ratings: [] };

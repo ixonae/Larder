@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { DESCRIPTION_MAX } from "./categories.ts";
 import { cocktailIngredientInputSchema, cocktailIngredientSchema } from "./cocktail-ingredients.ts";
+import { otherRatingSchema, ratingSummarySchema } from "./feedback.ts";
 import { idSchema } from "./id.ts";
 import { missingIngredientSchema } from "./makeability.ts";
-import { pageSchema, paginationQuerySchema } from "./pagination.ts";
+import { booleanQuerySchema, pageSchema, paginationQuerySchema } from "./pagination.ts";
 import { optionalText } from "./text.ts";
 
 export const COCKTAIL_METHODS = [
@@ -48,12 +49,14 @@ const fields = z.object({
   variant_note: optionalText(DESCRIPTION_MAX),
 });
 
-export const cocktailSchema = fields.extend({
+export const cocktailSchema = fields.extend(ratingSummarySchema.shape).extend({
   id: idSchema,
   image_id: idSchema.nullable(),
   created_at: z.string(),
   updated_at: z.string(),
   computed: computedCocktailSchema,
+  /** Whether the current user favourited this cocktail. */
+  is_favourite: z.boolean(),
   /** Required lines the bar cannot pour right now; empty when the cocktail can be made. */
   missing: missingIngredientSchema.array(),
 });
@@ -78,6 +81,8 @@ export const cocktailDetailSchema = cocktailSchema.extend({
   steps: stepSchema.array(),
   tools: namedReferenceSchema.array(),
   tags: tagSchema.array(),
+  /** Public ratings by other users, newest first. */
+  other_ratings: otherRatingSchema.array(),
 });
 export type CocktailDetail = z.infer<typeof cocktailDetailSchema>;
 
@@ -99,12 +104,19 @@ export const updateCocktailSchema = recipeFields
   .refine((patch) => Object.keys(patch).length > 0, "Send at least one field to change");
 export type UpdateCocktail = z.infer<typeof updateCocktailSchema>;
 
+export const COCKTAIL_SORTS = ["name", "rating"] as const;
+export type CocktailSort = (typeof COCKTAIL_SORTS)[number];
+
 export const listCocktailsQuerySchema = paginationQuerySchema.extend({
+  /** `rating`: highest average first, unrated last, then by name. */
+  sort: z.enum(COCKTAIL_SORTS).default("name"),
   q: nameSchema.optional(),
   method: methodSchema.optional(),
   glass_id: idSchema.optional(),
   /** Category ID. Matches spirit ingredients in that category or its descendants. */
   spirit: idSchema.optional(),
+  /** `true` lists only the caller's favourites. */
+  favourite: booleanQuerySchema.optional(),
   /** Tag ID from GET /tags. */
   tag: idSchema.optional(),
   /** Exactly this many required lines missing: 0 lists what the bar can make now. */

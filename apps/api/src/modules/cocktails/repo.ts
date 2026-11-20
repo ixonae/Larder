@@ -1,8 +1,10 @@
 import { type ListCocktailsQuery, nowIso } from "@larder/shared";
-import { and, eq, exists, getTableColumns, sql } from "drizzle-orm";
+import { and, eq, exists, getTableColumns, gt, or, type SQL, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { cocktails, cocktailTags } from "../../db/schema/index.ts";
+import { invalid } from "../../errors.ts";
+import { avgRatingSort, isFavourite } from "./feedback-repo.ts";
 import { usesSpiritCategories } from "./ingredients-repo.ts";
 
 const { bar_id: _barId, created_by: _createdBy, ...columns } = getTableColumns(cocktails);
@@ -12,16 +14,52 @@ export type NewCocktail = typeof cocktails.$inferInsert;
 
 const inBar = (barId: string, id: string) => and(eq(cocktails.bar_id, barId), eq(cocktails.id, id));
 
+/** Separates the rating from the name key in a `sort=rating` cursor. */
+const RATING_SEP = "\u0001";
+
+/** Rows after a `sort=rating` cursor: lower average, then later name key, then later id. */
+function afterRating(after: NameCursor | undefined): SQL | undefined {
+  if (after === undefined) return undefined;
+  // Split at the first separator only: names may contain it, ratings never do.
+  const at: number = after.key.indexOf(RATING_SEP);
+  const rating: string = after.key.slice(0, at);
+  const key: string = after.key.slice(at + 1);
+  const avg: number = Number(rating);
+  if (at <= 0 || Number.isNaN(avg)) throw invalid("Invalid cursor");
+  return or(
+    sql`${avgRatingSort} < ${avg}`,
+    and(
+      sql`${avgRatingSort} = ${avg}`,
+      or(sql`${nameKey} > ${key}`, and(sql`${nameKey} = ${key}`, gt(cocktails.id, after.id))),
+    ),
+  );
+}
+
 export function listCocktails(
   db: Executor,
   barId: string,
   /** Without a `limit`, every matching row: for filters applied after the query. */
-  { q, method, glass_id, tag, limit }: Omit<ListCocktailsQuery, "limit"> & { limit?: number },
+  {
+    q,
+    method,
+    glass_id,
+    tag,
+    sort,
+    favourite,
+    limit,
+  }: Omit<ListCocktailsQuery, "limit"> & { limit?: number },
   after: NameCursor | undefined,
   spiritCategoryIds: string[] | undefined,
+  userId: string,
 ) {
+  const byRating: boolean = sort === "rating";
   const rows = db
-    .select({ ...columns, key: nameKey })
+    .select({
+      ...columns,
+      key: nameKey,
+      // Only a rating sort needs the average; the cheap constant keeps the row shape the same.
+      rating: byRating ? avgRatingSort : sql<number>`0`,
+    })
     .from(cocktails)
     .where(
       and(
@@ -43,15 +81,26 @@ export function listCocktails(
                   ),
                 ),
             ),
+        favourite === true ? isFavourite(db, barId, userId) : undefined,
         spiritCategoryIds === undefined
           ? undefined
           : usesSpiritCategories(db, barId, spiritCategoryIds),
-        afterName(nameKey, cocktails.id, after),
+        byRating ? afterRating(after) : afterName(nameKey, cocktails.id, after),
       ),
     )
-    .orderBy(...byName(nameKey, cocktails.id))
+    .orderBy(
+      ...(byRating
+        ? [sql`${avgRatingSort} desc`, ...byName(nameKey, cocktails.id)]
+        : byName(nameKey, cocktails.id)),
+    )
     .$dynamic();
-  return (limit === undefined ? rows : rows.limit(limit)).all();
+  // A rating cursor carries the rating ahead of the name key, so paging resumes at the same spot.
+  return (limit === undefined ? rows : rows.limit(limit))
+    .all()
+    .map(<T extends { rating: number; key: string }>({ rating, ...row }: T) => ({
+      ...row,
+      key: byRating ? `${rating}${RATING_SEP}${row.key}` : row.key,
+    }));
 }
 
 export function findCocktail(db: Executor, barId: string, id: string) {

@@ -22,6 +22,25 @@ describe("RatingStars", () => {
     expect(screen.getByRole("img", { name: "Not rated" })).toBeInTheDocument();
   });
 
+  it("layers the community average under your rating", () => {
+    const noop = (): void => {};
+    const { container, rerender } = render(
+      <RatingStars value={2} average={3.5} onChange={noop} label="Your rating" />,
+    );
+    const fills: string[] = Array.from(
+      container.querySelectorAll<HTMLElement>("label span[style]"),
+    ).map((el: HTMLElement): string => el.style.width);
+    expect(fills).toEqual(["100%", "100%", "100%", "50%", "0%"]);
+    expect(container.querySelectorAll("svg.text-brand")).toHaveLength(2);
+    rerender(<RatingStars value={null} average={null} onChange={noop} label="Your rating" />);
+    expect(container.querySelectorAll("svg.text-brand")).toHaveLength(0);
+    expect(
+      Array.from(container.querySelectorAll<HTMLElement>("label span[style]")).every(
+        (el: HTMLElement): boolean => el.style.width === "0%",
+      ),
+    ).toBe(true);
+  });
+
   it("picks a score, changes it with the keyboard and clears it", async () => {
     render(<Harness />);
     expect(screen.getByRole("group", { name: "Your rating" })).toBeInTheDocument();
