@@ -2,15 +2,15 @@ import type { CocktailDetail, CocktailIngredient, CreateCocktail, Utensil } from
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
+import { failure, fixtureId, page, timestamps } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
 import { choose, pick, renderWithProviders } from "@/test/render.tsx";
 
 const base = `/api/bars/${BAR_ID}`;
-const id = (n: number) => `01a1f326-d941-7d74-8a40-504a488cd${String(n).padStart(3, "0")}`;
-const time = { created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
+const id = (n: number) => fixtureId(n, "504a488cd");
 const gin = { id: id(1), name: "Gin" };
 const glass: Utensil = {
-  ...time,
+  ...timestamps,
   id: id(2),
   name: "Coupe",
   kind: "glass",
@@ -37,7 +37,7 @@ const ingredient: CocktailIngredient = {
   alternatives: [],
 };
 const recipe: CocktailDetail = {
-  ...time,
+  ...timestamps,
   id: id(5),
   name: "Gimlet",
   method: "shaken",
@@ -84,10 +84,6 @@ const emptyRecipe = {
   computed: { abv: 0, volume_ml: null, spirits: [], ingredients: [] },
 };
 const detail = `${base}/cocktails/${recipe.id}`;
-const page = <T,>(items: T[], next_cursor: string | null = null) =>
-  HttpResponse.json({ items, next_cursor });
-const failure = (code: string, status: number) =>
-  HttpResponse.json({ error: { code, message: code } }, { status });
 
 it("filters and pages cocktail cards, and restores filters after viewing a recipe", async () => {
   const requests: URLSearchParams[] = [];
@@ -96,7 +92,7 @@ it("filters and pages cocktail cards, and restores filters after viewing a recip
       HttpResponse.json({
         items: [
           {
-            ...time,
+            ...timestamps,
             ...gin,
             kind: "spirit",
             parent_id: null,
@@ -106,7 +102,7 @@ it("filters and pages cocktail cards, and restores filters after viewing a recip
             children: [],
           },
           {
-            ...time,
+            ...timestamps,
             id: id(12),
             name: "Citrus",
             kind: "juice",
@@ -285,7 +281,7 @@ function editorCatalogue() {
       HttpResponse.json({
         items: [
           {
-            ...time,
+            ...timestamps,
             ...gin,
             kind: "spirit",
             parent_id: null,
@@ -789,7 +785,7 @@ it("loads ingredient sources on demand, retries failed pages, and keeps selectio
 it("limits category options, loads more, and searches full paths while retaining the selection", async () => {
   editorCatalogue();
   const category = {
-    ...time,
+    ...timestamps,
     ...gin,
     kind: "spirit",
     parent_id: null,

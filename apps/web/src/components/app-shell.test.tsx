@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
+import { failure } from "@/test/fixtures.ts";
 import { meFixture, server } from "@/test/msw.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 
@@ -62,15 +63,7 @@ describe("AppShell", () => {
 
   it("displays the API error and recovers on retry", async () => {
     server.use(
-      http.get(
-        "/api/me",
-        () =>
-          HttpResponse.json(
-            { error: { code: "INTERNAL", message: "Database is locked" } },
-            { status: 500 },
-          ),
-        { once: true },
-      ),
+      http.get("/api/me", () => failure("INTERNAL", 500, "Database is locked"), { once: true }),
     );
     const { user } = renderWithProviders("/cocktails");
     const alert = await screen.findByRole("alert");

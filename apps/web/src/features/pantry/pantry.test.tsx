@@ -2,14 +2,14 @@ import type { Category, PantryIngredient } from "@larder/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { delay, HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
+import { failure, fixtureId, page, timestamps } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
 import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const url = `/api/bars/${BAR_ID}/pantry-ingredients`;
 const treeUrl = `/api/bars/${BAR_ID}/categories/tree`;
-const stamp = "2026-01-01T00:00:00.000Z";
 let seq = 200;
-const nextId = () => `01a1f326-d941-7d74-8a40-${String(++seq).padStart(12, "0")}`;
+const nextId = () => fixtureId(++seq);
 
 const category = (name: string): Category => ({
   id: nextId(),
@@ -19,8 +19,7 @@ const category = (name: string): Category => ({
   default_abv: null,
   description: null,
   image_id: null,
-  created_at: stamp,
-  updated_at: stamp,
+  ...timestamps,
 });
 const garnish = category("Garnish");
 const pantry = category("Pantry");
@@ -36,8 +35,7 @@ const ingredient = (
   category_name: group.name,
   in_stock: false,
   always_available: false,
-  created_at: stamp,
-  updated_at: stamp,
+  ...timestamps,
   ...extra,
 });
 
@@ -66,10 +64,7 @@ function useFakeApi(pageSize = 200, tree = [garnish, pantry]) {
       requests.push({ method: "POST", body });
       if (store.some((i) => i.name === body.name && i.category_id === body.category_id)) {
         const message = `An ingredient named "${body.name}" already exists in this category`;
-        return HttpResponse.json(
-          { error: { code: "CONFLICT", message, details: [{ path: ["name"], message }] } },
-          { status: 409 },
-        );
+        return failure("CONFLICT", 409, message, [{ path: ["name"], message }]);
       }
       const created = ingredient(body.name, groupOf(body.category_id), body);
       store.push(created);
@@ -186,7 +181,7 @@ describe("PantryPage", () => {
       http.patch(`${url}/:id`, async () => {
         if (!fail) return;
         await delay(10);
-        return HttpResponse.json({ error: { code: "INTERNAL", message: "Down" } }, { status: 500 });
+        return failure("INTERNAL", 500, "Down");
       }),
     );
     const { user } = await open();
@@ -213,13 +208,7 @@ describe("PantryPage", () => {
 
   it("shows an empty state, and a load error with a retry", async () => {
     let fail = true;
-    server.use(
-      http.get(url, () =>
-        fail
-          ? HttpResponse.json({ error: { code: "INTERNAL", message: "Down" } }, { status: 500 })
-          : HttpResponse.json({ items: [], next_cursor: null }),
-      ),
-    );
+    server.use(http.get(url, () => (fail ? failure("INTERNAL", 500, "Down") : page([]))));
     const { user } = renderWithProviders("/pantry");
     expect(await screen.findByRole("alert")).toHaveTextContent("Down");
     fail = false;
@@ -335,11 +324,7 @@ describe("IngredientSheet", () => {
       await within(sheet).findByText('An ingredient named "Egg" already exists in this category'),
     ).toBeInTheDocument();
 
-    server.use(
-      http.post(url, () =>
-        HttpResponse.json({ error: { code: "INTERNAL", message: "Disk full" } }, { status: 500 }),
-      ),
-    );
+    server.use(http.post(url, () => failure("INTERNAL", 500, "Disk full")));
     await user.clear(within(sheet).getByLabelText("Name"));
     await user.type(within(sheet).getByLabelText("Name"), "Salt");
     await user.click(within(sheet).getByRole("button", { name: "Add" }));
@@ -354,7 +339,7 @@ describe("IngredientSheet", () => {
       http.get(treeUrl, async () => {
         await loading;
         return fail
-          ? HttpResponse.json({ error: { code: "INTERNAL", message: "No tree" } }, { status: 500 })
+          ? failure("INTERNAL", 500, "No tree")
           : HttpResponse.json({ items: [{ ...pantry, children: [] }] });
       }),
     );

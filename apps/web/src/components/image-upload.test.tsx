@@ -2,11 +2,11 @@ import { buildTree, type Category, type Product } from "@larder/shared";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
+import { failure, fixtureId, page, timestamps } from "@/test/fixtures.ts";
 import { BAR_ID, server } from "@/test/msw.ts";
 import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const url = `/api/bars/${BAR_ID}/products`;
-const stamp = "2026-01-01T00:00:00.000Z";
 const IMAGE = "01a1f326-d941-7d74-8a40-000000000900";
 const gin: Category = {
   id: "01a1f326-d941-7d74-8a40-000000000001",
@@ -16,11 +16,10 @@ const gin: Category = {
   default_abv: 40,
   description: null,
   image_id: IMAGE,
-  created_at: stamp,
-  updated_at: stamp,
+  ...timestamps,
 };
 const bottle = (id: number, name: string, image_id: string | null): Product => ({
-  id: `01a1f326-d941-7d74-8a40-${String(id).padStart(12, "0")}`,
+  id: fixtureId(id),
   name,
   category_id: gin.id,
   category_name: "Gin",
@@ -33,8 +32,7 @@ const bottle = (id: number, name: string, image_id: string | null): Product => (
   description: null,
   image_id,
   in_bar: false,
-  created_at: stamp,
-  updated_at: stamp,
+  ...timestamps,
 });
 
 let store: Product[] = [];
@@ -48,7 +46,7 @@ beforeEach(() => {
     http.get(`/api/bars/${BAR_ID}/categories/tree`, () =>
       HttpResponse.json({ items: buildTree([gin]) }),
     ),
-    http.get(url, () => HttpResponse.json({ items: store, next_cursor: null })),
+    http.get(url, () => page(store)),
     http.get(`${url}/:id`, ({ params }) =>
       HttpResponse.json(store.find((p) => p.id === params.id)),
     ),
@@ -156,12 +154,7 @@ describe("ImageUpload", () => {
 
   it("keeps the bottle saved and says so when the upload fails", async () => {
     server.use(
-      http.put(`${url}/:id/image`, () =>
-        HttpResponse.json(
-          { error: { code: "VALIDATION", message: "Could not read this picture" } },
-          { status: 400 },
-        ),
-      ),
+      http.put(`${url}/:id/image`, () => failure("VALIDATION", 400, "Could not read this picture")),
     );
     const { user, sheet } = await openSheet("Tanqueray");
     await user.upload(within(sheet).getByLabelText("Picture"), photo());

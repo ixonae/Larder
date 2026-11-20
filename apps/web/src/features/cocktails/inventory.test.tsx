@@ -12,13 +12,12 @@ import { cocktailsKey } from "@/api/cocktails.ts";
 import { usePantryMutations } from "@/api/pantry.ts";
 import { useProductMutations, useSetProductInBar } from "@/api/products.ts";
 import { createQueryClient } from "@/api/query-client.ts";
+import { fixtureId, page, timestamps } from "@/test/fixtures.ts";
 import { BAR_ID, server } from "@/test/msw.ts";
 import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const base = `/api/bars/${BAR_ID}`;
-const id = (n: number) => `01a1f326-d941-7d74-8a40-504a488ce${String(n).padStart(3, "0")}`;
-const time = { created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
-const page = <T,>(items: T[]) => HttpResponse.json({ items, next_cursor: null });
+const id = (n: number) => fixtureId(n, "504a488ce");
 
 const BOTTLES = ["Beefeater", "Tanqueray", "Sipsmith"];
 const source = (n: number, name: string, bottles: string[] = []) => ({
@@ -56,7 +55,7 @@ const cocktail = (
   name: string,
   extra: Partial<CocktailDetail> = {},
 ): CocktailDetail => ({
-  ...time,
+  ...timestamps,
   id: id(50 + n),
   name,
   method: "shaken",
@@ -253,7 +252,7 @@ it.each(stockChanges)("%s marks the cocktails stale", async (_label, useChange) 
 it("restocking a lemon in the Pantry updates the cocktails on return", async () => {
   const garnish = id(300);
   let lemon: PantryIngredient = {
-    ...time,
+    ...timestamps,
     id: id(301),
     name: "Lemon",
     category_id: garnish,
@@ -267,7 +266,7 @@ it("restocking a lemon in the Pantry updates the cocktails on return", async () 
       HttpResponse.json({
         items: [
           {
-            ...time,
+            ...timestamps,
             id: garnish,
             name: "Garnish",
             parent_id: null,

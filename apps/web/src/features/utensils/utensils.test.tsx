@@ -2,21 +2,20 @@ import type { Utensil } from "@larder/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
+import { failure, fixtureId, page, timestamps } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
 import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const url = `/api/bars/${BAR_ID}/utensils`;
-const stamp = "2026-01-01T00:00:00.000Z";
 let seq = 100;
 const utensil = (name: string, extra: Partial<Utensil> = {}): Utensil => ({
-  id: `01a1f326-d941-7d74-8a40-${String(++seq).padStart(12, "0")}`,
+  id: fixtureId(++seq),
   name,
   kind: "glass",
   capacity_ml: null,
   description: null,
   image_id: null,
-  created_at: stamp,
-  updated_at: stamp,
+  ...timestamps,
   ...extra,
 });
 
@@ -38,10 +37,7 @@ function useFakeApi(pageSize = 200) {
       requests.push({ method: "POST", body });
       if (store.some((u) => u.name === body.name)) {
         const message = `A utensil named "${body.name}" already exists`;
-        return HttpResponse.json(
-          { error: { code: "CONFLICT", message, details: [{ path: ["name"], message }] } },
-          { status: 409 },
-        );
+        return failure("CONFLICT", 409, message, [{ path: ["name"], message }]);
       }
       const created = utensil(body.name, body);
       store.push(created);
@@ -103,13 +99,7 @@ describe("UtensilsPage", () => {
 
   it("shows an empty state, and a load error with a retry", async () => {
     let fail = true;
-    server.use(
-      http.get(url, () =>
-        fail
-          ? HttpResponse.json({ error: { code: "INTERNAL", message: "Down" } }, { status: 500 })
-          : HttpResponse.json({ items: [], next_cursor: null }),
-      ),
-    );
+    server.use(http.get(url, () => (fail ? failure("INTERNAL", 500, "Down") : page([]))));
     const { user } = renderWithProviders("/utensils");
     expect(await screen.findByRole("alert")).toHaveTextContent("Down");
     fail = false;
@@ -222,11 +212,7 @@ describe("UtensilSheet", () => {
       await within(sheet).findByText('A utensil named "Rocks" already exists'),
     ).toBeInTheDocument();
 
-    server.use(
-      http.post(url, () =>
-        HttpResponse.json({ error: { code: "INTERNAL", message: "Disk full" } }, { status: 500 }),
-      ),
-    );
+    server.use(http.post(url, () => failure("INTERNAL", 500, "Disk full")));
     await user.clear(within(sheet).getByLabelText("Name"));
     await user.type(within(sheet).getByLabelText("Name"), "Other");
     await user.click(within(sheet).getByRole("button", { name: "Add" }));

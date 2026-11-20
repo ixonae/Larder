@@ -2,12 +2,11 @@ import { buildTree, type Category, type Product, subtreeIds } from "@larder/shar
 import { screen, waitFor, within } from "@testing-library/react";
 import { delay, HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
+import { failure, fixtureId as id, page, timestamps } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
 import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const url = `/api/bars/${BAR_ID}/products`;
-const id = (n: number) => `01a1f326-d941-7d74-8a40-${String(n).padStart(12, "0")}`;
-const stamp = "2026-01-01T00:00:00.000Z";
 
 const category = (n: number, name: string, parent: Category | null = null): Category => ({
   id: id(n),
@@ -17,8 +16,7 @@ const category = (n: number, name: string, parent: Category | null = null): Cate
   default_abv: 40,
   description: null,
   image_id: null,
-  created_at: stamp,
-  updated_at: stamp,
+  ...timestamps,
 });
 const spirit = category(1, "Spirit");
 const whisky = category(2, "Whisky", spirit);
@@ -43,8 +41,7 @@ const product = (name: string, cat: Category, extra: Partial<Product> = {}): Pro
   description: null,
   image_id: null,
   in_bar: false,
-  created_at: stamp,
-  updated_at: stamp,
+  ...timestamps,
   ...extra,
 });
 
@@ -53,10 +50,7 @@ let requests: { method: string; path: string; body?: unknown }[] = [];
 const PAGE = 2;
 
 const conflict = (message: string) =>
-  HttpResponse.json(
-    { error: { code: "CONFLICT", message, details: [{ path: ["name"], message }] } },
-    { status: 409 },
-  );
+  failure("CONFLICT", 409, message, [{ path: ["name"], message }]);
 
 /** A small fake of the products API: filters, two-item pages, and a duplicate-name check. */
 function useFakeApi() {
@@ -86,10 +80,7 @@ function useFakeApi() {
     http.get(`${url}/:id`, ({ params }) => {
       const found = store.find((p) => p.id === params.id);
       if (found) return HttpResponse.json(found);
-      return HttpResponse.json(
-        { error: { code: "NOT_FOUND", message: "Product not found" } },
-        { status: 404 },
-      );
+      return failure("NOT_FOUND", 404, "Product not found");
     }),
     http.post(url, async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
@@ -236,11 +227,7 @@ describe("BottlesPage", () => {
   });
 
   it("shows a toast when the toggle fails", async () => {
-    server.use(
-      http.patch(`${url}/:id/in-bar`, () =>
-        HttpResponse.json({ error: { code: "INTERNAL", message: "Boom" } }, { status: 500 }),
-      ),
-    );
+    server.use(http.patch(`${url}/:id/in-bar`, () => failure("INTERNAL", 500, "Boom")));
     const { user } = await openList();
     await user.click(screen.getByRole("button", { name: "Hendrick's in the bar" }));
     expect(await screen.findByText("Could not update the bottle")).toBeInTheDocument();
@@ -264,13 +251,7 @@ describe("BottlesPage", () => {
 
   it("shows a load error and retries", async () => {
     let fail = true;
-    server.use(
-      http.get(url, () =>
-        fail
-          ? HttpResponse.json({ error: { code: "INTERNAL", message: "Down" } }, { status: 500 })
-          : HttpResponse.json({ items: [], next_cursor: null }),
-      ),
-    );
+    server.use(http.get(url, () => (fail ? failure("INTERNAL", 500, "Down") : page([]))));
     const { user, queryClient } = renderWithProviders("/bottles");
     queryClient.setDefaultOptions({ queries: { retry: false } });
     expect(await screen.findByRole("alert")).toHaveTextContent("Down");
@@ -335,11 +316,7 @@ describe("ProductSheet", () => {
       await within(sheet).findByText(`A bottle named "Hendrick's" already exists`),
     ).toBeInTheDocument();
 
-    server.use(
-      http.post(url, () =>
-        HttpResponse.json({ error: { code: "INTERNAL", message: "Disk full" } }, { status: 500 }),
-      ),
-    );
+    server.use(http.post(url, () => failure("INTERNAL", 500, "Disk full")));
     await user.clear(within(sheet).getByLabelText("Name"));
     await user.type(within(sheet).getByLabelText("Name"), "Other");
     await user.click(within(sheet).getByRole("button", { name: "Add" }));
@@ -354,7 +331,7 @@ describe("ProductSheet without categories", () => {
     server.use(
       http.get(`/api/bars/${BAR_ID}/categories/tree`, () =>
         fail
-          ? HttpResponse.json({ error: { code: "INTERNAL", message: "Down" } }, { status: 500 })
+          ? failure("INTERNAL", 500, "Down")
           : HttpResponse.json({ items: buildTree(categories) }),
       ),
     );
@@ -468,11 +445,7 @@ describe("BottleDetailPage", () => {
   });
 
   it("shows other load errors with a retry", async () => {
-    server.use(
-      http.get(`${url}/:id`, () =>
-        HttpResponse.json({ error: { code: "INTERNAL", message: "Down" } }, { status: 500 }),
-      ),
-    );
+    server.use(http.get(`${url}/:id`, () => failure("INTERNAL", 500, "Down")));
     const { user } = renderWithProviders(`/bottles/${byName("Talisker 10").id}`);
     expect(await screen.findByRole("alert")).toHaveTextContent("Down");
     server.resetHandlers();

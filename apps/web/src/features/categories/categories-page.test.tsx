@@ -2,6 +2,7 @@ import { buildTree, type Category, type CategoryKind } from "@larder/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { delay, HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
+import { failure, fixtureId, timestamps } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
 import { choose, renderWithProviders } from "@/test/render.tsx";
 
@@ -9,15 +10,14 @@ const url = `/api/bars/${BAR_ID}/categories`;
 const treeUrl = `${url}/tree`;
 let seq = 0;
 const cat = (name: string, kind: CategoryKind, parent: Category | null = null, extra = {}) => ({
-  id: `01a1f326-d941-7d74-8a40-${String(++seq).padStart(12, "0")}`,
+  id: fixtureId(++seq),
   name,
   parent_id: parent?.id ?? null,
   kind,
   default_abv: kind === "spirit" ? 40 : null,
   description: null,
   image_id: null,
-  created_at: "2026-01-01T00:00:00.000Z",
-  updated_at: "2026-01-01T00:00:00.000Z",
+  ...timestamps,
   ...extra,
 });
 
@@ -140,13 +140,9 @@ describe("CategoriesPage", () => {
 
   it("shows a load error and retries", async () => {
     server.use(
-      http.get(
-        treeUrl,
-        () => HttpResponse.json({ error: { code: "INTERNAL", message: "Boom" } }, { status: 500 }),
-        {
-          once: true,
-        },
-      ),
+      http.get(treeUrl, () => failure("INTERNAL", 500, "Boom"), {
+        once: true,
+      }),
     );
     const { user } = renderWithProviders("/categories");
     const alert = await screen.findByRole("alert");
@@ -312,11 +308,7 @@ describe("CategoriesPage", () => {
   });
 
   it("shows other save errors in a toast", async () => {
-    server.use(
-      http.patch(`${url}/:id`, () =>
-        HttpResponse.json({ error: { code: "INTERNAL", message: "Disk full" } }, { status: 500 }),
-      ),
-    );
+    server.use(http.patch(`${url}/:id`, () => failure("INTERNAL", 500, "Disk full")));
     const { user } = await openPage();
     await user.click(screen.getByRole("button", { name: "Edit Juice" }));
     await user.click(screen.getByRole("button", { name: "Save" }));

@@ -1,6 +1,7 @@
 import type { Me } from "@larder/shared";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
+import { page } from "./fixtures.ts";
 
 export const BAR_ID = "01a1f326-d941-7d74-8a40-504a488cd389";
 
@@ -15,17 +16,11 @@ export const meFixture: Me = {
 
 export const handlers = [
   http.get("/api/me", () => HttpResponse.json(meFixture)),
-  http.get(`/api/bars/${BAR_ID}/cocktails`, () =>
-    HttpResponse.json({ items: [], next_cursor: null }),
-  ),
-  http.get(`/api/bars/${BAR_ID}/tags`, () => HttpResponse.json({ items: [], next_cursor: null })),
+  http.get(`/api/bars/${BAR_ID}/cocktails`, () => page([])),
+  http.get(`/api/bars/${BAR_ID}/tags`, () => page([])),
   http.get(`/api/bars/${BAR_ID}/categories/tree`, () => HttpResponse.json({ items: [] })),
-  http.get(`/api/bars/${BAR_ID}/pantry-ingredients`, () =>
-    HttpResponse.json({ items: [], next_cursor: null }),
-  ),
-  http.get(`/api/bars/${BAR_ID}/utensils`, () =>
-    HttpResponse.json({ items: [], next_cursor: null }),
-  ),
+  http.get(`/api/bars/${BAR_ID}/pantry-ingredients`, () => page([])),
+  http.get(`/api/bars/${BAR_ID}/utensils`, () => page([])),
 ];
 
 export const server = setupServer(...handlers);
