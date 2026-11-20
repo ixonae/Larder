@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DESCRIPTION_MAX } from "./categories.ts";
 import { idSchema } from "./id.ts";
+import { matchingBottleSchema } from "./makeability.ts";
 import { optionalText } from "./text.ts";
 import { unitNeedsAmount, unitSchema } from "./units.ts";
 
@@ -58,6 +59,8 @@ const resolvedSource = z.object({
   name: z.string(),
   category_path: z.array(z.object({ id: idSchema, name: z.string() })),
   abv: z.number(),
+  /** In-bar products for a category source (it or its sub-categories); empty for other sources. */
+  matching_bottles: matchingBottleSchema.array(),
 });
 export const cocktailIngredientSchema = resolvedSource.extend({
   amount: z.number().nullable(),

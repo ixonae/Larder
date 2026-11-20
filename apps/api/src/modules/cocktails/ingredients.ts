@@ -4,6 +4,8 @@ import {
   type CocktailIngredient,
   type CocktailIngredientInput,
   type IngredientSource,
+  type MatchingBottle,
+  type StockSource,
 } from "@larder/shared";
 import type { Executor } from "../../db/client.ts";
 import { invalid } from "../../errors.ts";
@@ -88,7 +90,10 @@ export function ingredientResolver(categories: Category[]) {
 }
 
 type ResolveCategory = ReturnType<typeof ingredientResolver>;
-export type PreferredIngredient = Omit<CocktailIngredient, "category_path" | "alternatives"> &
+export type PreferredIngredient = Omit<
+  CocktailIngredient,
+  "category_path" | "alternatives" | "matching_bottles"
+> &
   ResolvedCategory;
 
 function resolveSource<T extends { source_category_id: string; product_abv: number | null }>(
@@ -117,23 +122,30 @@ export function getPreferredIngredients(
 const categoryPath = (path: PreferredIngredient["category_path"]) =>
   path.map(({ id, name }) => ({ id, name }));
 
+type AlternativesByLine = ReturnType<typeof getAlternatives>;
+
+/** The substitutes of every line of these cocktails, grouped by line in their saved order. */
+export function getAlternatives(db: Executor, barId: string, cocktailIds: string[]) {
+  return Map.groupBy(repo.listAlternatives(db, barId, cocktailIds), (alt) => alt.ingredient_id);
+}
+
 export function addAlternatives(
-  db: Executor,
-  barId: string,
-  id: string,
   lines: PreferredIngredient[],
+  alternatives: AlternativesByLine,
   resolve: ResolveCategory,
+  bottles: (source: StockSource) => MatchingBottle[],
 ): CocktailIngredient[] {
-  const alternatives = Map.groupBy(
-    repo.listAlternatives(db, barId, id),
-    (alt) => alt.ingredient_id,
-  );
+  const finish = <T extends StockSource & Pick<PreferredIngredient, "category_path">>(
+    source: T,
+  ) => ({
+    ...source,
+    category_path: categoryPath(source.category_path),
+    matching_bottles: bottles(source),
+  });
   return lines.map((line) => ({
-    ...line,
-    category_path: categoryPath(line.category_path),
-    alternatives: (alternatives.get(line.id) ?? []).map(({ ingredient_id: _parent, ...alt }) => {
-      const source = resolveSource(alt, resolve);
-      return { ...source, category_path: categoryPath(source.category_path) };
-    }),
+    ...finish(line),
+    alternatives: (alternatives.get(line.id) ?? []).map(({ ingredient_id: _parent, ...alt }) =>
+      finish(resolveSource(alt, resolve)),
+    ),
   }));
 }

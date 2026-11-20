@@ -33,6 +33,7 @@ const ingredient: CocktailIngredient = {
   amount: 30,
   optional: false,
   preparation_only: false,
+  matching_bottles: [],
   alternatives: [],
 };
 const recipe: CocktailDetail = {
@@ -52,6 +53,7 @@ const recipe: CocktailDetail = {
   variant_note: null,
   image_id: id(6),
   computed: { abv: 18, volume_ml: 30, spirits: [gin], ingredients: ["Gin", "Lime cordial"] },
+  missing: [],
   ingredients: [
     ingredient,
     {

@@ -1,4 +1,6 @@
 import {
+  buildInventory,
+  type Category,
   type Cocktail,
   type CocktailDetail,
   type CocktailMethod,
@@ -9,6 +11,8 @@ import {
   computeVolume,
   type ListCocktailsQuery,
   type ListTagsQuery,
+  makeability,
+  matchingBottles,
   type Page,
   scaleRecipe,
   spiritsContained,
@@ -24,9 +28,12 @@ import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../
 import type { Ctx } from "../../types.ts";
 import { listAllCategories } from "../categories/repo.ts";
 import { deleteWithImage } from "../images/service.ts";
+import { listAvailablePantryIngredientIds } from "../pantry/repo.ts";
+import { listInBarProducts } from "../products/repo.ts";
 import { findUtensil } from "../utensils/repo.ts";
 import {
   addAlternatives,
+  getAlternatives,
   getPreferredIngredients,
   ingredientResolver,
   type PreferredIngredient,
@@ -48,8 +55,18 @@ function summarize(
   };
 }
 
+/** What the bar's in-bar bottles and available Pantry ingredients can pour. */
+const loadInventory = (db: Executor, barId: string, categories: Category[]) =>
+  buildInventory(
+    categories,
+    listInBarProducts(db, barId),
+    listAvailablePantryIngredientIds(db, barId),
+  );
+
 export function listCocktails({ db, barId }: Ctx, query: ListCocktailsQuery): Page<Cocktail> {
   const after = query.cursor === undefined ? undefined : decodeCursor(query.cursor);
+  // Makeability is computed here, so that filter reads every candidate before paging.
+  const filtered = query.missing !== undefined;
   return db.transaction((tx) => {
     const categories = listAllCategories(tx, barId);
     let spiritCategoryIds: string[] | undefined;
@@ -59,21 +76,35 @@ export function listCocktails({ db, barId }: Ctx, query: ListCocktailsQuery): Pa
         .filter(({ id, kind }) => kind === "spirit" && descendants.has(id))
         .map(({ id }) => id);
     }
-    const page = toPage(
-      repo.listCocktails(tx, barId, { ...query, limit: query.limit + 1 }, after, spiritCategoryIds),
-      query.limit,
-    );
-    const preferred = getPreferredIngredients(
+    const rows = repo.listCocktails(
       tx,
       barId,
-      page.items.map(({ id }) => id),
-      ingredientResolver(categories),
+      { ...query, limit: filtered ? undefined : query.limit + 1 },
+      after,
+      spiritCategoryIds,
     );
+    if (rows.length === 0) return { items: [], next_cursor: null };
+    const ids = rows.map(({ id }) => id);
+    const preferred = getPreferredIngredients(tx, barId, ids, ingredientResolver(categories));
+    const alternatives = getAlternatives(tx, barId, ids);
+    const inventory = loadInventory(tx, barId, categories);
+    const linesOf = (id: string) => preferred.get(id) ?? [];
+    const kept = rows
+      .map((cocktail) => {
+        const lines = linesOf(cocktail.id).map((line) => ({
+          ...line,
+          alternatives: alternatives.get(line.id) ?? [],
+        }));
+        return { ...cocktail, missing: makeability(lines, inventory) };
+      })
+      .filter(({ missing }) => !filtered || missing.length === query.missing);
+    const page = toPage(kept, query.limit);
+    // Only the cocktails on the page need the rest of their computed values.
     return {
       ...page,
       items: page.items.map((cocktail) => ({
         ...cocktail,
-        computed: summarize(preferred.get(cocktail.id) ?? [], cocktail.method),
+        computed: summarize(linesOf(cocktail.id), cocktail.method),
       })),
     };
   });
@@ -87,7 +118,7 @@ export function listTags(ctx: Ctx, query: ListTagsQuery): Page<Tag> {
   );
 }
 
-type CocktailRow = Omit<Cocktail, "computed">;
+type CocktailRow = Omit<Cocktail, "computed" | "missing">;
 
 function requireCocktail(db: Executor, barId: string, id: string | undefined): CocktailRow {
   const cocktail = repo.findCocktail(db, barId, parseId(id, "Cocktail"));
@@ -132,7 +163,8 @@ function detail(
   cocktail: CocktailRow,
   servings = cocktail.servings,
 ): CocktailDetail {
-  const resolve = ingredientResolver(listAllCategories(db, barId));
+  const categories = listAllCategories(db, barId);
+  const resolve = ingredientResolver(categories);
   const lines = getPreferredIngredients(db, barId, [cocktail.id], resolve).get(cocktail.id) ?? [];
   const scaled =
     servings === cocktail.servings ? lines : scaleRecipe(lines, cocktail.servings, servings);
@@ -143,11 +175,19 @@ function detail(
     const message = "Choose a serving count that keeps ingredient amounts in range";
     throw invalid(message, [{ path: ["servings"], message }]);
   }
+  const inventory = loadInventory(db, barId, categories);
+  const ingredients = addAlternatives(
+    scaled,
+    getAlternatives(db, barId, [cocktail.id]),
+    resolve,
+    (source) => matchingBottles(source, inventory),
+  );
   return {
     ...cocktail,
     servings,
     computed: summarize(lines, cocktail.method, scaled),
-    ingredients: addAlternatives(db, barId, cocktail.id, scaled, resolve),
+    missing: makeability(ingredients, inventory),
+    ingredients,
     steps: recipeRepo.listSteps(db, barId, cocktail.id),
     tools: recipeRepo.listTools(db, barId, cocktail.id),
     tags: recipeRepo.listCocktailTags(db, barId, cocktail.id),

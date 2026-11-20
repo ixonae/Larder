@@ -12,6 +12,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { api, unwrap } from "./client.ts";
+import { stockMeta } from "./stock.ts";
 
 const bar = api.api.bars[":barId"];
 
@@ -47,16 +48,19 @@ export function usePantryMutations(barId: string) {
   const onSuccess = () => queryClient.invalidateQueries({ queryKey: pantryKey(barId) });
   return {
     create: useMutation({
+      meta: stockMeta(barId),
       mutationFn: async (json: CreatePantryIngredient) =>
         unwrap(await bar["pantry-ingredients"].$post({ param: { barId }, json })),
       onSuccess,
     }),
     update: useMutation({
+      meta: stockMeta(barId),
       mutationFn: ({ id, json }: { id: string; json: UpdatePantryIngredient }) =>
         patchIngredient(barId, id, json),
       onSuccess,
     }),
     remove: useMutation({
+      meta: stockMeta(barId),
       mutationFn: async (id: string) =>
         unwrap(await bar["pantry-ingredients"][":id"].$delete({ param: { barId, id } })),
       onSuccess,
@@ -73,6 +77,7 @@ type ListData = InfiniteData<Page<PantryIngredient>, string>;
 export function useSetPantryStock(barId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: stockMeta(barId),
     mutationFn: ({ id, in_stock }: { id: string; in_stock: boolean }) =>
       patchIngredient(barId, id, { in_stock }),
     onSuccess: async (saved) => {

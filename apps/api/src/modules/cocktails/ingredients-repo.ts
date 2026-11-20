@@ -1,4 +1,4 @@
-import { and, eq, exists, getTableColumns, inArray, or, sql } from "drizzle-orm";
+import { and, eq, exists, getTableColumns, or, sql } from "drizzle-orm";
 import type { SQLiteSelect } from "drizzle-orm/sqlite-core";
 import type { Executor } from "../../db/client.ts";
 import { byName } from "../../db/cursor.ts";
@@ -28,6 +28,12 @@ const {
 } = getTableColumns(alternatives);
 const inCocktail = (barId: string, id: string) =>
   and(eq(ingredients.bar_id, barId), eq(ingredients.cocktail_id, id));
+/** One JSON parameter, so a filtered list of every cocktail stays within SQLite's bind limit. */
+const inCocktails = (barId: string, ids: string[]) =>
+  and(
+    eq(ingredients.bar_id, barId),
+    sql`${ingredients.cocktail_id} IN (SELECT value FROM json_each(${JSON.stringify(ids)}))`,
+  );
 export type NewLine = typeof ingredients.$inferInsert;
 export type NewAlternative = typeof alternatives.$inferInsert;
 
@@ -76,7 +82,7 @@ export function listIngredients(db: Executor, barId: string, cocktailIds: string
     .from(ingredients)
     .$dynamic();
   return joinSources(rows, ingredients)
-    .where(and(eq(ingredients.bar_id, barId), inArray(ingredients.cocktail_id, cocktailIds)))
+    .where(inCocktails(barId, cocktailIds))
     .orderBy(ingredients.position)
     .all();
 }
@@ -96,7 +102,7 @@ export function usesSpiritCategories(db: Executor, barId: string, categoryIds: s
   );
 }
 
-export function listAlternatives(db: Executor, barId: string, id: string) {
+export function listAlternatives(db: Executor, barId: string, cocktailIds: string[]) {
   const rows = db
     .select({ ...alternativeColumns, ...sourceFields(alternatives) })
     .from(alternatives)
@@ -109,7 +115,7 @@ export function listAlternatives(db: Executor, barId: string, id: string) {
     )
     .$dynamic();
   return joinSources(rows, alternatives)
-    .where(inCocktail(barId, id))
+    .where(inCocktails(barId, cocktailIds))
     .orderBy(alternatives.position)
     .all();
 }

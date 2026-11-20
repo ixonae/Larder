@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query";
+import { MutationCache, QueryClient, type QueryKey } from "@tanstack/react-query";
 import { ApiError } from "./client.ts";
 
 export const MAX_RETRIES = 3;
@@ -12,5 +12,27 @@ export function shouldRetry(failureCount: number, error: unknown): boolean {
   return failureCount < MAX_RETRIES;
 }
 
-export const createQueryClient = () =>
-  new QueryClient({ defaultOptions: { queries: { retry: shouldRetry } } });
+declare module "@tanstack/react-query" {
+  interface Register {
+    mutationMeta: {
+      /** Queries other screens derive from this data: invalidated after any successful run. */
+      invalidates?: readonly QueryKey[];
+    };
+  }
+}
+
+export function createQueryClient() {
+  const client: QueryClient = new QueryClient({
+    defaultOptions: { queries: { retry: shouldRetry } },
+    mutationCache: new MutationCache({
+      // Not awaited: the mutation settles (and runs its own cache updates) without waiting for
+      // dependent screens to refetch. The queries are marked stale synchronously.
+      onSuccess: (_data, _variables, _context, mutation) => {
+        for (const queryKey of mutation.meta?.invalidates ?? []) {
+          void client.invalidateQueries({ queryKey });
+        }
+      },
+    }),
+  });
+  return client;
+}

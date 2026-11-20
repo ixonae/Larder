@@ -5,6 +5,7 @@ import {
   formatAmount,
   hasRole,
   imageUrl,
+  type MissingIngredient,
 } from "@larder/shared";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
@@ -13,9 +14,12 @@ import { Fragment, useState } from "react";
 import { ApiError } from "@/api/client.ts";
 import { cocktailQuery } from "@/api/cocktails.ts";
 import { utensilQuery } from "@/api/utensils.ts";
+import { badge } from "@/components/badge.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
+import { Combobox } from "@/components/combobox.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { missingLabel } from "./missing-label.ts";
 
 const route = getRouteApi("/cocktails/$cocktailId");
 
@@ -72,6 +76,8 @@ function CocktailView({ bar, id }: { bar: BarSummary; id: string }) {
 function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDetail }) {
   const [servings, setServings] = useState<number>();
   const [unit, setUnit] = useState<DisplayUnit>("ml");
+  // Bottles picked while pouring, by line. Only this view remembers them; the recipe stays generic.
+  const [poured, setPoured] = useState<Record<string, string>>({});
   const count = servings ?? recipe.servings;
   const scaled = useQuery(
     cocktailQuery(barId, recipe.id, count === recipe.servings ? undefined : count),
@@ -140,6 +146,7 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
         </fieldset>
       </div>
 
+      <StockNotice missing={(scaled.data ?? recipe).missing} />
       <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-xs sm:p-5">
         <h2 className="font-semibold text-lg">Ingredients</h2>
         {scaled.isPending ? (
@@ -147,7 +154,12 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
         ) : scaled.isError ? (
           <ErrorState error={scaled.error} onRetry={() => scaled.refetch()} />
         ) : (
-          <IngredientList recipe={scaled.data} unit={unit} />
+          <IngredientList
+            recipe={scaled.data}
+            unit={unit}
+            poured={poured}
+            onPour={(lineId, productId) => setPoured({ ...poured, [lineId]: productId })}
+          />
         )}
       </section>
 
@@ -178,8 +190,41 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
   );
 }
 
-function IngredientList({ recipe, unit }: { recipe: CocktailDetail; unit: DisplayUnit }) {
+function StockNotice({ missing }: { missing: MissingIngredient[] }) {
+  if (missing.length === 0) {
+    return (
+      <p role="status" className="rounded-xl bg-brand/10 px-4 py-3 text-brand text-sm">
+        You can make this now.
+      </p>
+    );
+  }
+  return (
+    <div role="status" className="rounded-xl bg-muted px-4 py-3 text-sm">
+      <p className="font-medium">
+        Missing {missing.length} {missing.length === 1 ? "ingredient" : "ingredients"}
+      </p>
+      <ul className="list-disc pl-5 text-muted-foreground">
+        {missing.map((line) => (
+          <li key={line.id}>{missingLabel(line)}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function IngredientList({
+  recipe,
+  unit,
+  poured,
+  onPour,
+}: {
+  recipe: CocktailDetail;
+  unit: DisplayUnit;
+  poured: Record<string, string>;
+  onPour: (lineId: string, productId: string) => void;
+}) {
   const { abv, volume_ml } = recipe.computed;
+  const missing = new Set(recipe.missing.map(({ id }) => id));
   return (
     <>
       <p className="text-muted-foreground text-sm">
@@ -190,19 +235,49 @@ function IngredientList({ recipe, unit }: { recipe: CocktailDetail; unit: Displa
         <p>No ingredients yet.</p>
       ) : (
         <ul className="space-y-2">
-          {recipe.ingredients.map((line) => (
-            <li key={line.id}>
-              <strong className="font-medium">{formatAmount(line.amount, line.unit, unit)}</strong>{" "}
-              {[line, ...line.alternatives].map((source, index) => (
-                <Fragment key={source.id}>
-                  {index > 0 && " or "}
-                  {source.name}
-                  {source.note && ` (${source.note})`}
-                </Fragment>
-              ))}
-              {line.optional && " (optional)"}
-            </li>
-          ))}
+          {recipe.ingredients.map((line) => {
+            const sources = [line, ...line.alternatives];
+            // A bottle can match several sources (Gin, or London dry gin): list it once.
+            const bottles = [
+              ...new Map(
+                sources.flatMap((source) => source.matching_bottles).map((b) => [b.id, b]),
+              ).values(),
+            ];
+            return (
+              <li key={line.id} className="grid gap-1">
+                <span>
+                  <strong className="font-medium">
+                    {formatAmount(line.amount, line.unit, unit)}
+                  </strong>{" "}
+                  {sources.map((source, index) => (
+                    <Fragment key={source.id}>
+                      {index > 0 && " or "}
+                      {source.name}
+                      {source.note && ` (${source.note})`}
+                    </Fragment>
+                  ))}
+                  {line.optional && " (optional)"}
+                  {missing.has(line.id) && (
+                    <span className={badge({ tone: "destructive", className: "ml-2" })}>
+                      Missing
+                    </span>
+                  )}
+                </span>
+                {bottles.length > 0 && (
+                  <Combobox
+                    aria-label={`Use this bottle for ${line.name}`}
+                    className="max-w-xs"
+                    value={poured[line.id]}
+                    onChange={(value) => onPour(line.id, value)}
+                    options={bottles.map(({ id, name }) => ({ value: id, label: name }))}
+                    clearLabel="Any bottle"
+                    fallbackLabel="Bottle no longer in the bar"
+                    searchPlaceholder="Search bottles"
+                  />
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </>

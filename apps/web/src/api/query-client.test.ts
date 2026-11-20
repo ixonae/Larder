@@ -19,3 +19,26 @@ describe("shouldRetry", () => {
     expect(createQueryClient().getDefaultOptions().queries?.retry).toBe(shouldRetry);
   });
 });
+
+describe("mutation meta", () => {
+  it("invalidates the listed queries after a successful mutation, and only then", async () => {
+    const client = createQueryClient();
+    client.setQueryData(["derived"], 1);
+    client.setQueryData(["other"], 1);
+    const run = (fn: () => Promise<unknown>, meta?: { invalidates: string[][] }) =>
+      client
+        .getMutationCache()
+        .build(client, { mutationFn: fn, meta })
+        .execute(undefined)
+        .catch(() => undefined);
+    const stale = (key: string) => client.getQueryState([key])?.isInvalidated;
+
+    await run(() => Promise.reject(new Error("failed")), { invalidates: [["derived"]] });
+    await run(() => Promise.resolve());
+    expect(stale("derived")).toBe(false);
+
+    await run(() => Promise.resolve(), { invalidates: [["derived"]] });
+    expect(stale("derived")).toBe(true);
+    expect(stale("other")).toBe(false);
+  });
+});

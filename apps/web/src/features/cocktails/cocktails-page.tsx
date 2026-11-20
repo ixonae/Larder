@@ -1,19 +1,28 @@
-import { type BarSummary, COCKTAIL_METHODS, type Cocktail, hasRole } from "@larder/shared";
+import {
+  type BarSummary,
+  COCKTAIL_METHODS,
+  type Cocktail,
+  hasRole,
+  type MissingIngredient,
+} from "@larder/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { ChevronRight, LayoutGrid, List, Martini } from "lucide-react";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { type CocktailFilters, cocktailListQuery, cocktailTagsQuery } from "@/api/cocktails.ts";
 import { utensilOptionsQuery } from "@/api/utensils.ts";
+import { badge } from "@/components/badge.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { Combobox, type ComboboxOption } from "@/components/combobox.tsx";
 import { SearchInput } from "@/components/search-input.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Thumbnail } from "@/components/thumbnail.tsx";
+import { toggleChip } from "@/components/toggle-chip.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { categoryOptions } from "@/features/categories/category-options.tsx";
 import { useDebouncedSearch } from "@/lib/debounced-search.ts";
 import { useStoredState } from "@/lib/stored-state.ts";
+import { missingLabel } from "./missing-label.ts";
 
 const route = getRouteApi("/cocktails");
 
@@ -31,10 +40,10 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
   const barId = bar.id;
   const search: CocktailFilters = route.useSearch();
   const navigate = route.useNavigate();
-  const setFilter = (name: keyof CocktailFilters, value: string) =>
+  const setFilter = (name: keyof CocktailFilters, value: string | number | undefined) =>
     navigate({
       to: "/cocktails",
-      search: { ...search, [name]: value || undefined },
+      search: { ...search, [name]: value === "" ? undefined : value },
       replace: true,
     });
   const [q, setQ] = useDebouncedSearch(search.q ?? "", (value) => setFilter("q", value));
@@ -42,7 +51,8 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
     cocktailListQuery(barId, { ...search, q: search.q?.trim() || undefined }),
   );
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
-  const filtered = Object.values(search).some((value) => value?.trim());
+  // The router drops unset keys, so every value here is a chosen filter (or a blank search).
+  const filtered = Object.values(search).some((value) => String(value).trim());
   const [view, setView] = useStoredState(
     "larder.cocktails.view",
     VIEWS.map(({ value }) => value),
@@ -86,6 +96,10 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
           ))}
         </fieldset>
       </div>
+      <AvailabilityFilter
+        value={search.missing}
+        onChange={(value) => setFilter("missing", value)}
+      />
       <FilterOptions barId={barId} search={search} setFilter={setFilter} />
 
       {list.isPending ? (
@@ -179,7 +193,9 @@ function CocktailRow({ cocktail }: { cocktail: Cocktail }) {
           </span>
         </div>
         <span className="truncate text-muted-foreground text-sm">{ingredientList(cocktail)}</span>
+        <MissingLine missing={cocktail.missing} />
       </div>
+      <StockBadge missing={cocktail.missing} />
       <AbvBadge abv={cocktail.computed.abv} />
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
     </>
@@ -200,20 +216,69 @@ function CocktailCard({ cocktail }: { cocktail: Cocktail }) {
           <AbvBadge abv={cocktail.computed.abv} />
         </div>
         <p className="line-clamp-2 text-muted-foreground text-sm">{ingredientList(cocktail)}</p>
-        <span className="mt-auto pt-1 text-muted-foreground/80 text-xs capitalize">
-          {summary(cocktail)}
-        </span>
+        <MissingLine missing={cocktail.missing} />
+        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+          <span className="text-muted-foreground/80 text-xs capitalize">{summary(cocktail)}</span>
+          <StockBadge missing={cocktail.missing} />
+        </div>
       </div>
     </>
   );
 }
 
-function AbvBadge({ abv }: { abv: number }) {
+/** "Can make" or "Missing 2": whether the bar has every required ingredient right now. */
+function StockBadge({ missing }: { missing: MissingIngredient[] }) {
+  const ready = missing.length === 0;
   return (
-    <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground text-xs tabular-nums">
-      ≈ {Math.round(abv)}% ABV
+    <span className={badge({ tone: ready ? "brand" : "muted" })}>
+      {ready ? "Can make" : `Missing ${missing.length}`}
     </span>
   );
+}
+
+function MissingLine({ missing }: { missing: MissingIngredient[] }) {
+  if (missing.length === 0) return null;
+  return (
+    <span className="truncate text-destructive text-xs">
+      Missing: {missing.map(missingLabel).join(", ")}
+    </span>
+  );
+}
+
+/** The missing counts offered as chips; any other count still works from the URL. */
+const AVAILABILITY = [
+  { missing: undefined, label: "All" },
+  { missing: 0, label: "Can make now" },
+  { missing: 1, label: "Missing one" },
+];
+
+function AvailabilityFilter({
+  value,
+  onChange,
+}: {
+  value: number | undefined;
+  onChange: (missing: number | undefined) => void;
+}) {
+  return (
+    <fieldset aria-label="Availability" className="flex flex-wrap gap-2">
+      {AVAILABILITY.map(({ missing, label }) => (
+        <label key={label} className={toggleChip({ size: "sm" })}>
+          <input
+            type="radio"
+            name="availability"
+            className="sr-only"
+            checked={value === missing}
+            onChange={() => onChange(missing)}
+          />
+          {label}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+function AbvBadge({ abv }: { abv: number }) {
+  return <span className={badge({ className: "tabular-nums" })}>≈ {Math.round(abv)}% ABV</span>;
 }
 
 function FilterOptions({

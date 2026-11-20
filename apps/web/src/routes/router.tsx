@@ -43,6 +43,7 @@ const cocktailsSearchSchema = z.object({
   glass_id: filters.glass_id.catch(undefined),
   method: filters.method.catch(undefined),
   tag: filters.tag.catch(undefined),
+  missing: z.number().int().nonnegative().optional().catch(undefined),
 });
 
 export const routeTree = rootRoute.addChildren([

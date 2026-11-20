@@ -125,3 +125,13 @@ export function deletePantryIngredient(db: Executor, barId: string, id: string):
     .where(and(eq(pantryIngredients.bar_id, barId), eq(pantryIngredients.id, id)))
     .run();
 }
+
+/** Ids of the ingredients in stock or always available: what pantry lines can use. */
+export function listAvailablePantryIngredientIds(db: Executor, barId: string): string[] {
+  return db
+    .select({ id: pantryIngredients.id })
+    .from(pantryIngredients)
+    .where(and(eq(pantryIngredients.bar_id, barId), availability(true)))
+    .all()
+    .map(({ id }) => id);
+}

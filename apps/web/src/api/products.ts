@@ -9,6 +9,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { api, unwrap } from "./client.ts";
+import { stockMeta } from "./stock.ts";
 
 const bar = api.api.bars[":barId"];
 
@@ -53,16 +54,19 @@ export function useProductMutations(barId: string) {
   const onSuccess = () => queryClient.invalidateQueries({ queryKey: productsKey(barId) });
   return {
     create: useMutation({
+      meta: stockMeta(barId),
       mutationFn: async (json: CreateProduct) =>
         unwrap(await bar.products.$post({ param: { barId }, json })),
       onSuccess,
     }),
     update: useMutation({
+      meta: stockMeta(barId),
       mutationFn: async ({ id, json }: { id: string; json: UpdateProduct }) =>
         unwrap(await bar.products[":id"].$patch({ param: { barId, id }, json })),
       onSuccess,
     }),
     remove: useMutation({
+      meta: stockMeta(barId),
       mutationFn: async (id: string) =>
         unwrap(await bar.products[":id"].$delete({ param: { barId, id } })),
       // Everything but the deleted bottle's own page, which is still open: refetching it would only
@@ -87,6 +91,7 @@ type ListData = InfiniteData<Page<Product>, string>;
 export function useSetProductInBar(barId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: stockMeta(barId),
     mutationFn: async ({ id, in_bar }: { id: string; in_bar: boolean }) =>
       unwrap(
         await bar.products[":id"]["in-bar"].$patch({ param: { barId, id }, json: { in_bar } }),

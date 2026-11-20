@@ -15,11 +15,12 @@ const inBar = (barId: string, id: string) => and(eq(cocktails.bar_id, barId), eq
 export function listCocktails(
   db: Executor,
   barId: string,
-  { q, method, glass_id, tag, limit }: ListCocktailsQuery,
+  /** Without a `limit`, every matching row: for filters applied after the query. */
+  { q, method, glass_id, tag, limit }: Omit<ListCocktailsQuery, "limit"> & { limit?: number },
   after: NameCursor | undefined,
   spiritCategoryIds: string[] | undefined,
 ) {
-  return db
+  const rows = db
     .select({ ...columns, key: nameKey })
     .from(cocktails)
     .where(
@@ -49,8 +50,8 @@ export function listCocktails(
       ),
     )
     .orderBy(...byName(nameKey, cocktails.id))
-    .limit(limit)
-    .all();
+    .$dynamic();
+  return (limit === undefined ? rows : rows.limit(limit)).all();
 }
 
 export function findCocktail(db: Executor, barId: string, id: string) {

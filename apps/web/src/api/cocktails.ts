@@ -17,13 +17,10 @@ export type CocktailFilters = Omit<ListCocktailsQuery, "limit" | "cursor">;
 export const cocktailListQuery = (barId: string, filters: CocktailFilters) =>
   infiniteQueryOptions({
     queryKey: [...cocktailsKey(barId), "list", filters],
-    queryFn: async ({ pageParam, signal }) =>
-      unwrap(
-        await bar.cocktails.$get(
-          { param: { barId }, query: { ...filters, cursor: pageParam } },
-          { init: { signal } },
-        ),
-      ),
+    queryFn: async ({ pageParam, signal }) => {
+      const query = { ...filters, missing: filters.missing?.toString(), cursor: pageParam };
+      return unwrap(await bar.cocktails.$get({ param: { barId }, query }, { init: { signal } }));
+    },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.next_cursor ?? undefined,
     placeholderData: keepPreviousData,

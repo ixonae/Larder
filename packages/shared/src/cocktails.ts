@@ -2,6 +2,7 @@ import { z } from "zod";
 import { DESCRIPTION_MAX } from "./categories.ts";
 import { cocktailIngredientInputSchema, cocktailIngredientSchema } from "./cocktail-ingredients.ts";
 import { idSchema } from "./id.ts";
+import { missingIngredientSchema } from "./makeability.ts";
 import { pageSchema, paginationQuerySchema } from "./pagination.ts";
 import { optionalText } from "./text.ts";
 
@@ -53,6 +54,8 @@ export const cocktailSchema = fields.extend({
   created_at: z.string(),
   updated_at: z.string(),
   computed: computedCocktailSchema,
+  /** Required lines the bar cannot pour right now; empty when the cocktail can be made. */
+  missing: missingIngredientSchema.array(),
 });
 export type Cocktail = z.infer<typeof cocktailSchema>;
 export const cocktailPageSchema = pageSchema(cocktailSchema);
@@ -104,6 +107,13 @@ export const listCocktailsQuerySchema = paginationQuerySchema.extend({
   spirit: idSchema.optional(),
   /** Tag ID from GET /tags. */
   tag: idSchema.optional(),
+  /** Exactly this many required lines missing: 0 lists what the bar can make now. */
+  missing: z
+    .string()
+    .regex(/^\d+$/, "Enter a whole number")
+    .transform(Number)
+    .pipe(z.number().safe())
+    .optional(),
 });
 export type ListCocktailsQuery = z.infer<typeof listCocktailsQuerySchema>;
 

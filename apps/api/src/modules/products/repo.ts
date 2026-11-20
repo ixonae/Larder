@@ -129,3 +129,16 @@ export function deleteProduct(db: Executor, barId: string, id: string): void {
     .where(and(eq(products.bar_id, barId), eq(products.id, id)))
     .run();
 }
+
+/** Every bottle in the bar right now, by name: what generic category lines can pour from. */
+export function listInBarProducts(
+  db: Executor,
+  barId: string,
+): { id: string; name: string; category_id: string }[] {
+  return db
+    .select({ id: products.id, name: products.name, category_id: products.category_id })
+    .from(products)
+    .where(and(eq(products.bar_id, barId), eq(products.in_bar, true)))
+    .orderBy(...byName(nameKey, products.id))
+    .all();
+}
