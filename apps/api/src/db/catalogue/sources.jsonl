@@ -54,7 +54,6 @@
 {"key":"Raspberry syrup","kind":"syrup","path":["Syrup"],"type":"pantry","name":"Raspberry syrup"}
 {"key":"Egg white","kind":"other","path":["Pantry"],"type":"pantry","name":"Egg white"}
 {"key":"Raspberry","kind":"garnish","path":["Garnish"],"type":"pantry","name":"Raspberry"}
-{"key":"Cointreau","kind":"liqueur","path":["Liqueur","Orange liqueur","Triple sec"],"type":"product","name":"Cointreau","product_abv":40}
 {"key":"Lillet Blanc","kind":"wine","path":["Wine","Aromatized wine"],"type":"product","name":"Lillet Blanc","product_abv":17}
 {"key":"Absinthe","kind":"spirit","path":["Spirit","Absinthe"],"type":"category","abv":60.0}
 {"key":"Citron vodka","kind":"spirit","path":["Spirit","Vodka","Citron vodka"],"type":"category","abv":40.0}
@@ -67,7 +66,6 @@
 {"key":"Cuban rum","kind":"spirit","path":["Spirit","Rum","Cuban rum"],"type":"category","abv":40.0}
 {"key":"Passion fruit syrup","kind":"syrup","path":["Syrup"],"type":"pantry","name":"Passion fruit syrup"}
 {"key":"Passion fruit","kind":"garnish","path":["Garnish"],"type":"pantry","name":"Passion fruit"}
-{"key":"Kahlúa","kind":"liqueur","path":["Liqueur","Coffee liqueur"],"type":"product","name":"Kahlúa","product_abv":16}
 {"key":"Espresso","kind":"other","path":["Pantry"],"type":"pantry","name":"Espresso"}
 {"key":"Coffee beans","kind":"garnish","path":["Garnish"],"type":"pantry","name":"Coffee beans"}
 {"key":"Fernet-Branca","kind":"liqueur","path":["Liqueur","Amaro","Fernet"],"type":"product","name":"Fernet-Branca","product_abv":39}
@@ -106,7 +104,6 @@
 {"key":"Cocktail cherry","kind":"garnish","path":["Garnish"],"type":"pantry","name":"Cocktail cherry"}
 {"key":"Grenadine","kind":"syrup","path":["Syrup"],"type":"pantry","name":"Grenadine"}
 {"key":"Peach brandy","kind":"liqueur","path":["Liqueur","Peach brandy"],"type":"category","abv":25.0}
-{"key":"Smirnoff","kind":"spirit","path":["Spirit","Vodka"],"type":"product","name":"Smirnoff No. 21 Vodka","product_abv":40}
 {"key":"Mezcal","kind":"spirit","path":["Spirit","Mezcal"],"type":"category","abv":40.0}
 {"key":"Yellow Chartreuse","kind":"liqueur","path":["Liqueur","Herbal liqueur"],"type":"product","name":"Yellow Chartreuse","product_abv":43}
 {"key":"Aperol","kind":"liqueur","path":["Liqueur","Bitter aperitif"],"type":"product","name":"Aperol","product_abv":11}
@@ -116,7 +113,6 @@
 {"key":"Pink grapefruit soda","kind":"mixer","path":["Mixer","Pink grapefruit soda"],"type":"category"}
 {"key":"Amaro Nonino","kind":"liqueur","path":["Liqueur","Amaro"],"type":"product","name":"Amaro Nonino Quintessentia","product_abv":35}
 {"key":"Blended Scotch","kind":"spirit","path":["Spirit","Whisky","Scotch","Blended Scotch"],"type":"category","abv":40.0}
-{"key":"Lagavulin 16","kind":"spirit","path":["Spirit","Whisky","Scotch","Islay single malt"],"type":"product","name":"Lagavulin 16 Year Old","product_abv":43}
 {"key":"Candied ginger","kind":"garnish","path":["Garnish"],"type":"pantry","name":"Candied ginger"}
 {"key":"Coconut cream","kind":"other","path":["Pantry"],"type":"pantry","name":"Coconut cream"}
 {"key":"Pisco","kind":"spirit","path":["Spirit","Pisco"],"type":"category","abv":40.0}
@@ -130,11 +126,9 @@
 {"key":"Vanilla sugar","kind":"other","path":["Pantry"],"type":"pantry","name":"Vanilla sugar"}
 {"key":"Tawny port","kind":"wine","path":["Wine","Port","Tawny port"],"type":"category","abv":20.0}
 {"key":"Egg yolk","kind":"other","path":["Pantry"],"type":"pantry","name":"Egg yolk"}
-{"key":"Cinzano Rosso","kind":"wine","path":["Wine","Vermouth","Sweet vermouth"],"type":"product","name":"Cinzano Rosso","product_abv":15}
 {"key":"Cynar","kind":"liqueur","path":["Liqueur","Amaro"],"type":"product","name":"Cynar","product_abv":16.5}
 {"key":"Orange blossom water","kind":"other","path":["Pantry"],"type":"pantry","name":"Orange blossom water"}
 {"key":"Vanilla extract","kind":"other","path":["Pantry"],"type":"pantry","name":"Vanilla extract"}
-{"key":"Luxardo Sangue Morlacco","kind":"liqueur","path":["Liqueur","Cherry liqueur"],"type":"product","name":"Luxardo Sangue Morlacco","product_abv":30}
 {"key":"Sparkling wine","kind":"wine","path":["Wine","Sparkling wine"],"type":"category","abv":12.0}
 {"key":"Scotch","kind":"spirit","path":["Spirit","Whisky","Scotch"],"type":"category","abv":43.0}
 {"key":"Drambuie","kind":"liqueur","path":["Liqueur","Whisky liqueur"],"type":"product","name":"Drambuie","product_abv":40}
@@ -157,7 +151,6 @@
 {"key":"Gold Puerto Rican rum","kind":"spirit","path":["Spirit","Rum","Aged rum","Gold Puerto Rican rum"],"type":"category","abv":40.0}
 {"key":"Demerara rum","kind":"spirit","path":["Spirit","Rum","Demerara rum"],"type":"category","abv":40.0}
 {"key":"Donn’s Mix","kind":"other","path":["Pantry"],"type":"pantry","name":"Donn’s Mix"}
-{"key":"Pernod","kind":"liqueur","path":["Liqueur","Pastis"],"type":"product","name":"Pernod Anise","product_abv":40}
 {"key":"Ice","kind":"other","path":["Pantry"],"type":"pantry","name":"Ice"}
 {"key":"Green olive","kind":"garnish","path":["Garnish"],"type":"pantry","name":"Green olive"}
 {"key":"Egg","kind":"other","path":["Pantry"],"type":"pantry","name":"Egg"}
@@ -175,3 +168,6 @@
 {"key":"Cucumber","kind":"garnish","type":"pantry","path":["Garnish"],"name":"Cucumber"}
 {"key":"Strawberry","kind":"garnish","type":"pantry","path":["Garnish"],"name":"Strawberry"}
 {"key":"Grapefruit","kind":"garnish","type":"pantry","path":["Garnish"],"name":"Grapefruit"}
+{"key":"Cherry liqueur","kind":"liqueur","path":["Liqueur","Cherry liqueur"],"type":"category","abv":25.0}
+{"key":"Islay single malt","kind":"spirit","path":["Spirit","Whisky","Scotch","Islay single malt"],"type":"category","abv":43.0}
+{"key":"Brandy-based orange liqueur","kind":"liqueur","path":["Liqueur","Orange liqueur","Brandy-based orange liqueur"],"type":"category","abv":40.0}
