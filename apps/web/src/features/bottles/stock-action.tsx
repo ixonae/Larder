@@ -22,6 +22,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet.tsx";
 import { localToday } from "@/lib/dates.ts";
+import { onClosed } from "@/lib/dialog.ts";
 import { StatusBadge, statusLabel } from "./bottle-status.tsx";
 import { PurchaseSheet, type PurchaseTarget } from "./purchase-sheet.tsx";
 
@@ -153,7 +154,7 @@ function RanOutSheet({
   onClose,
 }: Readonly<{ barId: string; product: Product; open: boolean; onClose: () => void }>): JSX.Element {
   return (
-    <Sheet open={open} onOpenChange={(next: boolean): void => void (!next && onClose())}>
+    <Sheet open={open} onOpenChange={onClosed(onClose)}>
       <SheetContent className="w-full sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Ran out of {product.name}?</SheetTitle>

@@ -72,7 +72,8 @@ including coding agents.
   base image, `build(deps)` for dev dependencies and `ci(deps)` for actions.
 - Releases are cut by the manual **Release** workflow (`.github/workflows/release.yml`) on `main`, after the
   full CI workflow (lint, typecheck, coverage, build and the Docker smoke test) passes. Its tools are locked in
-  `.github/release/package-lock.json`.
+  `.github/release/package-lock.json`. Its `image` job builds and smoke-tests the image without registry
+  credentials; only the `publish` job, in the `production` environment, signs in to push that exact image.
 - Versions come from `v*` tags only; package.json versions stay `0.0.0`. Without a tag, the first release
   is `v1.0.0`. To start at 0.x instead, push a baseline tag such as `v0.1.0` on `main` first.
 

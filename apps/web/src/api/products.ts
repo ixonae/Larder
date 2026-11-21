@@ -42,7 +42,7 @@ export interface ProductFilters {
   status?: (ProductStatus | typeof NO_STATUS)[];
   country?: CountryCode;
   /** Only the viewer's favourites. */
-  favourite?: true | undefined;
+  favourite?: true;
   limit?: number;
 }
 

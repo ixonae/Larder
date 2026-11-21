@@ -240,8 +240,7 @@ function importSources(
       .all()
       .map((row) => [scopedCategoryKey(row.category_id, row.name), row.id]),
   );
-  for (const source of catalogue.sources) {
-    if (source.type === "category") continue;
+  for (const source of catalogue.sources.filter((source) => source.type !== "category")) {
     const category = ensureCategory(source);
     const category_id = category.id;
     const { name } = source;

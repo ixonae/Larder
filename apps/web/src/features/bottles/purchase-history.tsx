@@ -14,6 +14,7 @@ import { ErrorState, LoadingState } from "@/components/states.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { formatDate } from "@/lib/dates.ts";
+import { onClosed } from "@/lib/dialog.ts";
 import { PurchaseSheet, type PurchaseTarget } from "./purchase-sheet.tsx";
 
 /** "¥9,000 + $25.00": what the bottle cost, summed per currency. */
@@ -163,7 +164,7 @@ export function PurchaseHistory({
       />
       <ConfirmDialog
         open={deleting !== null}
-        onOpenChange={(open: boolean): void => void (!open && setDeleting(null))}
+        onOpenChange={onClosed((): void => setDeleting(null))}
         title="Delete this purchase?"
         description="This cannot be undone."
         onConfirm={async (): Promise<void> => {

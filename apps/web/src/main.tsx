@@ -19,7 +19,9 @@ createRoot(document.getElementById("root")!).render(
 );
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
-  void navigator.serviceWorker.register("/service-worker.js").catch((error: unknown) => {
+  try {
+    await navigator.serviceWorker.register("/service-worker.js");
+  } catch (error) {
     console.warn("Could not register Larder's service worker", error);
-  });
+  }
 }

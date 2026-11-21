@@ -32,6 +32,7 @@ import {
   categoryIdField,
 } from "@/features/categories/category-options.tsx";
 import { localToday } from "@/lib/dates.ts";
+import { onClosed } from "@/lib/dialog.ts";
 import {
   applyServerErrors,
   ComboboxField,
@@ -55,7 +56,7 @@ export type TastingTarget =
   | null;
 
 /** Statuses a tasting answers: after tasting it, the bottle is no longer only wanted. */
-const WANTED: readonly (ProductStatus | null)[] = ["want_to_buy", "want_to_try"];
+const WANTED: ReadonlySet<ProductStatus | null> = new Set(["want_to_buy", "want_to_try"]);
 
 /** The quick "Add tasting" sheet, also used to edit a tasting. */
 export function TastingSheet({
@@ -86,7 +87,7 @@ export function TastingSheet({
   const preset = target?.kind === "new" ? target.bottle : editing?.product;
   const header = shown?.kind === "edit" ? shown.tasting.product : shown?.bottle;
   return (
-    <Sheet open={target !== null} onOpenChange={(open: boolean): void => void (!open && onClose())}>
+    <Sheet open={target !== null} onOpenChange={onClosed(onClose)}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{shown?.kind === "edit" ? "Edit tasting" : "Add tasting"}</SheetTitle>
@@ -98,7 +99,7 @@ export function TastingSheet({
             editing={editing}
             preset={preset ?? null}
             onSaved={(bottle: TastingBottle): void => {
-              if (!editing && WANTED.includes(bottle.status)) suggestTasted(bottle);
+              if (!editing && WANTED.has(bottle.status)) suggestTasted(bottle);
               else toast("Tasting saved");
               onClose();
             }}

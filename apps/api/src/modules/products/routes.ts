@@ -19,11 +19,12 @@ import {
   updatePurchase,
 } from "./purchases-service.ts";
 import {
+  addFavourite,
   createProduct,
   deleteProduct,
   getProduct,
   listProducts,
-  setFavourite,
+  removeFavourite,
   updateProduct,
 } from "./service.ts";
 
@@ -48,11 +49,11 @@ export const productRoutes = new Hono<AppEnv>()
   )
   // Favourites are personal: viewers may set their own.
   .put("/:id/favourite", (c) => {
-    setFavourite(c.var.ctx, c.req.param("id"), true);
+    addFavourite(c.var.ctx, c.req.param("id"));
     return c.body(null, 204);
   })
   .delete("/:id/favourite", (c) => {
-    setFavourite(c.var.ctx, c.req.param("id"), false);
+    removeFavourite(c.var.ctx, c.req.param("id"));
     return c.body(null, 204);
   })
   .get("/:id/purchases", (c) => c.json(listPurchases(c.var.ctx, c.req.param("id"))))

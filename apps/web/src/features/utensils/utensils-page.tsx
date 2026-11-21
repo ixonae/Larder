@@ -15,6 +15,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Thumbnail } from "@/components/thumbnail.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { onClosed } from "@/lib/dialog.ts";
 import { UtensilSheet, type UtensilTarget } from "./utensil-sheet.tsx";
 
 export function UtensilsPage(): JSX.Element {
@@ -134,7 +135,7 @@ function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>): JSX.Element {
       {deleting && (
         <ConfirmDialog
           open
-          onOpenChange={(open: boolean): void => void (!open && setDeleting(null))}
+          onOpenChange={onClosed((): void => setDeleting(null))}
           title={`Delete ${deleting.name}?`}
           description="This cannot be undone."
           onConfirm={async (): Promise<void> => {

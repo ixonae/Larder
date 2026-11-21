@@ -17,6 +17,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Thumbnail } from "@/components/thumbnail.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { onClosed } from "@/lib/dialog.ts";
 import { IngredientSheet, type IngredientTarget } from "./ingredient-sheet.tsx";
 import { StockToggle } from "./stock-toggle.tsx";
 
@@ -145,7 +146,7 @@ function PantryView({ bar }: Readonly<{ bar: BarSummary }>): JSX.Element {
       {deleting && (
         <ConfirmDialog
           open
-          onOpenChange={(open: boolean): void => void (!open && setDeleting(null))}
+          onOpenChange={onClosed((): void => setDeleting(null))}
           title={`Delete ${deleting.name}?`}
           description="This cannot be undone."
           onConfirm={async (): Promise<void> => {
