@@ -1,21 +1,25 @@
 # Larder
 
-Self-hosted app to manage a home bar: bottles, utensils and glasses, cocktails with variants, ratings
-and comments.
+Larder is a self-hosted app for managing home bars. Track bottles and pantry stock, organize glassware
+and tools, and find cocktails you can make with what you have. Record tastings and share ratings and
+comments with other bar members.
 
-Status: early development. See [`AGENTS.md`](AGENTS.md) for contributor conventions.
+Larder is in early development.
 
 ## Run it with Docker
+
+Install Docker with Compose v2. From the repository root, create the data directory and configure the
+container to run as its owner.
 
 ```bash
 mkdir -p -m 700 data
 printf 'LARDER_UID=%s\nLARDER_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
 ```
 
-Larder is then on <http://127.0.0.1:3000>. Everything it stores (SQLite database and uploads) lives in
-`./data`. By default the port is bound to **127.0.0.1 only**.
+By default, Docker publishes Larder on `127.0.0.1:3000` and stores its SQLite database and uploads in
+`./data`.
 
-Settings go in a `.env` file next to `docker-compose.yml`:
+Set Docker options in the `.env` file next to `docker-compose.yml`.
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -23,7 +27,7 @@ Settings go in a `.env` file next to `docker-compose.yml`:
 | `LARDER_PORT` | `3000` | Host port |
 | `LARDER_BIND` | `127.0.0.1` | Host address the port is bound to |
 | `LARDER_DATA_DIR` | `./data` | Data directory on the host |
-| `LARDER_UID` / `LARDER_GID` | `1000` | User the container runs as; use the owner of the data directory |
+| `LARDER_UID` / `LARDER_GID` | `1000` | User and group IDs of the owner of the data directory |
 | `MAX_UPLOAD_MB` | `10` | Largest request body the API accepts |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` or `silent` |
 
@@ -38,8 +42,9 @@ docker compose run --rm --no-deps larder node apps/api/src/scripts/setup-owner.t
 docker compose up -d
 ```
 
-Sign in as `owner@larder.local`. The setup command preserves the existing owner and bar. Run it
-with `--reset` to replace the owner password and sign out all owner sessions.
+Open <http://127.0.0.1:3000> and sign in as `owner@larder.local`. The setup command preserves the
+existing owner and bar. Pass `--reset` to the setup script to replace the owner password and sign out
+all owner sessions.
 
 When using an HTTPS reverse proxy, set `LARDER_PUBLIC_URL` to the full public origin including
 `https://`. Larder uses it for invite links, Secure cookies and browser origin checks. The health
@@ -54,15 +59,15 @@ editor invitations.
 The installation admin can open **Administration** to see each user’s last sign-in, reset passwords,
 and create, disable, re-enable or delete accounts. Accounts that own bars or are credited on bar data
 can be disabled to preserve that data. Admins can also delete any bar and set the signup policy.
-Signup defaults to invite only. **Admins only** limits account
-creation to the administration page. People who already have an account can still accept an invite.
+Signup defaults to invite only. **Admins only** limits account creation to the administration page.
+People who already have an account can still accept an invite.
 
 Use **Account settings** to change your sign-in email or password. Both require your current password
 and sign out your other sessions.
 
 ## Development
 
-Requires Node 26.13.1 (see `.nvmrc`) and pnpm 12.
+Use Node 26.13.1 and pnpm 12, pinned in [`.nvmrc`](.nvmrc) and [`package.json`](package.json).
 
 Databases created before the consolidated initial migration need a fresh data directory. Set
 `DATA_DIR` for local development or `LARDER_DATA_DIR` for Docker to use a new directory and keep
@@ -74,7 +79,12 @@ bar on first startup.
 ```bash
 nvm install && nvm use
 pnpm install
-pnpm setup-owner                                  # first run only
-pnpm dev                                          # API on :3000, web app on :5173
-pnpm lint && pnpm typecheck && pnpm test:coverage  # what CI runs
+pnpm setup-owner # first run only
+pnpm dev
 ```
+
+Open <http://localhost:5173> and sign in as `owner@larder.local` with the password you set. The
+development web server proxies API requests to `127.0.0.1:3000`.
+
+CI runs `pnpm lint`, `pnpm typecheck`, `pnpm test:coverage` and `pnpm build`. Repository layout,
+coding conventions and test requirements are in [AGENTS.md](AGENTS.md).

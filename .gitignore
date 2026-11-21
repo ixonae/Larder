@@ -9,6 +9,3 @@ coverage/
 # Older development installations may still use this data directory.
 apps/api/data/
 .DS_Store
-
-# Local planning notes, not committed
-docs/implementation-plan.md
