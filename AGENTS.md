@@ -1,12 +1,15 @@
-# Larder — agent guide
+# Larder — contributor guide
 
 Larder is a self-hosted app for managing home bars. See [README.md](README.md) for setup and usage.
+This guide covers the repository layout, coding conventions and checks for anyone working on Larder,
+including coding agents.
 
 ## Commands
 
 - `pnpm install` — Node 26.13.1 (`.nvmrc`) and pnpm 12 (`packageManager`) are required.
 - `pnpm setup-owner` — create the local owner account before the first run.
 - `pnpm dev` — run the API and web app in development mode.
+- `pnpm build` — build the web app for production.
 - `pnpm lint` / `pnpm format` — Biome check / fix.
 - `pnpm typecheck` — TypeScript in every package.
 - `pnpm test` / `pnpm test:coverage` — run Vitest across the workspace with optional coverage reporting.
@@ -88,4 +91,3 @@ Larder is a self-hosted app for managing home bars. See [README.md](README.md) f
   - Private data and images require a valid session. Password resets revoke active sessions, and
     account deletion protects owned and attributed bar data.
   - Existing accounts can join a bar by invitation, and each invitation can be used once.
-  - Backup and restore preserve bar data and uploads.
