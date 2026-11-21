@@ -52,6 +52,23 @@ Larder is a self-hosted app for managing home bars. See [README.md](README.md) f
 - Pair charcoal contours with near-white highlights on the rim, sides, foot, stem and handles. Keep glass neutral and translucent. Use restrained material tones for metal and ceramic. Check the same icon at 48 px on white and black.
 - Keep the background and gaps around handles transparent. Omit cast shadows, glow, liquid, garnish, props, text and logos. Ship alpha-preserving 512 px square WebP originals under `apps/api/src/db/catalogue/glassware-icons/` or `apps/api/src/db/catalogue/tool-icons/` and 256 px copies under their `thumbnails/` subdirectories.
 
+## Commits and releases
+
+- Every commit message follows [Conventional Commits](https://www.conventionalcommits.org/) so the
+  release workflow can derive the next [semver](https://semver.org/) version: `type(scope): summary`
+  with an imperative, lower-case summary and no trailing period.
+- `feat` bumps the minor version; `fix`, `perf` and `revert` bump the patch version. A breaking change
+  uses `!` after the type (`feat(api)!: …`) or a `BREAKING CHANGE:` footer and bumps the major version.
+- `build`, `chore`, `ci`, `docs`, `refactor`, `style` and `test` do not release by themselves.
+- Keep each commit to one logical change so its type is accurate. Squash-merged PR titles follow the same
+  format, which the **PR title** workflow checks. Dependabot uses `fix(deps)` for runtime dependencies and the
+  base image, `build(deps)` for dev dependencies and `ci(deps)` for actions.
+- Releases are cut by the manual **Release** workflow (`.github/workflows/release.yml`) on `main`, after the
+  full CI workflow (lint, typecheck, coverage, build and the Docker smoke test) passes. Its tools are locked in
+  `.github/release/package-lock.json`.
+- Versions come from `v*` tags only; package.json versions stay `0.0.0`. Without a tag, the first release
+  is `v1.0.0`. To start at 0.x instead, push a baseline tag such as `v0.1.0` on `main` first.
+
 ## Testing
 
 - Backend tests make requests through `app.request()` against a real, migrated in-memory SQLite database.

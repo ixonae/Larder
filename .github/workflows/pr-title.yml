@@ -1,0 +1,27 @@
+name: PR title
+
+# Squash merges use the PR title as the commit subject, and the Release workflow derives the next
+# version from those subjects (see AGENTS.md, Commits and releases).
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  conventional-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the title follows Conventional Commits
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|perf|revert|build|chore|ci|docs|refactor|style|test)(\([a-z0-9._/-]+\))?!?: [^A-Z](.*[^.])?$'
+          if [[ ! "$TITLE" =~ $pattern ]]; then
+            echo "::error::PR title must be 'type(scope): summary' with a lower-case summary and no trailing period (got: $TITLE)."
+            exit 1
+          fi

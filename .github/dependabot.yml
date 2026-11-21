@@ -6,6 +6,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: ci
+      include: scope
     groups:
       github-actions:
         patterns: ["*"]
@@ -15,6 +18,10 @@ updates:
     directory: /docker
     schedule:
       interval: weekly
+    # Base image updates change the published image, so they cut a patch release.
+    commit-message:
+      prefix: fix
+      include: scope
     ignore:
       # Update Node release tags together with .nvmrc and package.json.
       - dependency-name: node
@@ -31,6 +38,11 @@ updates:
     schedule:
       interval: weekly
     versioning-strategy: increase
+    # Runtime dependency bumps cut a patch release; dev-only bumps do not.
+    commit-message:
+      prefix: fix
+      prefix-development: build
+      include: scope
     ignore:
       # Node types follow the Node major in .nvmrc.
       - dependency-name: "@types/node"
