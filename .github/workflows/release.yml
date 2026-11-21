@@ -59,6 +59,7 @@ jobs:
     needs: release
     if: needs.release.outputs.version != ''
     runs-on: ubuntu-latest
+    environment: production
     env:
       IMAGE: docker.io/ixonae/larder
       VERSION: ${{ needs.release.outputs.version }}
