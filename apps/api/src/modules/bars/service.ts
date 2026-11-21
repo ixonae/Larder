@@ -5,6 +5,7 @@ import {
   DEFAULT_CURRENCY,
   newId,
   type UpdateBar,
+  type UpdateBarMember,
 } from "@larder/shared";
 import { addStarterCatalogue, skipStarterCatalogue } from "../../db/catalogue/starter.ts";
 import type { Db, Executor, Tx } from "../../db/client.ts";
@@ -69,6 +70,27 @@ export async function createOwnedBar(
 
 export const barMembers = (db: Db, barId: string) => ({ members: repo.listMembers(db, barId) });
 export const barDirectory = (db: Db) => ({ bars: repo.listAllBars(db) });
+
+function requireEditableMember(db: Tx, barId: string, id: string): string {
+  const userId = parseId(id, "Bar member");
+  const role = repo.findBarForMember(db, barId, userId)?.role;
+  if (!role) throw notFound("Bar member");
+  if (role === "owner") throw conflict("The bar owner's membership cannot be changed.");
+  return userId;
+}
+
+export function updateBarMember({ db, barId }: Ctx, id: string, changes: UpdateBarMember) {
+  db.transaction(
+    (tx) => repo.updateMember(tx, barId, requireEditableMember(tx, barId, id), changes),
+    { behavior: "immediate" },
+  );
+}
+
+export function removeBarMember({ db, barId }: Ctx, id: string) {
+  db.transaction((tx) => repo.deleteMember(tx, barId, requireEditableMember(tx, barId, id)), {
+    behavior: "immediate",
+  });
+}
 
 /** The owner's changes to the bar's name and/or currency; the rest of the bar stays as it was. */
 export function updateBar({ db, barId }: Ctx, bar: BarSummary, patch: UpdateBar): BarSummary {

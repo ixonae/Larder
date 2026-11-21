@@ -59,6 +59,20 @@ describe("PUT /:entity/:id/image", () => {
     expect(bytes.byteLength).toBe(image.size_bytes);
     const thumb = await t.app.request(`/api/images/${image.id}/thumb`);
     expect(await sharp(Buffer.from(await thumb.arrayBuffer())).metadata()).toMatchObject({
+      width: 256,
+      height: 128,
+    });
+  });
+
+  it("keeps a larger thumbnail for cocktail cards", async () => {
+    const t = setup();
+    const { id } = await t.post<{ id: string }>("/cocktails", {
+      name: "Martini",
+      method: "stirred",
+    });
+    const picture = await json<Image>(await t.upload(`/cocktails/${id}`, await png()));
+    const thumb = await t.app.request(`/api/images/${picture.id}/thumb`);
+    expect(await sharp(Buffer.from(await thumb.arrayBuffer())).metadata()).toMatchObject({
       width: 400,
       height: 200,
     });
@@ -115,6 +129,32 @@ describe("PUT /:entity/:id/image", () => {
     else expect(error.message).toBe("Could not read this picture");
     expect(t.imageCount()).toBe(0);
     expect(existsSync(join(t.uploads, t.alice.barId))).toBe(false);
+  });
+
+  it("offers JPEG when a HEIC or HEIF replacement cannot be read and keeps the existing picture", async () => {
+    const t = setup();
+    const bottle = await t.product();
+    const path = `/products/${bottle.id}`;
+    const first = await json<Image>(await t.upload(path, await png(100, 50)));
+    for (const type of ["image/heic", "image/heif"]) {
+      const res = await t.upload(path, "unreadable photo", type);
+      expect(res.status).toBe(400);
+      expect(await errorOf(res)).toMatchObject({
+        code: "VALIDATION",
+        message: "Could not read this HEIC photo. Try a JPEG copy.",
+      });
+    }
+    expect(await json<Product>(await t.app.request(`${t.bar}${path}`))).toMatchObject({
+      image_id: first.id,
+    });
+    const jpeg = await sharp(await png(100, 50))
+      .jpeg()
+      .toBuffer();
+    const replacement = await t.upload(path, jpeg, "image/jpeg");
+    expect(replacement.status).toBe(200);
+    const saved = await json<Image>(replacement);
+    expect(saved.id).not.toBe(first.id);
+    expect(t.files()).toEqual([`${saved.id}-thumb.webp`, `${saved.id}.webp`]);
   });
 
   it("refuses a form without a file", async () => {

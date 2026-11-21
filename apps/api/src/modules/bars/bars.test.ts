@@ -1,8 +1,14 @@
-import { type BarSummary, CURRENCY_CODES, type Me } from "@larder/shared";
+import { type BarSummary, barMembersSchema, CURRENCY_CODES, type Me } from "@larder/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { barMembers, bars } from "../../db/schema/index.ts";
-import { createTestApp, errorOf, readJson as json, jsonRequest } from "../../test/app.ts";
+import {
+  cookieFor,
+  createTestApp,
+  errorOf,
+  readJson as json,
+  jsonRequest,
+} from "../../test/app.ts";
 
 const currencyOf = (t: ReturnType<typeof createTestApp>, barId: string) =>
   t.db.select({ currency: bars.currency }).from(bars).where(eq(bars.id, barId)).get()?.currency;
@@ -108,5 +114,72 @@ describe("bar currency", () => {
     await t.app.request(`/api/bars/${t.alice.barId}`, jsonRequest("PATCH", { currency: "GBP" }));
     expect(currencyOf(t, t.alice.barId)).toBe("GBP");
     expect(currencyOf(t, t.bob.barId)).toBe("JPY");
+  });
+});
+
+describe("bar member management", () => {
+  it("changes the member's permissions for their existing session and removes only this bar's access", async () => {
+    const t = createTestApp();
+    const bar = `/api/bars/${t.alice.barId}`;
+    const member = `${bar}/members/${t.bob.userId}`;
+    const session = cookieFor(t.db, t.bob.userId);
+    const asBob = (path: string, method = "GET", body?: unknown) =>
+      t.app.request(path, jsonRequest(method, body, session));
+    const changeRole = (role: string) => t.app.request(member, jsonRequest("PATCH", { role }));
+    t.db
+      .insert(barMembers)
+      .values({ bar_id: t.alice.barId, user_id: t.bob.userId, role: "viewer" })
+      .run();
+
+    const glass = { name: "Bob's glass", kind: "glass" };
+    expect((await asBob(`${bar}/utensils`, "POST", glass)).status).toBe(403);
+    expect((await changeRole("editor")).status).toBe(204);
+    const edit = await asBob(`${bar}/utensils`, "POST", glass);
+    expect(edit.status).toBe(201);
+    const { id } = await json<{ id: string }>(edit);
+    const list = barMembersSchema.parse(await (await t.app.request(`${bar}/members`)).json());
+    expect(list.members).toContainEqual({ id: t.bob.userId, display_name: "Bob", role: "editor" });
+    expect((await changeRole("viewer")).status).toBe(204);
+    expect((await asBob(`${bar}/utensils/${id}`, "PATCH", { name: "Coupe" })).status).toBe(403);
+    expect((await asBob(`${bar}/utensils/${id}`)).status).toBe(200);
+
+    expect((await t.app.request(member, jsonRequest("DELETE"))).status).toBe(204);
+    expect((await asBob(`${bar}/utensils/${id}`)).status).toBe(403);
+    const me = await json<Me>(await asBob("/api/me"));
+    expect(me.bars.map(({ id }) => id)).toEqual([t.bob.barId]);
+    expect((await asBob(`/api/bars/${t.bob.barId}`)).status).toBe(200);
+    expect(await json(await t.app.request(`${bar}/utensils/${id}`))).toMatchObject(glass);
+  });
+
+  it("refuses edits outside the bar, edits from non-owners, and changes to the owner", async () => {
+    const t = createTestApp();
+    const members = `/api/bars/${t.alice.barId}/members`;
+    const owner = `${members}/${t.alice.userId}`;
+    const member = `${members}/${t.bob.userId}`;
+    const patch = jsonRequest("PATCH", { role: "editor" });
+    const remove = jsonRequest("DELETE");
+    expect((await t.app.request(member, patch)).status).toBe(404);
+    expect((await t.app.request(member, remove)).status).toBe(404);
+    expect((await t.app.request(owner, patch)).status).toBe(409);
+    expect((await t.app.request(owner, remove)).status).toBe(409);
+    const otherBar = `/api/bars/${t.bob.barId}/members/${t.bob.userId}`;
+    expect((await t.app.request(otherBar, patch)).status).toBe(403);
+    expect((await t.app.request(otherBar, remove)).status).toBe(403);
+
+    const session = cookieFor(t.db, t.bob.userId);
+    for (const role of ["viewer", "editor"] as const) {
+      t.db
+        .insert(barMembers)
+        .values({ bar_id: t.alice.barId, user_id: t.bob.userId, role })
+        .onConflictDoUpdate({ target: [barMembers.bar_id, barMembers.user_id], set: { role } })
+        .run();
+      expect(
+        (await t.app.request(member, jsonRequest("PATCH", { role: "editor" }, session))).status,
+      ).toBe(403);
+      expect((await t.app.request(member, jsonRequest("DELETE", undefined, session))).status).toBe(
+        403,
+      );
+    }
+    expect((await t.app.request(member, jsonRequest("PATCH", { role: "owner" }))).status).toBe(400);
   });
 });

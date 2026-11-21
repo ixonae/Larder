@@ -53,8 +53,9 @@ check at `/api/health` is public.
 ### Bars and accounts
 
 Open **Bars** from the current bar name. You can start an empty bar or add the starter recipes and
-catalogue. Bar owners can rename or delete their bars and share or revoke single-use viewer and
-editor invitations.
+catalogue. Bar owners can rename or delete their bars, switch members between viewer and editor,
+remove members, and share or revoke single-use viewer and editor invitations. Removed members lose
+access to that bar, but what they added stays.
 
 The installation admin can open **Administration** to see each user’s last sign-in, reset passwords,
 and create, disable, re-enable or delete accounts. Accounts that own bars or are credited on bar data

@@ -1,4 +1,4 @@
-import type { AdminBar, BarMember, CurrencyCode, Role } from "@larder/shared";
+import type { AdminBar, BarMember, CurrencyCode, Role, UpdateBarMember } from "@larder/shared";
 import { and, eq, sql } from "drizzle-orm";
 import type { Db, Executor, Tx } from "../../db/client.ts";
 import { barMembers, bars, images, users } from "../../db/schema/index.ts";
@@ -40,6 +40,19 @@ export function listMembers(db: Db, barId: string): BarMember[] {
     .where(eq(barMembers.bar_id, barId))
     .orderBy(sql`larder_name_key(${users.display_name})`, users.id)
     .all();
+}
+
+export function updateMember(db: Tx, barId: string, userId: string, changes: UpdateBarMember) {
+  db.update(barMembers)
+    .set(changes)
+    .where(and(eq(barMembers.bar_id, barId), eq(barMembers.user_id, userId)))
+    .run();
+}
+
+export function deleteMember(db: Tx, barId: string, userId: string) {
+  db.delete(barMembers)
+    .where(and(eq(barMembers.bar_id, barId), eq(barMembers.user_id, userId)))
+    .run();
 }
 
 export function listAllBars(db: Db): AdminBar[] {

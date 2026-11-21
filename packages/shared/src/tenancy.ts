@@ -58,6 +58,8 @@ export const deleteBarSchema = z.object({ name: z.string().min(1) });
 export const barMemberSchema = authorSchema.extend({ role: roleSchema });
 export type BarMember = z.infer<typeof barMemberSchema>;
 export const barMembersSchema = z.object({ members: z.array(barMemberSchema) });
+export const updateBarMemberSchema = z.object({ role: roleSchema.exclude(["owner"]) });
+export type UpdateBarMember = z.output<typeof updateBarMemberSchema>;
 
 export const adminUserSchema = userSchema.extend({
   disabled: z.boolean(),

@@ -1,9 +1,8 @@
-import { type BarSummary, type CreateBar, createBarSchema, DEFAULT_CURRENCY } from "@larder/shared";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type CreateBar, createBarSchema, DEFAULT_CURRENCY } from "@larder/shared";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/api/client.ts";
 import { meQuery } from "@/api/queries.ts";
 import { currencyLabel, currencyPicker } from "@/components/currency-options.ts";
-import { ErrorState, LoadingState } from "@/components/states.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { ComboboxField, FormError, FormField, useZodForm } from "@/lib/form.tsx";
@@ -11,6 +10,7 @@ import { useSignedIn } from "./active-bar.tsx";
 import { ChangeCurrencyButton } from "./bar-currency.tsx";
 import { DeleteBarButton } from "./delete-bar.tsx";
 import { InvitationManager } from "./invitation-manager.tsx";
+import { Members } from "./members.tsx";
 import { RenameBarButton } from "./rename-bar.tsx";
 
 export function BarsPage() {
@@ -82,7 +82,7 @@ export function BarsPage() {
               <div>
                 <dt className="font-medium">Bar owner</dt>
                 <dd className="text-muted-foreground">
-                  Can edit bar data, manage invitations, and delete their bar.
+                  Can edit bar data, manage members and invitations, and delete their bar.
                 </dd>
               </div>
               <div>
@@ -158,30 +158,5 @@ function NewBarForm({ onCreate }: Readonly<{ onCreate: (id: string) => Promise<v
         Create bar
       </Button>
     </form>
-  );
-}
-
-function Members({ bar }: Readonly<{ bar: BarSummary }>) {
-  const result = useQuery({
-    queryKey: ["bars", bar.id, "members"],
-    queryFn: async () =>
-      unwrap(await api.api.bars[":barId"].members.$get({ param: { barId: bar.id } })),
-  });
-  return (
-    <section className="grid gap-3 rounded-xl border bg-card p-4 sm:p-5">
-      <h2 className="break-words text-xl">Members of {bar.name}</h2>
-      {result.isPending && <LoadingState />}
-      {result.isError && <ErrorState error={result.error} onRetry={() => result.refetch()} />}
-      {result.data && (
-        <ul className="divide-y">
-          {result.data.members.map((member) => (
-            <li key={member.id} className="flex justify-between gap-2 py-2">
-              <span className="min-w-0 break-words">{member.display_name}</span>
-              <span className="text-muted-foreground text-sm capitalize">{member.role}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }

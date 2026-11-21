@@ -1,4 +1,4 @@
-import type { BarSummary, PendingInvitation } from "@larder/shared";
+import type { BarMember, BarSummary, PendingInvitation } from "@larder/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
@@ -35,6 +35,9 @@ it("switches bars, remembers the selection, and applies the new role to the UI",
       HttpResponse.json({ ...meFixture, bars: [...meFixture.bars, second] }),
     ),
     http.get(`/api/bars/${second.id}/cocktails`, () => page([])),
+    http.get(`/api/bars/${second.id}/members`, () =>
+      HttpResponse.json({ members: [{ id: pending.id, display_name: "Alex", role: "editor" }] }),
+    ),
   );
   const view = renderWithProviders("/cocktails");
   await view.user.click(await screen.findByRole("link", { name: "Manage bars" }));
@@ -46,6 +49,9 @@ it("switches bars, remembers the selection, and applies the new role to the UI",
   view.unmount();
   renderWithProviders("/bars");
   expect(await screen.findByRole("heading", { name: "Members of Patio" })).toBeVisible();
+  expect(await screen.findByText("Alex")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Make Alex viewer" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Remove Alex" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Create invite link" })).not.toBeInTheDocument();
 });
 
@@ -123,6 +129,49 @@ it("shows bar members and lets owners issue and revoke an invitation", async () 
   await user.click(revoke);
   await waitFor(() => expect(screen.queryByLabelText("Invitation link")).not.toBeInTheDocument());
   expect(screen.queryByRole("button", { name: "Revoke" })).not.toBeInTheDocument();
+});
+
+it("lets an owner change roles and confirm removal of a member", async () => {
+  const barOwner: BarMember = { id: meFixture.user.id, display_name: "Owner", role: "owner" };
+  const alex: BarMember = { id: pending.id, display_name: "Alex", role: "viewer" };
+  const member = `${members}/${alex.id}`;
+  let removed = false;
+  const roleChanges: unknown[] = [];
+  server.use(
+    http.get(members, () =>
+      HttpResponse.json({ members: removed ? [barOwner] : [barOwner, alex] }),
+    ),
+    http.patch(member, () => failure("INTERNAL", 500, "Role change failed"), { once: true }),
+    http.patch(member, async ({ request }) => {
+      roleChanges.push(await request.json());
+      alex.role = alex.role === "viewer" ? "editor" : "viewer";
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.delete(member, () => {
+      removed = true;
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+  const { user } = renderWithProviders("/bars");
+  const makeEditor = await screen.findByRole("button", { name: "Make Alex editor" });
+  expect(screen.queryByRole("button", { name: "Remove Owner" })).not.toBeInTheDocument();
+  await user.click(makeEditor);
+  expect(await screen.findByText("Role change failed")).toBeVisible();
+  await user.click(makeEditor);
+  await user.click(await screen.findByRole("button", { name: "Make Alex viewer" }));
+  expect(await screen.findByRole("button", { name: "Make Alex editor" })).toBeEnabled();
+  expect(roleChanges).toEqual([{ role: "editor" }, { role: "viewer" }]);
+
+  const remove = screen.getByRole("button", { name: "Remove Alex" });
+  await user.click(remove);
+  let dialog = await screen.findByRole("alertdialog", { name: "Remove Alex?" });
+  await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(remove).toBeVisible();
+  await user.click(remove);
+  dialog = await screen.findByRole("alertdialog", { name: "Remove Alex?" });
+  await user.click(within(dialog).getByRole("button", { name: "Remove member" }));
+  await waitFor(() => expect(remove).not.toBeInTheDocument());
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 });
 
 it("shows a clear error for an invalid or unavailable invitation", async () => {

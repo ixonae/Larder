@@ -20,9 +20,10 @@ export const IMAGE_ENTITIES = [
 ] as const;
 export type ImageEntity = (typeof IMAGE_ENTITIES)[number];
 
-/** Longest side of the stored picture and of its thumbnail, in pixels. */
+/** Longest sides in pixels. Cocktail cards use larger thumbnails than inventory rows. */
 export const IMAGE_MAX_SIDE = 1600;
-export const THUMB_MAX_SIDE = 400;
+export const THUMB_MAX_SIDE = 256;
+export const COCKTAIL_THUMB_MAX_SIDE = 400;
 
 /** A stored picture. Its file never changes: a replacement is a new image with a new id. */
 export const imageSchema = z.object({

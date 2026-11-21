@@ -12,34 +12,45 @@ export interface ProcessedImage {
   height: number;
 }
 
-const unreadable = () =>
-  invalid("Could not read this picture", [
-    { path: ["file"], message: "Could not read this picture" },
-  ]);
+export interface ImageOptions {
+  mime?: string;
+  thumbnailSide?: number;
+}
 
-/**
- * Re-encodes an upload to WebP at most `IMAGE_MAX_SIDE` pixels, plus a `THUMB_MAX_SIDE` thumbnail.
- * Turned upright from its EXIF orientation first; the output keeps no metadata (sharp's default).
- */
-export async function processImage(input: Uint8Array): Promise<ProcessedImage> {
+/** Re-encodes the detail image and a smaller thumbnail to WebP, oriented and without metadata. */
+export async function processImage(
+  input: Uint8Array,
+  { mime, thumbnailSide = THUMB_MAX_SIDE }: ImageOptions = {},
+): Promise<ProcessedImage> {
+  let format: string | undefined;
+  // The declared type covers a HEIC whose header cannot be read; the detected one covers a mislabelled file.
+  const unreadable = () => {
+    const message =
+      mime === "image/heic" || mime === "image/heif" || format === "heif"
+        ? "Could not read this HEIC photo. Try a JPEG copy."
+        : "Could not read this picture";
+    return invalid(message, [{ path: ["file"], message }]);
+  };
   // One decoder for the header check and both sizes; each output is a clone of it.
   const source = sharp(input);
-  let format: string | undefined;
   try {
     format = (await source.metadata()).format;
   } catch {
     throw unreadable();
   }
   if (!READABLE.has(format)) throw unreadable();
-  const encode = (side: number) =>
+  const encode = (side: number, quality: number) =>
     source
       .clone()
       .rotate()
       .resize({ width: side, height: side, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 82 })
+      .webp({ quality })
       .toBuffer({ resolveWithObject: true });
   try {
-    const [full, thumb] = await Promise.all([encode(IMAGE_MAX_SIDE), encode(THUMB_MAX_SIDE)]);
+    const [full, thumb] = await Promise.all([
+      encode(IMAGE_MAX_SIDE, 82),
+      encode(thumbnailSide, 75),
+    ]);
     return { full: full.data, thumb: thumb.data, width: full.info.width, height: full.info.height };
   } catch {
     // Some files pass the header check but fail to decode (truncated, or HEIC without an HEVC decoder).

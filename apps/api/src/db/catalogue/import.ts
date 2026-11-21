@@ -1,6 +1,7 @@
 import {
   type Category,
   type CategoryKind,
+  COCKTAIL_THUMB_MAX_SIDE,
   categoryKindSchema,
   createCocktailSchema,
   createPantryIngredientSchema,
@@ -406,7 +407,9 @@ export async function withCataloguePictures(
       const prepared = !(picture instanceof Uint8Array);
       const pending = prepared
         ? (preparedPictures.get(picture) ?? stagePreparedImage(ctx, picture))
-        : stageImage(ctx, picture);
+        : stageImage(ctx, picture, {
+            thumbnailSide: key.startsWith("cocktail:") ? COCKTAIL_THUMB_MAX_SIDE : undefined,
+          });
       // Stage one image at a time to bound encoding and file writes during catalogue import.
       const image = await pending; // NOSONAR
       if (prepared) preparedPictures.set(picture, image);

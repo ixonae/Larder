@@ -94,6 +94,7 @@ describe("pictures in lists and pages", () => {
     expect([...thumbs].map((img) => img.getAttribute("src"))).toEqual([
       `/api/images/${IMAGE}/thumb`,
     ]);
+    expect(thumbs[0]).toHaveAttribute("loading", "lazy");
     await user.click(screen.getByRole("link", { name: "Hendrick's" }));
     expect(await screen.findByRole("img", { name: "Hendrick's" })).toHaveAttribute(
       "src",
@@ -135,7 +136,7 @@ describe("ImageUpload", () => {
     const { user, sheet } = await openSheet("Hendrick's");
     expect(within(sheet).getByRole("img", { name: "Preview" })).toHaveAttribute(
       "src",
-      `/api/images/${IMAGE}`,
+      `/api/images/${IMAGE}/thumb`,
     );
     await user.click(within(sheet).getByRole("button", { name: "Remove" }));
     expect(within(sheet).getByRole("button", { name: "Add picture" })).toBeInTheDocument();
@@ -157,14 +158,17 @@ describe("ImageUpload", () => {
   });
 
   it("keeps the bottle saved and says so when the upload fails", async () => {
-    server.use(
-      http.put(`${url}/:id/image`, () => failure("VALIDATION", 400, "Could not read this picture")),
-    );
+    const message = "Could not read this HEIC photo. Try a JPEG copy.";
+    server.use(http.put(`${url}/:id/image`, () => failure("VALIDATION", 400, message)));
     const { user, sheet } = await openSheet("Tanqueray");
-    await user.upload(within(sheet).getByLabelText("Picture"), photo());
+    const picture = within(sheet).getByLabelText("Picture");
+    expect(picture).toHaveAccessibleDescription(
+      "If an iPhone photo fails to upload, try a JPEG copy.",
+    );
+    await user.upload(picture, new File(["heic"], "lime.heic", { type: "image/heic" }));
     await user.click(within(sheet).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Could not save the picture")).toBeInTheDocument();
-    expect(screen.getByText("Could not read this picture")).toBeInTheDocument();
+    expect(screen.getByText(message)).toBeInTheDocument();
     expect(screen.queryByText("Bottle saved")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });

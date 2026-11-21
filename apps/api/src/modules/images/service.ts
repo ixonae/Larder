@@ -1,7 +1,7 @@
-import { type Image, type ImageEntity, newId } from "@larder/shared";
+import { COCKTAIL_THUMB_MAX_SIDE, type Image, type ImageEntity, newId } from "@larder/shared";
 import type { Db, Executor } from "../../db/client.ts";
 import { notFound, parseId } from "../../errors.ts";
-import { type ProcessedImage, processImage } from "../../storage/process.ts";
+import { type ImageOptions, type ProcessedImage, processImage } from "../../storage/process.ts";
 import type { ImageStorage } from "../../storage/storage.ts";
 import type { Ctx } from "../../types.ts";
 import { findBarForMember } from "../bars/repo.ts";
@@ -97,8 +97,12 @@ export async function stagePreparedImage(
 }
 
 /** Process an uploaded picture and stage both resulting files. */
-export async function stageImage(ctx: Pick<Ctx, "barId" | "userId" | "storage">, data: Uint8Array) {
-  return stagePreparedImage(ctx, await processImage(data));
+export async function stageImage(
+  ctx: Pick<Ctx, "barId" | "userId" | "storage">,
+  data: Uint8Array,
+  options?: ImageOptions,
+) {
+  return stagePreparedImage(ctx, await processImage(data, options));
 }
 
 /**
@@ -114,7 +118,10 @@ export async function uploadImage(
 ): Promise<Image> {
   const ownerId = parseId(id, LABEL[entity]);
   requireOwner(ctx.db, entity, ctx.barId, ownerId);
-  const staged = await stageImage(ctx, new Uint8Array(await file.arrayBuffer()));
+  const staged = await stageImage(ctx, new Uint8Array(await file.arrayBuffer()), {
+    mime: file.type,
+    thumbnailSide: entity === "cocktails" ? COCKTAIL_THUMB_MAX_SIDE : undefined,
+  });
   let result: { image: repo.StoredImage; replaced: Files | undefined };
   try {
     result = ctx.db.transaction((tx) => {

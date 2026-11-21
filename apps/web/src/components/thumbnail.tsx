@@ -28,5 +28,7 @@ export function Thumbnail({
     );
   }
   // Decorative next to the item's name; lazy so long lists only load what is on screen.
-  return <img src={imageUrl(imageId, "thumb")} alt="" loading="lazy" className={box} />;
+  return (
+    <img src={imageUrl(imageId, "thumb")} alt="" loading="lazy" decoding="async" className={box} />
+  );
 }

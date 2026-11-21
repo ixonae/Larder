@@ -145,7 +145,7 @@ describe("PantryPage", () => {
     await user.click(screen.getByRole("button", { name: "Edit Lemon" }));
     expect(await screen.findByRole("img", { name: "Preview" })).toHaveAttribute(
       "src",
-      imageUrl(imageId),
+      imageUrl(imageId, "thumb"),
     );
     await user.click(screen.getByRole("button", { name: "Remove" }));
     await user.click(screen.getByRole("button", { name: "Save" }));

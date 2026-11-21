@@ -776,6 +776,9 @@ it("can use a separate catalogue to import into a single bar and serve its bundl
   const bytes = await sharp({ create: { width: 10, height: 10, channels: 3, background: "red" } })
     .png()
     .toBuffer();
+  const wide = await sharp({ create: { width: 1000, height: 500, channels: 3, background: "red" } })
+    .png()
+    .toBuffer();
   const pack: Catalogue = {
     ...sample,
     categories: [
@@ -789,9 +792,9 @@ it("can use a separate catalogue to import into a single bar and serve its bundl
       [categoryPictureKey(["Spirit", "Gin"]), bytes],
       [categoryPictureKey(["Wine", "A/B"]), bytes],
       [categoryPictureKey(["Wine", "A", "B"]), bytes],
-      ["product:New bottle", bytes],
+      ["product:New bottle", wide],
       ["glass:New glass", bytes],
-      ["cocktail:new-recipe", bytes],
+      ["cocktail:new-recipe", wide],
       ["cocktail:unused", bytes],
     ]),
   };
@@ -825,6 +828,14 @@ it("can use a separate catalogue to import into a single bar and serve its bundl
     expect(full.headers.get("content-type")).toBe("image/webp");
     expect(thumb.status).toBe(200);
   }
+  const thumbWidth = async (imageId: string | null | undefined) =>
+    (
+      await sharp(
+        Buffer.from(await (await app.request(`/api/images/${imageId}/thumb`)).arrayBuffer()),
+      ).metadata()
+    ).width;
+  expect(await thumbWidth(recipe?.image_id)).toBe(400);
+  expect(await thumbWidth(bottle?.image_id)).toBe(256);
   await importCatalogue(db, storage, alice.barId, { ...pack, id: "sample-v2" });
   expect(db.select().from(images).all()).toEqual(saved);
 });

@@ -2,6 +2,7 @@ import {
   createBarSchema,
   createInvitationSchema,
   deleteBarSchema,
+  updateBarMemberSchema,
   updateBarSchema,
 } from "@larder/shared";
 import { Hono } from "hono";
@@ -18,7 +19,14 @@ import { productRoutes } from "../products/routes.ts";
 import { productTastingRoutes, tastingRoutes } from "../tastings/routes.ts";
 import { utensilRoutes } from "../utensils/routes.ts";
 
-import { barMembers, createOwnedBar, removeBar, updateBar } from "./service.ts";
+import {
+  barMembers,
+  createOwnedBar,
+  removeBar,
+  removeBarMember,
+  updateBar,
+  updateBarMember,
+} from "./service.ts";
 
 export const barDirectoryRoutes = new Hono<AppEnv>().post(
   "/",
@@ -41,6 +49,14 @@ export const barRoutes = new Hono<AppEnv>()
     return c.body(null, 204);
   })
   .get("/members", (c) => c.json(barMembers(c.var.db, c.var.ctx.barId)))
+  .patch("/members/:id", requireRole("owner"), validate("json", updateBarMemberSchema), (c) => {
+    updateBarMember(c.var.ctx, c.req.param("id"), c.req.valid("json"));
+    return c.body(null, 204);
+  })
+  .delete("/members/:id", requireRole("owner"), (c) => {
+    removeBarMember(c.var.ctx, c.req.param("id"));
+    return c.body(null, 204);
+  })
   .get("/invitations", requireRole("owner"), (c) => c.json(pendingInvitations(c.var.ctx)))
   .post("/invitations", requireRole("owner"), validate("json", createInvitationSchema), (c) => {
     const { token, ...summary } = invite(c.var.ctx, c.req.valid("json").role);

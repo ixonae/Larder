@@ -39,7 +39,7 @@ export function ImageUpload({
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const preview = usePreview(value.kind === "replace" ? value.file : null);
-  const shown = preview ?? (value.kind === "keep" && imageId ? imageUrl(imageId) : null);
+  const shown = preview ?? (value.kind === "keep" && imageId ? imageUrl(imageId, "thumb") : null);
 
   return (
     <div className="grid gap-1.5">
@@ -75,10 +75,14 @@ export function ImageUpload({
           )}
         </div>
       </div>
+      <p id={`${id}-formats`} className="text-muted-foreground text-xs">
+        If an iPhone photo fails to upload, try a JPEG copy.
+      </p>
       <input
         ref={input}
         id={id}
         type="file"
+        aria-describedby={`${id}-formats`}
         accept={IMAGE_MIME_TYPES.join(",")}
         className="sr-only"
         tabIndex={-1}
