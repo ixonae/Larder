@@ -12,13 +12,13 @@ export function CommentForm({
   submitLabel,
   onSubmit,
   onCancel,
-}: {
+}: Readonly<{
   initial: CommentInput;
   label: string;
   submitLabel: string;
   onSubmit: (input: CommentInput) => Promise<unknown>;
   onCancel?: () => void;
-}): ReactElement {
+}>): ReactElement {
   const form = useZodForm(commentInputSchema, { mode: "onChange", defaultValues: initial });
   const [error, setError] = useState<Error | null>(null);
   const isPrivate = form.watch("is_private");

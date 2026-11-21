@@ -68,7 +68,7 @@ export interface ComboboxProps {
   className?: string;
   "aria-label"?: string;
   "aria-invalid"?: boolean;
-  "aria-describedby"?: string | undefined;
+  "aria-describedby"?: string;
 }
 
 /** A select with a search box: a button that opens a filterable list in a popover. */
@@ -86,18 +86,15 @@ export function Combobox({
   footer,
   className,
   ...trigger
-}: ComboboxProps) {
+}: Readonly<ComboboxProps>) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const text = search?.text ?? query;
   const setText = search?.onChange ?? setQuery;
   const value = given ?? "";
   const selected = options.find((option) => option.value === value);
-  const label = selected
-    ? optionPath(selected)
-    : value
-      ? (fallbackLabel ?? placeholder)
-      : (clearLabel ?? placeholder);
+  const unselectedLabel = value ? fallbackLabel : clearLabel;
+  const label = selected ? optionPath(selected) : (unselectedLabel ?? placeholder);
   // While searching, a tree is shown flat with full paths, so each result says where it sits.
   const searching = text.trim() !== "";
   const groups = new Map<string, ComboboxOption[]>();
@@ -200,15 +197,15 @@ function Item({
   depth = 0,
   active,
   onSelect,
-}: {
+}: Readonly<{
   value: string;
   label: string;
-  context?: string | undefined;
+  context?: string;
   keyword?: string;
-  depth?: number | undefined;
+  depth?: number;
   active: boolean;
   onSelect: (value: string, label: string) => void;
-}) {
+}>) {
   return (
     <CommandItem
       // cmdk needs a unique id per item; matching uses the folded keyword, not this id.

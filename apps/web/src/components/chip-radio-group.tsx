@@ -20,7 +20,7 @@ export function ChipRadioGroup<T extends string | number | boolean | undefined>(
   return (
     <fieldset aria-label={label} className="flex flex-wrap gap-2">
       {options.map(
-        ({ value: optionValue, label: optionLabel, icon: Icon }: ChipOption<T>): ReactElement => (
+        ({ value: optionValue, label: optionLabel, icon: Icon }): ReactElement => (
           <label key={String(optionValue)} className={toggleChip({ size: "sm" })}>
             <input
               type="radio"

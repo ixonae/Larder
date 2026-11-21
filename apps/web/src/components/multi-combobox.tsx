@@ -37,7 +37,7 @@ export function MultiCombobox({
   options,
   fallbackLabel,
   searchPlaceholder,
-}: MultiComboboxProps): ReactElement {
+}: Readonly<MultiComboboxProps>): ReactElement {
   const [open, setOpen] = useState(false);
   const names: string[] = values.map(
     (value) => options.find((option) => option.value === value)?.label ?? fallbackLabel,

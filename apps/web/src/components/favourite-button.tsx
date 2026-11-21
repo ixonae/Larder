@@ -8,12 +8,12 @@ export function FavouriteButton({
   onToggle,
   className,
   disabled,
-}: {
+}: Readonly<{
   favourite: boolean;
   onToggle: (favourite: boolean) => void;
   className?: string;
   disabled?: boolean;
-}): ReactElement {
+}>): ReactElement {
   return (
     <button
       type="button"

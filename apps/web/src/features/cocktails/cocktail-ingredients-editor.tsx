@@ -105,11 +105,11 @@ function Ingredient({
   form,
   catalogue,
   index,
-}: {
+}: Readonly<{
   form: CocktailForm;
   catalogue: IngredientCatalogue;
   index: number;
-}) {
+}>) {
   const path = `ingredients.${index}` as const;
   const alternatives = useFieldArray({ control: form.control, name: `${path}.alternatives` });
   const [amount, unit] = useWatch({
@@ -139,7 +139,7 @@ function Ingredient({
       <div className="flex flex-wrap gap-2">
         <label className={toggleChip({ size: "sm" })}>
           <input type="checkbox" className="sr-only" {...form.register(`${path}.optional`)} />
-          Optional
+          <span>Optional</span>
         </label>
         <label className={toggleChip({ size: "sm" })} title="For example, a glass rinse">
           <input
@@ -147,7 +147,7 @@ function Ingredient({
             className="sr-only"
             {...form.register(`${path}.preparation_only`)}
           />
-          Preparation only
+          <span>Preparation only</span>
         </label>
       </div>
       {alternatives.fields.map(({ id }, alternativeIndex) => {
@@ -196,12 +196,12 @@ function SourceField({
   catalogue,
   path,
   label,
-}: {
+}: Readonly<{
   form: CocktailForm;
   catalogue: IngredientCatalogue;
   path: PreparationPath;
   label: string;
-}) {
+}>) {
   return (
     <FormField form={form} name={`${path}.source`} label={label}>
       {(control) => (
@@ -217,7 +217,7 @@ function SourceField({
   );
 }
 
-function NoteField({ form, path }: { form: CocktailForm; path: PreparationPath }) {
+function NoteField({ form, path }: Readonly<{ form: CocktailForm; path: PreparationPath }>) {
   return (
     <FormField form={form} name={`${path}.note`} label="Preparation note" srOnlyLabel>
       {(control) => (

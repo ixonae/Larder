@@ -45,7 +45,7 @@ export function CocktailsPage() {
   return <BarGate title="Cocktails">{(bar) => <CocktailsView key={bar.id} bar={bar} />}</BarGate>;
 }
 
-function CocktailsView({ bar }: { bar: BarSummary }) {
+function CocktailsView({ bar }: Readonly<{ bar: BarSummary }>) {
   const barId = bar.id;
   const search: CocktailFilters = route.useSearch();
   const navigate = route.useNavigate();
@@ -76,6 +76,17 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
     VIEWS.map(({ value }) => value),
     "grid",
   );
+
+  let content: ReactElement;
+  if (list.isPending) {
+    content = <LoadingState label="Loading cocktails…" />;
+  } else if (list.isLoadingError) {
+    content = <ErrorState error={list.error} onRetry={() => list.refetch()} />;
+  } else if (items.length === 0) {
+    content = <EmptyState title={filtered ? "No cocktails match" : "No cocktails yet"} />;
+  } else {
+    content = <CocktailList barId={barId} items={items} search={search} view={view} />;
+  }
 
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-4">
@@ -121,15 +132,7 @@ function CocktailsView({ bar }: { bar: BarSummary }) {
         onClear={filtering ? clearFilters : undefined}
       />
 
-      {list.isPending ? (
-        <LoadingState label="Loading cocktails…" />
-      ) : list.isLoadingError ? (
-        <ErrorState error={list.error} onRetry={() => list.refetch()} />
-      ) : items.length === 0 ? (
-        <EmptyState title={filtered ? "No cocktails match" : "No cocktails yet"} />
-      ) : (
-        <CocktailList barId={barId} items={items} search={search} view={view} />
-      )}
+      {content}
       {list.isRefetchError && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
       {list.isFetchNextPageError && (
         <p role="alert" className="text-destructive text-sm">
@@ -175,12 +178,12 @@ function CocktailList({
   items,
   search,
   view,
-}: {
+}: Readonly<{
   barId: string;
   items: Cocktail[];
   search: CocktailFilters;
   view: View;
-}) {
+}>) {
   const layout = LAYOUT[view];
   const setFavourite: UseMutationResult<unknown, Error, { id: string; favourite: boolean }> =
     useSetFavourite(barId);
@@ -213,7 +216,7 @@ function CocktailList({
   );
 }
 
-function CocktailRow({ cocktail }: { cocktail: Cocktail }) {
+function CocktailRow({ cocktail }: Readonly<{ cocktail: Cocktail }>) {
   return (
     <>
       <Thumbnail imageId={cocktail.image_id} icon={Martini} className="size-11" />
@@ -235,7 +238,7 @@ function CocktailRow({ cocktail }: { cocktail: Cocktail }) {
   );
 }
 
-function CocktailCard({ cocktail }: { cocktail: Cocktail }) {
+function CocktailCard({ cocktail }: Readonly<{ cocktail: Cocktail }>) {
   return (
     <>
       <Thumbnail
@@ -264,10 +267,10 @@ function CocktailCard({ cocktail }: { cocktail: Cocktail }) {
 function RatingLine({
   cocktail,
   className,
-}: {
+}: Readonly<{
   cocktail: Cocktail;
   className?: string;
-}): ReactElement | null {
+}>): ReactElement | null {
   const parts: string[] = [];
   if (cocktail.my_rating) parts.push(`★ ${cocktail.my_rating.score}`);
   if (cocktail.avg_rating !== null) parts.push(`avg ${cocktail.avg_rating.toFixed(1)}`);
@@ -280,7 +283,7 @@ function RatingLine({
 }
 
 /** "Can make" or "Missing 2": whether the bar has every required ingredient right now. */
-function StockBadge({ missing }: { missing: MissingIngredient[] }) {
+function StockBadge({ missing }: Readonly<{ missing: MissingIngredient[] }>) {
   const ready = missing.length === 0;
   return (
     <span className={badge({ tone: ready ? "brand" : "muted" })}>
@@ -289,7 +292,7 @@ function StockBadge({ missing }: { missing: MissingIngredient[] }) {
   );
 }
 
-function MissingLine({ missing }: { missing: MissingIngredient[] }) {
+function MissingLine({ missing }: Readonly<{ missing: MissingIngredient[] }>) {
   if (missing.length === 0) return null;
   return (
     <span className="truncate text-destructive text-xs">
@@ -310,7 +313,7 @@ const SORTS: ChipOption<CocktailSort>[] = [
   { value: "rating", label: "Top rated" },
 ];
 
-function AbvBadge({ abv }: { abv: number }) {
+function AbvBadge({ abv }: Readonly<{ abv: number }>) {
   return <span className={badge({ className: "tabular-nums" })}>≈ {Math.round(abv)}% ABV</span>;
 }
 
@@ -319,7 +322,7 @@ function FilterOptions({
   search,
   setFilter,
   onClear,
-}: {
+}: Readonly<{
   barId: string;
   search: CocktailFilters;
   setFilter: <K extends keyof CocktailFilters>(
@@ -327,7 +330,7 @@ function FilterOptions({
     value: CocktailFilters[K] | undefined,
   ) => unknown;
   onClear: (() => unknown) | undefined;
-}) {
+}>) {
   const categories = useQuery(categoryTreeQuery(barId));
   const tags = useQuery(cocktailTagsQuery(barId));
   const failed = [categories, tags].find((query) => query.isError);
@@ -425,14 +428,14 @@ function FilterSelect<T extends string>({
   options,
   pending,
   onChange,
-}: {
+}: Readonly<{
   label: string;
   noun: string;
   values: readonly T[] | undefined;
   options: ComboboxOption[];
   pending: boolean;
   onChange: (values: T[] | undefined) => unknown;
-}) {
+}>) {
   return (
     <MultiCombobox
       label={label}

@@ -65,7 +65,7 @@ function NavLinks({ variant }: { variant: "side" | "bottom" }) {
   });
 }
 
-function Brand({ className }: { className?: string }) {
+function Brand({ className }: Readonly<{ className?: string }>) {
   return (
     <span className={cn("flex items-center gap-2", className)}>
       <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-brand-foreground shadow-sm">

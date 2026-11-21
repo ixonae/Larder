@@ -22,12 +22,12 @@ function CommentItem({
   cocktailId,
   comment,
   mine,
-}: {
+}: Readonly<{
   barId: string;
   cocktailId: string;
   comment: Comment;
   mine: boolean;
-}): ReactElement {
+}>): ReactElement {
   const [editing, setEditing] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
   const edit: UseMutationResult<Comment, Error, { commentId: string; json: UpdateComment }> =
@@ -92,10 +92,10 @@ function CommentItem({
 export function CocktailComments({
   barId,
   cocktailId,
-}: {
+}: Readonly<{
   barId: string;
   cocktailId: string;
-}): ReactElement {
+}>): ReactElement {
   const me: UseQueryResult<Me | null, Error> = useMe();
   const comments: UseInfiniteQueryResult<InfiniteData<Page<Comment>>, Error> = useInfiniteQuery(
     commentsQuery(barId, cocktailId),
@@ -103,6 +103,30 @@ export function CocktailComments({
   const post: UseMutationResult<Comment, Error, CommentInput> = usePostComment(barId, cocktailId);
   const items: Comment[] =
     comments.data?.pages.flatMap((p: Page<Comment>): Comment[] => p.items) ?? [];
+  let content: ReactElement;
+  if (comments.isPending) {
+    content = <LoadingState label="Loading comments…" />;
+  } else if (comments.isError && items.length === 0) {
+    content = <ErrorState error={comments.error} onRetry={(): unknown => comments.refetch()} />;
+  } else if (items.length === 0) {
+    content = <EmptyState title="No comments yet" />;
+  } else {
+    content = (
+      <ul aria-label="Comments" className="grid gap-3">
+        {items.map(
+          (comment: Comment): ReactElement => (
+            <CommentItem
+              key={comment.id}
+              barId={barId}
+              cocktailId={cocktailId}
+              comment={comment}
+              mine={comment.author.id === me.data?.user.id}
+            />
+          ),
+        )}
+      </ul>
+    );
+  }
   return (
     <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-xs sm:p-5">
       <h2 className="font-semibold text-lg">Comments</h2>
@@ -112,27 +136,7 @@ export function CocktailComments({
         submitLabel="Post"
         onSubmit={(input: CommentInput): Promise<unknown> => post.mutateAsync(input)}
       />
-      {comments.isPending ? (
-        <LoadingState label="Loading comments…" />
-      ) : comments.isError && items.length === 0 ? (
-        <ErrorState error={comments.error} onRetry={(): unknown => comments.refetch()} />
-      ) : items.length === 0 ? (
-        <EmptyState title="No comments yet" />
-      ) : (
-        <ul aria-label="Comments" className="grid gap-3">
-          {items.map(
-            (comment: Comment): ReactElement => (
-              <CommentItem
-                key={comment.id}
-                barId={barId}
-                cocktailId={cocktailId}
-                comment={comment}
-                mine={comment.author.id === me.data?.user.id}
-              />
-            ),
-          )}
-        </ul>
-      )}
+      {content}
       {comments.isFetchNextPageError && (
         <p role="alert" className="text-destructive text-sm">
           {comments.error.message}

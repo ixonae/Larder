@@ -72,7 +72,7 @@ export function createPurchases(
       created_by: ctx.userId,
       product_id: product.id,
     };
-    const items = repo.insertPurchases(tx, Array(count).fill(row));
+    const items = repo.insertPurchases(tx, new Array<typeof row>(count).fill(row));
     setStatus(tx, ctx.barId, product.id, "owned");
     return { items };
   });
@@ -94,14 +94,11 @@ export function updatePurchase(
     const { price_minor, currency, ...rest } = patch;
     const merged = { ...existing, ...rest };
     requireFinishAfterPurchase(merged.bought_on, merged.finished_on);
+    const nextPrice = price_minor === undefined ? existing.price_minor : price_minor;
     const prices =
       price_minor === undefined && currency === undefined
         ? {}
-        : price(
-            price_minor === undefined ? existing.price_minor : price_minor,
-            currency ?? existing.currency,
-            ctx.currency,
-          );
+        : price(nextPrice, currency ?? existing.currency, ctx.currency);
     const saved = repo.updatePurchase(tx, ctx.barId, existing.id, { ...rest, ...prices });
     if (existing.finished_on !== null && merged.finished_on === null) {
       setStatus(tx, ctx.barId, product.id, "owned");

@@ -87,11 +87,7 @@ function EmailForm({ email }: Readonly<{ email: string }>) {
         autoComplete="current-password"
       />
       <FormError error={change.error} />
-      {change.isSuccess && (
-        <p role="status" className="text-sm">
-          Email updated.
-        </p>
-      )}
+      {change.isSuccess && <output className="text-sm">Email updated.</output>}
       <Button disabled={change.isPending} type="submit" className="justify-self-start">
         Save email
       </Button>
@@ -136,9 +132,7 @@ function PasswordForm() {
       />
       <FormError error={change.error} />
       {change.isSuccess && (
-        <p role="status" className="text-sm">
-          Password updated. Other sessions were signed out.
-        </p>
+        <output className="text-sm">Password updated. Other sessions were signed out.</output>
       )}
       <Button disabled={change.isPending} type="submit" className="justify-self-start">
         Save password

@@ -105,7 +105,7 @@ export interface Catalogue {
 }
 
 export function categoryPictureKey(path: readonly string[]): string {
-  return `category:${JSON.stringify(path.map(nameKey))}`;
+  return `category:${JSON.stringify(path.map((name) => nameKey(name)))}`;
 }
 
 export function pantryPictureKey(
@@ -113,7 +113,7 @@ export function pantryPictureKey(
   path: readonly string[],
   name: string,
 ): string {
-  return `pantry:${JSON.stringify([kind, path.map(nameKey), nameKey(name)])}`;
+  return `pantry:${JSON.stringify([kind, path.map((name) => nameKey(name)), nameKey(name)])}`;
 }
 
 const scopedCategoryKey = (parentId: string | null, name: string) =>
@@ -152,23 +152,21 @@ function availableName<T, K>(
 
 type StagedImage = Awaited<ReturnType<typeof stageImage>>;
 
-function insertCatalogue(
+type ImportAudit = { bar_id: string; created_by: string };
+type ImageTarget = { entity: ImageEntity; id: string };
+type TrackImage = (key: string, entity: ImageEntity, id: string) => void;
+
+function catalogueCategoryLookup(
   tx: Tx,
-  barId: string,
-  userId: string,
-  catalogue: Catalogue,
-  staged: ReadonlyMap<string, StagedImage>,
+  audit: ImportAudit,
+  existingRootPictureKinds: Catalogue["existingRootPictureKinds"],
+  trackImage: TrackImage,
 ) {
-  const targets = new Map<string, { entity: ImageEntity; id: string }>();
-  const trackImage = (key: string, entity: ImageEntity, id: string) => {
-    if (staged.has(key)) targets.set(key, { entity, id });
-  };
-  const audit = { bar_id: barId, created_by: userId };
-  const catalogueCategories = listAllCategories(tx, barId);
-  if (catalogue.existingRootPictureKinds) {
+  const catalogueCategories = listAllCategories(tx, audit.bar_id);
+  if (existingRootPictureKinds) {
     for (const { id, name, kind, parent_id } of catalogueCategories) {
       const key = categoryPictureKey([name]);
-      if (parent_id === null && catalogue.existingRootPictureKinds.get(key) === kind) {
+      if (parent_id === null && existingRootPictureKinds.get(key) === kind) {
         trackImage(key, "categories", id);
       }
     }
@@ -203,7 +201,16 @@ function insertCatalogue(
     // The catalogue schema requires at least one segment.
     return parent as Category;
   }
+  return { ensureCategory, categoriesById };
+}
 
+function importSources(
+  tx: Tx,
+  audit: ImportAudit,
+  catalogue: Catalogue,
+  { ensureCategory, categoriesById }: ReturnType<typeof catalogueCategoryLookup>,
+  trackImage: TrackImage,
+) {
   const sources = new Map<string, IngredientSource>();
   // Materialize explicit ABV defaults before any source creates a category by reference.
   for (const source of catalogue.sources) {
@@ -216,7 +223,7 @@ function insertCatalogue(
     tx
       .select()
       .from(products)
-      .where(eq(products.bar_id, barId))
+      .where(eq(products.bar_id, audit.bar_id))
       .all()
       .filter((row) => row.vintage === null)
       .map((row) => [nameKey(row.name), row.id]),
@@ -225,7 +232,7 @@ function insertCatalogue(
     tx
       .select()
       .from(pantryIngredients)
-      .where(eq(pantryIngredients.bar_id, barId))
+      .where(eq(pantryIngredients.bar_id, audit.bar_id))
       .all()
       .map((row) => [scopedCategoryKey(row.category_id, row.name), row.id]),
   );
@@ -264,7 +271,46 @@ function insertCatalogue(
       sources.set(source.key, { pantry_ingredient_id: id });
     }
   }
+  return sources;
+}
 
+function attachCatalogueImages(
+  tx: Tx,
+  barId: string,
+  staged: ReadonlyMap<string, StagedImage>,
+  targets: ReadonlyMap<string, ImageTarget>,
+) {
+  const used = new Set<string>();
+  for (const [key, image] of staged) {
+    const target = targets.get(key);
+    if (target && findOwnerImage(tx, target.entity, barId, target.id)?.image_id === null) {
+      if (!used.has(image.id)) insertImage(tx, image);
+      setOwnerImage(tx, target.entity, barId, target.id, image.id);
+      used.add(image.id);
+    }
+  }
+  return used;
+}
+
+function insertCatalogue(
+  tx: Tx,
+  barId: string,
+  userId: string,
+  catalogue: Catalogue,
+  staged: ReadonlyMap<string, StagedImage>,
+) {
+  const targets = new Map<string, ImageTarget>();
+  const trackImage = (key: string, entity: ImageEntity, id: string) => {
+    if (staged.has(key)) targets.set(key, { entity, id });
+  };
+  const audit = { bar_id: barId, created_by: userId };
+  const categories = catalogueCategoryLookup(
+    tx,
+    audit,
+    catalogue.existingRootPictureKinds,
+    trackImage,
+  );
+  const sources = importSources(tx, audit, catalogue, categories, trackImage);
   const barUtensils = new Map(
     tx
       .select()
@@ -330,16 +376,7 @@ function insertCatalogue(
     existing.set(key, id);
     trackImage(`cocktail:${recipe.id}`, "cocktails", id);
   }
-  const used = new Set<string>();
-  for (const [key, image] of staged) {
-    const target = targets.get(key);
-    if (target && findOwnerImage(tx, target.entity, barId, target.id)?.image_id === null) {
-      if (!used.has(image.id)) insertImage(tx, image);
-      setOwnerImage(tx, target.entity, barId, target.id, image.id);
-      used.add(image.id);
-    }
-  }
-  return used;
+  return attachCatalogueImages(tx, barId, staged, targets);
 }
 
 /** Applies a catalogue and records its version in the same transaction. */
@@ -366,13 +403,14 @@ export async function withCataloguePictures(
   let used: ReadonlySet<string> = new Set();
   try {
     for (const [key, picture] of pictures ?? []) {
-      if (picture instanceof Uint8Array) {
-        staged.set(key, await stageImage(ctx, picture));
-      } else {
-        const image = preparedPictures.get(picture) ?? (await stagePreparedImage(ctx, picture));
-        preparedPictures.set(picture, image);
-        staged.set(key, image);
-      }
+      const prepared = !(picture instanceof Uint8Array);
+      const pending = prepared
+        ? (preparedPictures.get(picture) ?? stagePreparedImage(ctx, picture))
+        : stageImage(ctx, picture);
+      // Stage one image at a time to bound encoding and file writes during catalogue import.
+      const image = await pending; // NOSONAR
+      if (prepared) preparedPictures.set(picture, image);
+      staged.set(key, image);
     }
     used = apply(staged);
   } finally {

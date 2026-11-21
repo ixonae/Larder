@@ -200,5 +200,8 @@ export async function seedStarterCatalogue(db: Db, storage: ImageStorage, barId:
 /** Backfill existing bars and seed the default bar once it has been created. */
 export async function migrateStarterCatalogues(db: Db, storage: ImageStorage) {
   const allBars = db.select({ id: bars.id }).from(bars).all();
-  for (const { id } of allBars) await seedStarterCatalogue(db, storage, id);
+  // Backfill one bar at a time to keep catalogue staging bounded during startup.
+  for (const { id } of allBars) {
+    await seedStarterCatalogue(db, storage, id); // NOSONAR
+  }
 }

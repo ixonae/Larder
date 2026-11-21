@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 /**
  * A per-viewer UI preference kept in localStorage. Falls back to `initial` when storage is empty,
@@ -13,13 +13,16 @@ export function useStoredState<T extends string>(key: string, allowed: readonly 
       return initial;
     }
   });
-  const update = (next: T) => {
-    setValue(next);
-    try {
-      localStorage.setItem(key, next);
-    } catch {
-      // Not remembering the choice is fine; it still applies for this visit.
-    }
-  };
+  const update = useCallback(
+    (next: T) => {
+      setValue(next);
+      try {
+        localStorage.setItem(key, next);
+      } catch {
+        // Not remembering the choice is fine; it still applies for this visit.
+      }
+    },
+    [key],
+  );
   return [value, update] as const;
 }

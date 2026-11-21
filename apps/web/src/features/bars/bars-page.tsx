@@ -151,7 +151,7 @@ function NewBarForm({ onCreate }: Readonly<{ onCreate: (id: string) => Promise<v
       <ComboboxField form={form} name="currency" label="Currency" {...currencyPicker} />
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" {...form.register("seed_data")} />
-        Add starter recipes and catalogue
+        <span>Add starter recipes and catalogue</span>
       </label>
       <FormError error={create.error} />
       <Button type="submit" disabled={create.isPending} className="justify-self-start">

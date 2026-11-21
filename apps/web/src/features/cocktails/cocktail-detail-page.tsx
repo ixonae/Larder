@@ -9,7 +9,7 @@ import {
 import { type UseMutationResult, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { ArrowLeft, Pencil } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment, type ReactElement, useState } from "react";
 import { ApiError } from "@/api/client.ts";
 import { cocktailQuery } from "@/api/cocktails.ts";
 import { useSetFavourite } from "@/api/feedback.ts";
@@ -34,9 +34,23 @@ export function CocktailDetailPage() {
   );
 }
 
-function CocktailView({ bar, id }: { bar: BarSummary; id: string }) {
+function CocktailView({ bar, id }: Readonly<{ bar: BarSummary; id: string }>) {
   const search = route.useSearch();
   const recipe = useQuery(cocktailQuery(bar.id, id));
+  let content: ReactElement;
+  if (recipe.isPending) {
+    content = <LoadingState label="Loading cocktail…" />;
+  } else if (recipe.isError) {
+    content =
+      recipe.error instanceof ApiError && recipe.error.code === "NOT_FOUND" ? (
+        <EmptyState title="Cocktail not found" />
+      ) : (
+        <ErrorState error={recipe.error} onRetry={() => recipe.refetch()} />
+      );
+  } else {
+    content = <CocktailRecipe barId={bar.id} recipe={recipe.data} />;
+  }
+
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-4">
       <nav
@@ -60,22 +74,12 @@ function CocktailView({ bar, id }: { bar: BarSummary; id: string }) {
           </Button>
         )}
       </nav>
-      {recipe.isPending ? (
-        <LoadingState label="Loading cocktail…" />
-      ) : recipe.isError ? (
-        recipe.error instanceof ApiError && recipe.error.code === "NOT_FOUND" ? (
-          <EmptyState title="Cocktail not found" />
-        ) : (
-          <ErrorState error={recipe.error} onRetry={() => recipe.refetch()} />
-        )
-      ) : (
-        <CocktailRecipe barId={bar.id} recipe={recipe.data} />
-      )}
+      {content}
     </section>
   );
 }
 
-function CocktailRecipe({ barId, recipe }: { barId: string; recipe: CocktailDetail }) {
+function CocktailRecipe({ barId, recipe }: Readonly<{ barId: string; recipe: CocktailDetail }>) {
   const setFavourite: UseMutationResult<unknown, Error, { id: string; favourite: boolean }> =
     useSetFavourite(barId);
   return (
@@ -109,7 +113,7 @@ function CocktailRecipe({ barId, recipe }: { barId: string; recipe: CocktailDeta
   );
 }
 
-function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDetail }) {
+function CocktailDetails({ barId, recipe }: Readonly<{ barId: string; recipe: CocktailDetail }>) {
   const [servings, setServings] = useState<number>();
   const [unit, setUnit] = useState<DisplayUnit>("ml");
   // Bottles picked while pouring, by line. Only this view remembers them; the recipe stays generic.
@@ -120,6 +124,22 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
   );
   const computed = scaled.isSuccess ? scaled.data.computed : null;
   const missingCount = (scaled.data ?? recipe).missing.length;
+  let ingredients: ReactElement;
+  if (scaled.isPending) {
+    ingredients = <LoadingState label="Scaling recipe…" />;
+  } else if (scaled.isError) {
+    ingredients = <ErrorState error={scaled.error} onRetry={() => scaled.refetch()} />;
+  } else {
+    ingredients = (
+      <IngredientList
+        recipe={scaled.data}
+        unit={unit}
+        poured={poured}
+        onPour={(lineId, productId) => setPoured({ ...poured, [lineId]: productId })}
+      />
+    );
+  }
+
   return (
     <>
       {recipe.description && <p className="whitespace-pre-line">{recipe.description}</p>}
@@ -131,9 +151,9 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
           <h2 id="cocktail-ingredients" className="font-semibold text-lg">
             Ingredients
           </h2>
-          <span role="status" className={missingCount === 0 ? badge({ tone: "brand" }) : "sr-only"}>
+          <output className={missingCount === 0 ? badge({ tone: "brand" }) : "sr-only"}>
             {missingCount === 0 ? "Can make now" : `Missing ingredients: ${missingCount}`}
-          </span>
+          </output>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b pb-3">
           <fieldset className="flex items-center gap-2" aria-label="Servings">
@@ -182,18 +202,7 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
           )}
         </div>
 
-        {scaled.isPending ? (
-          <LoadingState label="Scaling recipe…" />
-        ) : scaled.isError ? (
-          <ErrorState error={scaled.error} onRetry={() => scaled.refetch()} />
-        ) : (
-          <IngredientList
-            recipe={scaled.data}
-            unit={unit}
-            poured={poured}
-            onPour={(lineId, productId) => setPoured({ ...poured, [lineId]: productId })}
-          />
-        )}
+        {ingredients}
       </section>
 
       {recipe.steps.length > 0 && (
@@ -214,7 +223,7 @@ function CocktailDetails({ barId, recipe }: { barId: string; recipe: CocktailDet
   );
 }
 
-function CocktailFacts({ barId, recipe }: { barId: string; recipe: CocktailDetail }) {
+function CocktailFacts({ barId, recipe }: Readonly<{ barId: string; recipe: CocktailDetail }>) {
   const glass = useQuery({
     ...utensilQuery(barId, recipe.glass_id ?? ""),
     enabled: recipe.glass_id !== null,

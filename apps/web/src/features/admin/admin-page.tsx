@@ -177,7 +177,7 @@ function SignupPanel() {
 }
 
 function SignupMode({ settings }: Readonly<{ settings: SignupSettings }>) {
-  const [selected, select] = useState(settings.signup_mode);
+  const [selected, setSelected] = useState(settings.signup_mode);
   const client = useQueryClient();
   const save = useMutation({
     mutationFn: async () =>
@@ -205,7 +205,7 @@ function SignupMode({ settings }: Readonly<{ settings: SignupSettings }>) {
               name="signup-mode"
               value={value}
               checked={selected === value}
-              onChange={() => select(value)}
+              onChange={() => setSelected(value)}
               aria-label={label}
             />
             <span className="grid gap-1">
@@ -216,11 +216,7 @@ function SignupMode({ settings }: Readonly<{ settings: SignupSettings }>) {
         ))}
       </fieldset>
       <FormError error={save.error} />
-      {save.isSuccess && (
-        <p role="status" className="text-sm">
-          Signup policy updated.
-        </p>
-      )}
+      {save.isSuccess && <output className="text-sm">Signup policy updated.</output>}
       <Button
         type="submit"
         disabled={save.isPending || selected === settings.signup_mode}
