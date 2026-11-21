@@ -28,8 +28,8 @@ export function formatUuidV7(ms: number, seq: number, random: Uint8Array): strin
 }
 
 const MAX_SEQ = 0xfff;
-let lastMs = Number.NEGATIVE_INFINITY;
-let lastSeq = 0;
+let lastMs: number = Number.NEGATIVE_INFINITY;
+let lastSeq: number = 0;
 
 /**
  * Returns a new UUIDv7. Ids are strictly increasing within a process, even when several are created

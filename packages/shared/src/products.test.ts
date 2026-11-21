@@ -35,7 +35,7 @@ describe("createProductSchema", () => {
   });
 
   it("accepts an ISO country code or null, and refuses anything else", () => {
-    const parse = (country: unknown) =>
+    const parse = (country: unknown): ReturnType<typeof createProductSchema.safeParse> =>
       createProductSchema.safeParse({ name: "x", category_id: ID, country });
     expect(parse("JP")).toMatchObject({ success: true, data: { country: "JP" } });
     expect(parse(null)).toMatchObject({ success: true, data: { country: null } });

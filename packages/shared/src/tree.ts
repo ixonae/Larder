@@ -53,7 +53,7 @@ export function subtreeIds<T extends TreeItem>(items: readonly T[], id: string):
 /** Flattens a nested tree back into a list in display order, with each item's depth (roots are 0). */
 export function flattenTree<T extends TreeItem>(
   nodes: readonly TreeNode<T>[],
-  depth = 0,
+  depth: number = 0,
 ): { item: T; depth: number }[] {
   return nodes.flatMap(({ children, ...item }) => [
     { item: item as unknown as T, depth },

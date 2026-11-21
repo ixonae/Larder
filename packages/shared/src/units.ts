@@ -42,7 +42,12 @@ export interface UnitInfo {
   plural: string;
 }
 
-const volume = (ml: number, converts: boolean, singular: string, plural = singular): UnitInfo => ({
+const volume = (
+  ml: number,
+  converts: boolean,
+  singular: string,
+  plural: string = singular,
+): UnitInfo => ({
   type: "volume",
   ml,
   converts,

@@ -31,7 +31,7 @@ export const DEFAULT_CURRENCY: CurrencyCode = "JPY";
 export const currencySchema = z.enum(CURRENCY_CODES);
 
 /** The currency's name in `locale` ("JPY" → "Japanese Yen"). */
-export const currencyName = (code: CurrencyCode, locale = "en") =>
+export const currencyName = (code: CurrencyCode, locale: string = "en"): string =>
   displayName("currency", code, locale);
 
 /**
@@ -106,6 +106,6 @@ export function fromMinorUnits(minor: number, code: CurrencyCode): number {
 }
 
 /** 1999 USD → "$19.99", 150000 JPY → "¥150,000" (in `locale`, English by default). */
-export function formatMoney(minor: number, code: CurrencyCode, locale = "en"): string {
+export function formatMoney(minor: number, code: CurrencyCode, locale: string = "en"): string {
   return formatter(code, locale).format(fromMinorUnits(minor, code));
 }

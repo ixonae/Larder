@@ -1,12 +1,15 @@
 import { describe, expect, test } from "vitest";
 import {
   buildInventory,
+  type Inventory,
   isAvailable,
   type MakeabilityLine,
   makeability,
   matchingBottles,
   type StockSource,
 } from "./makeability.ts";
+
+type StockBottle = Parameters<typeof buildInventory>[1][number];
 
 // Spirit › Gin › London dry, plus Juice › Lemon juice and a Pantry group.
 const categories = [
@@ -19,7 +22,7 @@ const categories = [
   { id: "pantry", parent_id: null },
 ];
 // Inventories take only what is available: bottles in the bar and available pantry ingredient ids.
-const bottle = (id: string, category_id: string) => ({ id, name: id, category_id });
+const bottle = (id: string, category_id: string): StockBottle => ({ id, name: id, category_id });
 
 const category = (id: string): StockSource => ({
   category_id: id,
@@ -39,7 +42,10 @@ const pantry = (id: string): StockSource => ({
 const line = (
   id: string,
   source: StockSource,
-  { optional = false, alternatives = [] as StockSource[] } = {},
+  {
+    optional = false,
+    alternatives = [],
+  }: { optional?: boolean; alternatives?: StockSource[] } = {},
 ): MakeabilityLine => ({
   ...source,
   id,
@@ -85,7 +91,7 @@ describe("isAvailable", () => {
 });
 
 describe("makeability", () => {
-  const stock = (products: ReturnType<typeof bottle>[], supplies: string[]) =>
+  const stock = (products: StockBottle[], supplies: string[]): Inventory =>
     buildInventory(categories, products, supplies);
 
   test("reports each unsatisfied required line once, in recipe order, with its substitutes", () => {

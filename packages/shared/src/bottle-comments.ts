@@ -13,7 +13,7 @@ export type BottleComment = z.infer<typeof bottleCommentSchema>;
 export const bottleCommentPageSchema = pageSchema(bottleCommentSchema);
 
 /** `POST /products/:id/comments`. */
-export const bottleCommentInputSchema = commentInputSchema;
+export const bottleCommentInputSchema: typeof commentInputSchema = commentInputSchema;
 export type BottleCommentInput = z.input<typeof bottleCommentInputSchema>;
 
 export const listBottleCommentsQuerySchema = paginationQuerySchema.extend({

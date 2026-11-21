@@ -30,21 +30,20 @@ export const utensilSchema = z.object({
 });
 export type Utensil = z.infer<typeof utensilSchema>;
 
-const fields = {
+const fields = z.object({
   name: z.string().trim().min(1).max(UTENSIL_NAME_MAX),
   kind: utensilKindSchema,
   /** Only for glasses; a tool always has `null`. */
   capacity_ml: z.number().positive().max(CAPACITY_ML_MAX).nullable(),
   description: optionalText(DESCRIPTION_MAX),
-};
+});
 
 /** `POST /utensils` */
-export const createUtensilSchema = z.object(fields).partial().required({ name: true, kind: true });
+export const createUtensilSchema = fields.partial().required({ name: true, kind: true });
 export type CreateUtensil = z.infer<typeof createUtensilSchema>;
 
 /** `PATCH /utensils/:id`: only the fields sent change. */
-export const updateUtensilSchema = z
-  .object(fields)
+export const updateUtensilSchema = fields
   .partial()
   .refine((patch) => Object.keys(patch).length > 0, "Send at least one field to change");
 export type UpdateUtensil = z.infer<typeof updateUtensilSchema>;

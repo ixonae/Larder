@@ -16,14 +16,18 @@ export const booleanQuerySchema = z.stringbool({ truthy: ["true"], falsy: ["fals
 /** Most values one list filter accepts. */
 export const MAX_FILTER_VALUES = 20;
 /** `a,b,c` in the query string: one or more values, so a single value still works. */
-export const listOf = <T extends z.ZodType<unknown, string>>(item: T) =>
+export const listOf = <T extends z.ZodType<unknown, string>>(
+  item: T,
+): z.ZodPipe<z.ZodPipe<z.ZodString, z.ZodTransform<string[], string>>, z.ZodArray<T>> =>
   z
     .string()
     .transform((value) => value.split(","))
     .pipe(z.array(item).min(1).max(MAX_FILTER_VALUES));
 
 /** A page of results; `next_cursor` is null on the last page. */
-export function pageSchema<T extends z.ZodType>(item: T) {
+export function pageSchema<T extends z.ZodType>(
+  item: T,
+): z.ZodObject<{ items: z.ZodArray<T>; next_cursor: z.ZodNullable<z.ZodString> }> {
   return z.object({
     items: z.array(item),
     next_cursor: z.string().nullable(),

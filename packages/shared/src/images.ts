@@ -46,5 +46,5 @@ export const uploadImageSchema = z.object({
 });
 
 /** Where the browser loads an image from (`GET /api/images/:id[/thumb]`). */
-export const imageUrl = (id: string, size: "full" | "thumb" = "full") =>
+export const imageUrl = (id: string, size: "full" | "thumb" = "full"): string =>
   size === "thumb" ? `/api/images/${id}/thumb` : `/api/images/${id}`;

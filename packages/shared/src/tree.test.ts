@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { ancestors, buildTree, descendants, flattenTree, subtreeIds } from "./tree.ts";
+import {
+  ancestors,
+  buildTree,
+  descendants,
+  flattenTree,
+  subtreeIds,
+  type TreeItem,
+} from "./tree.ts";
 
-const item = (id: string, parent_id: string | null = null) => ({ id, parent_id });
+const item = (id: string, parent_id: string | null = null): TreeItem => ({ id, parent_id });
 
 // spirit › whisky › scotch › islay, spirit › gin, juice
 const items = [

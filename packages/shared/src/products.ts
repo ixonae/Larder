@@ -81,7 +81,7 @@ export const productSchema = z.object({
 });
 export type Product = z.infer<typeof productSchema>;
 
-const fields = {
+const fields = z.object({
   name: z.string().trim().min(1).max(PRODUCT_NAME_MAX),
   category_id: idSchema,
   producer: optionalText(PRODUCT_TEXT_MAX),
@@ -92,18 +92,14 @@ const fields = {
   age_years: z.number().int().min(0).max(AGE_YEARS_MAX).nullable(),
   description: optionalText(DESCRIPTION_MAX),
   status: productStatusSchema.nullable(),
-};
+});
 
 /** `POST /products`: a bottle created without a `status` has none. */
-export const createProductSchema = z
-  .object(fields)
-  .partial()
-  .required({ name: true, category_id: true });
+export const createProductSchema = fields.partial().required({ name: true, category_id: true });
 export type CreateProduct = z.infer<typeof createProductSchema>;
 
 /** `PATCH /products/:id`: only the fields sent change. */
-export const updateProductSchema = z
-  .object(fields)
+export const updateProductSchema = fields
   .partial()
   .refine((patch) => Object.keys(patch).length > 0, "Send at least one field to change");
 export type UpdateProduct = z.infer<typeof updateProductSchema>;

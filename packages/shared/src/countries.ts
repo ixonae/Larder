@@ -27,5 +27,5 @@ export type CountryCode = (typeof COUNTRY_CODES)[number];
 export const countrySchema = z.enum(COUNTRY_CODES);
 
 /** The country's name in `locale` ("JP" → "Japan"). */
-export const countryName = (code: CountryCode, locale = "en") =>
+export const countryName = (code: CountryCode, locale: string = "en"): string =>
   displayName("region", code, locale);

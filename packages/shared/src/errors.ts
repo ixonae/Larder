@@ -16,7 +16,17 @@ export const errorCodeSchema = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 
 /** HTTP status the API answers with for each error code. */
-export const ERROR_STATUS = {
+export const ERROR_STATUS: Readonly<{
+  VALIDATION: 400;
+  UNAUTHORIZED: 401;
+  FORBIDDEN: 403;
+  NOT_FOUND: 404;
+  CONFLICT: 409;
+  PAYLOAD_TOO_LARGE: 413;
+  RATE_LIMITED: 429;
+  INTERNAL: 500;
+  UNAVAILABLE: 503;
+}> = {
   VALIDATION: 400,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,

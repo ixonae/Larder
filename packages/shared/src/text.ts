@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 /** Trimmed optional text, at most `max` characters; blank is stored as `null`. */
-export const optionalText = (max: number) =>
+export const optionalText = (
+  max: number,
+): z.ZodNullable<z.ZodPipe<z.ZodString, z.ZodTransform<string | null, string>>> =>
   z
     .string()
     .trim()
@@ -10,10 +12,11 @@ export const optionalText = (max: number) =>
     .nullable();
 
 /** The key two names are the same by: Unicode NFC and locale-independent lowercase, accents kept. */
-export const nameKey = (name: string) => name.normalize("NFC").toLowerCase().normalize("NFC");
+export const nameKey = (name: string): string =>
+  name.normalize("NFC").toLowerCase().normalize("NFC");
 
 /** A looser key for search as you type: case- and accent-insensitive, so "creme" finds "Crème". */
-export const searchKey = (text: string) =>
+export const searchKey = (text: string): string =>
   text
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")

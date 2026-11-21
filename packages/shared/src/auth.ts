@@ -21,7 +21,9 @@ export const SESSION_REQUEST_HEADER = "X-Larder-Request";
 
 export type NewAccount = z.output<typeof newAccountSchema>;
 
-const currentPasswordSchema = signInSchema.pick({ password: true }).shape.password;
+const currentPasswordSchema: (typeof signInSchema.shape)["password"] = signInSchema.pick({
+  password: true,
+}).shape.password;
 export const changeEmailSchema = z.object({
   current_password: currentPasswordSchema,
   email: accountEmailSchema,

@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatUuidV7, idSchema, newId } from "./id.ts";
 
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const timestampOf = (id: string) => Number.parseInt(id.slice(0, 8) + id.slice(9, 13), 16);
-const seqOf = (id: string) => Number.parseInt(id.slice(15, 18), 16);
+const timestampOf = (id: string): number => Number.parseInt(id.slice(0, 8) + id.slice(9, 13), 16);
+const seqOf = (id: string): number => Number.parseInt(id.slice(15, 18), 16);
 
 describe("formatUuidV7", () => {
   it("encodes the timestamp, version, sequence and variant", () => {

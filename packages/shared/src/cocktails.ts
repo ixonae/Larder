@@ -69,7 +69,7 @@ const stepSchema = stepInputSchema.extend({
   position: z.number().int().nonnegative(),
 });
 
-export const tagSchema = namedReferenceSchema;
+export const tagSchema: typeof namedReferenceSchema = namedReferenceSchema;
 export type Tag = z.infer<typeof tagSchema>;
 export const tagPageSchema = pageSchema(tagSchema);
 

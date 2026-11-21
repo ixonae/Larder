@@ -31,26 +31,25 @@ export type Purchase = z.infer<typeof purchaseSchema>;
 export const purchaseListSchema = z.object({ items: z.array(purchaseSchema) });
 export type PurchaseList = z.infer<typeof purchaseListSchema>;
 
-const fields = {
+const fields = z.object({
   bought_on: isoDateSchema,
   price_minor: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).nullable(),
   /** Defaults to the bar's currency when a price is set. */
   currency: currencySchema,
   store: optionalText(PRODUCT_TEXT_MAX),
   notes: optionalText(DESCRIPTION_MAX),
-};
+});
 
 /** `POST /products/:id/purchases`: `count` identical bottles (price per bottle). */
-export const createPurchaseSchema = z
-  .object(fields)
+export const createPurchaseSchema = fields
   .partial()
   .required({ bought_on: true })
   .extend({ count: z.number().int().min(1).max(MAX_PURCHASE_COUNT).default(1) });
 export type CreatePurchase = z.infer<typeof createPurchaseSchema>;
 
 /** `PATCH /products/:id/purchases/:purchaseId`: a null `finished_on` reopens the bottle. */
-export const updatePurchaseSchema = z
-  .object({ ...fields, finished_on: isoDateSchema.nullable() })
+export const updatePurchaseSchema = fields
+  .extend({ finished_on: isoDateSchema.nullable() })
   .partial()
   .refine((patch) => Object.keys(patch).length > 0, "Send at least one field to change");
 export type UpdatePurchase = z.infer<typeof updatePurchaseSchema>;

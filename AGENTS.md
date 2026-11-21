@@ -26,9 +26,10 @@ Larder is a self-hosted app for managing home bars. See [README.md](README.md) f
   Node runs the `.ts` sources directly (type stripping), so relative imports use the `.ts`
   extension and only erasable syntax is allowed (no `enum`, no `namespace`, no parameter properties).
   `tsc` is only used for type checking.
-- API TypeScript, including tests and configuration, uses Biome's `useExplicitType` and
+- API and shared TypeScript, including tests and configuration, use Biome's `useExplicitType` and
   `noExplicitAny` rules. Annotate declaration types and parameters with defaults. Use contextual
-  typing in framework callbacks and preserve Hono RPC and Drizzle query inference where needed.
+  typing in framework callbacks and preserve Zod schema, Hono RPC and Drizzle query inference where
+  needed.
 - Every request/response body is a Zod schema in `packages/shared`; the web app reuses them for forms
   and talks to the API through Hono's typed RPC client.
 - IDs are UUIDv7 strings generated in the app. Timestamps are ISO-8601 UTC text (`created_at`, `updated_at`).

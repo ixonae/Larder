@@ -1,9 +1,14 @@
 import { expect, test } from "vitest";
-import type { CategoryKind } from "./categories.ts";
+import type { Category, CategoryKind } from "./categories.ts";
 import { computeAbv, computeVolume, scaleRecipe, spiritsContained } from "./cocktail-math.ts";
 import type { Unit } from "./units.ts";
 
-const line = (amount: number | null, unit: Unit, abv = 0, optional = false) => ({
+const line = (
+  amount: number | null,
+  unit: Unit,
+  abv: number = 0,
+  optional: boolean = false,
+): { amount: number | null; unit: Unit; abv: number; optional: boolean } => ({
   amount,
   unit,
   abv,
@@ -52,7 +57,10 @@ test("keeps ABV calculable when volume overflows or underflows", () => {
 });
 
 test("reports each preferred spirit family once, including a spirit used at its root", () => {
-  const category = (name: string, kind: CategoryKind = "spirit") => ({ id: name, name, kind });
+  const category = (
+    name: string,
+    kind: CategoryKind = "spirit",
+  ): Pick<Category, "id" | "name" | "kind"> => ({ id: name, name, kind });
   const spirit = category("Spirit");
   const whisky = category("Whisky");
   const vodka = category("Vodka");

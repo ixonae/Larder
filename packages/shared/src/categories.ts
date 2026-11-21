@@ -96,7 +96,7 @@ export type Category = z.infer<typeof categorySchema>;
 export type CategoryTreeNode = TreeNode<Category>;
 
 export const categoryTreeNodeSchema: z.ZodType<CategoryTreeNode> = categorySchema.extend({
-  get children() {
+  get children(): z.ZodArray<typeof categoryTreeNodeSchema> {
     return z.array(categoryTreeNodeSchema);
   },
 });
@@ -105,7 +105,7 @@ export const categoryTreeNodeSchema: z.ZodType<CategoryTreeNode> = categorySchem
 export const categoryTreeSchema = z.object({ items: z.array(categoryTreeNodeSchema) });
 export type CategoryTree = z.infer<typeof categoryTreeSchema>;
 
-const fields = {
+const fields = z.object({
   name: z.string().trim().min(1).max(CATEGORY_NAME_MAX),
   /** `null` makes it a root category. */
   parent_id: idSchema.nullable(),
@@ -114,15 +114,14 @@ const fields = {
   default_abv: z.number().min(0).max(100).nullable(),
   /** Blank text is stored as `null`. */
   description: optionalText(DESCRIPTION_MAX),
-};
+});
 
 /** `POST /categories` */
-export const createCategorySchema = z.object(fields).partial().required({ name: true });
+export const createCategorySchema = fields.partial().required({ name: true });
 export type CreateCategory = z.infer<typeof createCategorySchema>;
 
 /** `PATCH /categories/:id`: only the fields sent change. */
-export const updateCategorySchema = z
-  .object(fields)
+export const updateCategorySchema = fields
   .partial()
   .refine((patch) => Object.keys(patch).length > 0, "Send at least one field to change");
 export type UpdateCategory = z.infer<typeof updateCategorySchema>;

@@ -23,7 +23,7 @@
   },
   "overrides": [
     {
-      "includes": ["apps/api/**/*.ts"],
+      "includes": ["apps/api/**/*.ts", "packages/shared/**/*.ts"],
       "linter": {
         "rules": {
           "suspicious": {

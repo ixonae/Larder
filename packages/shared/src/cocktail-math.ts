@@ -25,7 +25,7 @@ function includedAmount(line: VolumeLine, includeOptional: boolean): number {
 /** Measured volume before dilution, or null if the total overflows. */
 export function computeVolume(
   lines: readonly VolumeLine[],
-  includeOptional = false,
+  includeOptional: boolean = false,
 ): number | null {
   const total = lines.reduce(
     (sum, line) => sum + (toMl(includedAmount(line, includeOptional), line.unit) ?? 0),
@@ -38,7 +38,7 @@ export function computeVolume(
 export function computeAbv(
   lines: readonly (VolumeLine & { abv: number })[],
   method: CocktailMethod,
-  includeOptional = false,
+  includeOptional: boolean = false,
 ): number {
   // Normalize before converting to ml so very large or small quantities still yield an ABV.
   const largest = lines.reduce(

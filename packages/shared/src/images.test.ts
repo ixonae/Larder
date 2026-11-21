@@ -10,7 +10,7 @@ describe("imageUrl", () => {
 
 describe("uploadImageSchema", () => {
   it("accepts the allowed picture types only", () => {
-    const file = (type: string) => ({ file: new File(["x"], "p", { type }) });
+    const file = (type: string): { file: File } => ({ file: new File(["x"], "p", { type }) });
     expect(uploadImageSchema.safeParse(file("image/heic")).success).toBe(true);
     expect(uploadImageSchema.safeParse(file("image/gif")).success).toBe(false);
     expect(uploadImageSchema.safeParse({ file: "x" }).success).toBe(false);

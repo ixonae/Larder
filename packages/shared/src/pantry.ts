@@ -20,23 +20,21 @@ export const pantryIngredientSchema = z.object({
 });
 export type PantryIngredient = z.infer<typeof pantryIngredientSchema>;
 
-const fields = {
+const fields = z.object({
   name: z.string().trim().min(1).max(PANTRY_INGREDIENT_NAME_MAX),
   category_id: idSchema,
   in_stock: z.boolean(),
   always_available: z.boolean(),
-};
+});
 
 /** `POST /pantry-ingredients`: both flags default to `false`. */
-export const createPantryIngredientSchema = z
-  .object(fields)
+export const createPantryIngredientSchema = fields
   .partial()
   .required({ name: true, category_id: true });
 export type CreatePantryIngredient = z.infer<typeof createPantryIngredientSchema>;
 
 /** `PATCH /pantry-ingredients/:id`: only the fields sent change. */
-export const updatePantryIngredientSchema = z
-  .object(fields)
+export const updatePantryIngredientSchema = fields
   .partial()
   .refine((patch) => Object.keys(patch).length > 0, "Send at least one field to change");
 export type UpdatePantryIngredient = z.infer<typeof updatePantryIngredientSchema>;

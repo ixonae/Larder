@@ -12,7 +12,7 @@ export const TASTING_SCORE_MIN = 1;
 export const TASTING_SCORE_MAX = 5;
 
 /** The same 1–5 score as a cocktail rating. */
-const scoreSchema = ratingInputSchema.shape.score;
+const scoreSchema: (typeof ratingInputSchema.shape)["score"] = ratingInputSchema.shape.score;
 
 /** The bottle a tasting is about, as the journal shows it. */
 export const tastingProductSchema = z.object({
@@ -49,23 +49,22 @@ export const tastingSchema = z.object({
 export type Tasting = z.infer<typeof tastingSchema>;
 export const tastingPageSchema = pageSchema(tastingSchema);
 
-const fields = {
+const fields = z.object({
   tasted_on: isoDateSchema,
   score: scoreSchema.nullable(),
   notes: optionalText(DESCRIPTION_MAX),
   location: optionalText(PRODUCT_TEXT_MAX),
   is_private: z.boolean(),
-};
+});
 
 /** `POST /products/:id/tastings`: only the day is required. */
-export const createTastingSchema = z.object(fields).partial().required({ tasted_on: true });
+export const createTastingSchema = fields.partial().required({ tasted_on: true });
 /** What a form sends. */
 export type CreateTastingInput = z.input<typeof createTastingSchema>;
 export type CreateTasting = z.infer<typeof createTastingSchema>;
 
 /** `PATCH /tastings/:id`: only the fields sent change. */
-export const updateTastingSchema = z
-  .object(fields)
+export const updateTastingSchema = fields
   .partial()
   .refine((patch) => Object.keys(patch).length > 0, "Send at least one field to change");
 export type UpdateTasting = z.infer<typeof updateTastingSchema>;
