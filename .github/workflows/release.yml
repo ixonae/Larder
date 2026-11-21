@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  main-only:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Releases are cut from main only, not ${GITHUB_REF}."
+          exit 1
+
+  # The full CI workflow (lint, typecheck, unit tests with coverage, build and the Docker smoke test)
+  # must pass before semantic-release computes a version or creates a tag.
+  check:
+    needs: main-only
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      # Only so the called workflow validates: its sonarqube job asks for it but is skipped here.
+      id-token: write
+
+  release:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.semantic-release.outputs.version }}
+      tag: ${{ steps.semantic-release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Install release tools
+        run: npm ci --prefix .github/release --ignore-scripts --no-audit --no-fund
+      - name: Run semantic-release
+        id: semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/release/run.mjs
+
+  publish:
+    needs: release
+    if: needs.release.outputs.version != ''
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: docker.io/ixonae/larder
+      VERSION: ${{ needs.release.outputs.version }}
+      RELEASE_TAG: ${{ needs.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ needs.release.outputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Sign in to Docker Hub
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push image
+        shell: bash
+        run: |
+          tags=(--tag "$IMAGE:$VERSION")
+          # A retry of an older publish job must leave the current latest tag alone.
+          latest_tag=$(git tag --list --merged origin/main --sort=-version:refname | awk '
+            /^v[0-9]+\.[0-9]+\.[0-9]+$/ && !found { print; found = 1 }
+          ')
+          if [[ "$RELEASE_TAG" == "$latest_tag" ]]; then
+            tags+=(--tag "$IMAGE:latest")
+          fi
+
+          docker buildx build --push --platform linux/amd64 \
+            --file docker/Dockerfile \
+            --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.revision=$(git rev-parse HEAD)" \
+            "${tags[@]}" \
+            .
