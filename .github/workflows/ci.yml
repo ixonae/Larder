@@ -111,11 +111,5 @@ jobs:
         with:
           persist-credentials: false
       - run: docker compose build
-      - name: Start the built image
-        run: |
-          mkdir -p data
-          export LARDER_UID=$(id -u) LARDER_GID=$(id -g)
-          printf '%s\n' 'larder-ci-test-password' | docker compose run -T --rm --no-deps larder node apps/api/src/scripts/setup-owner.ts
-          docker compose up -d --wait
-      - if: failure()
-        run: docker compose logs
+      - name: Smoke-test the built image
+        run: bash docker/smoke-test.sh
