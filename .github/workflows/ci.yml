@@ -35,7 +35,7 @@ jobs:
           pinned_node_version=$(cat .nvmrc)
           test "$(node --version)" = "v${pinned_node_version}"
           test "$(node -p "require('./package.json').engines.node")" = "$pinned_node_version"
-          grep -qF "FROM node:${pinned_node_version}-slim@sha256:" docker/Dockerfile
+          grep -qF "FROM node:${pinned_node_version}-trixie-slim@sha256:" docker/Dockerfile
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
