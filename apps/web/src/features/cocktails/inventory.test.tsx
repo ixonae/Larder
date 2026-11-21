@@ -4,10 +4,13 @@ import type {
   MissingIngredient,
   PantryIngredient,
   Product,
+  Purchase,
+  PurchaseList,
 } from "@larder/shared";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, screen, waitFor, within } from "@testing-library/react";
-import { HttpResponse, http } from "msw";
+import { type DefaultBodyType, HttpResponse, http } from "msw";
+import type { ReactNode } from "react";
 import { expect, it } from "vitest";
 import { cocktailsKey } from "@/api/cocktails.ts";
 import { usePantryMutations } from "@/api/pantry.ts";
@@ -24,10 +27,17 @@ import { BAR_ID, server } from "@/test/msw.ts";
 import { choose, renderWithProviders } from "@/test/render.tsx";
 
 const base = `/api/bars/${BAR_ID}`;
-const id = (n: number) => fixtureId(n, "504a488ce");
+const id = (n: number): string => fixtureId(n, "504a488ce");
 
 const BOTTLES = ["Beefeater", "Tanqueray", "Sipsmith"];
-const source = (n: number, name: string, bottles: string[] = []) => ({
+const source = (
+  n: number,
+  name: string,
+  bottles: string[] = [],
+): Omit<
+  CocktailIngredient,
+  "amount" | "unit" | "optional" | "preparation_only" | "alternatives"
+> => ({
   id: id(n),
   position: 0,
   category_id: id(100 + n),
@@ -201,85 +211,88 @@ it("updates the same live availability status when stock changes while viewing a
 const stockChanges: [string, () => () => Promise<unknown>][] = [
   [
     "buying a bottle",
-    () => {
+    (): (() => Promise<PurchaseList>) => {
       const { mutateAsync } = useBuyBottle(BAR_ID);
-      return () => mutateAsync({ id: id(400), json: { bought_on: "2026-11-01", count: 1 } });
+      return (): Promise<PurchaseList> =>
+        mutateAsync({ id: id(400), json: { bought_on: "2026-11-01", count: 1 } });
     },
   ],
   [
     "running out of a bottle",
-    () => {
+    (): (() => Promise<Product>) => {
       const { mutateAsync } = useFinishBottle(BAR_ID);
-      return () => mutateAsync({ id: id(400), finished_on: "2026-11-02" });
+      return (): Promise<Product> => mutateAsync({ id: id(400), finished_on: "2026-11-02" });
     },
   ],
   [
     "setting a bottle's status",
-    () => {
+    (): (() => Promise<Product>) => {
       const { mutateAsync } = useSetBottleStatus(BAR_ID);
-      return () => mutateAsync({ id: id(400), status: "owned" });
+      return (): Promise<Product> => mutateAsync({ id: id(400), status: "owned" });
     },
   ],
   [
     "editing a purchase",
-    () => {
+    (): (() => Promise<Purchase>) => {
       const { mutateAsync } = usePurchaseMutations(BAR_ID).update;
-      return () => mutateAsync({ id: id(400), purchaseId: id(402), json: { finished_on: null } });
+      return (): Promise<Purchase> =>
+        mutateAsync({ id: id(400), purchaseId: id(402), json: { finished_on: null } });
     },
   ],
   [
     "deleting a purchase",
-    () => {
+    (): (() => Promise<unknown>) => {
       const { mutateAsync } = usePurchaseMutations(BAR_ID).remove;
-      return () => mutateAsync({ id: id(400), purchaseId: id(402) });
+      return (): Promise<unknown> => mutateAsync({ id: id(400), purchaseId: id(402) });
     },
   ],
   [
     "adding a bottle",
-    () => {
+    (): (() => Promise<Product>) => {
       const { mutateAsync } = useProductMutations(BAR_ID).create;
-      return () => mutateAsync({ name: "Gin", category_id: id(401) });
+      return (): Promise<Product> => mutateAsync({ name: "Gin", category_id: id(401) });
     },
   ],
   [
     "editing a bottle",
-    () => {
+    (): (() => Promise<Product>) => {
       const { mutateAsync } = useProductMutations(BAR_ID).update;
-      return () => mutateAsync({ id: id(400), json: { name: "Gin" } });
+      return (): Promise<Product> => mutateAsync({ id: id(400), json: { name: "Gin" } });
     },
   ],
   [
     "deleting a bottle",
-    () => {
+    (): (() => Promise<unknown>) => {
       const { mutateAsync } = useProductMutations(BAR_ID).remove;
-      return () => mutateAsync(id(400));
+      return (): Promise<unknown> => mutateAsync(id(400));
     },
   ],
   [
     "adding a Pantry ingredient",
-    () => {
+    (): (() => Promise<PantryIngredient>) => {
       const { mutateAsync } = usePantryMutations(BAR_ID).create;
-      return () => mutateAsync({ name: "Lime", category_id: id(401) });
+      return (): Promise<PantryIngredient> => mutateAsync({ name: "Lime", category_id: id(401) });
     },
   ],
   [
     "editing a Pantry ingredient",
-    () => {
+    (): (() => Promise<PantryIngredient>) => {
       const { mutateAsync } = usePantryMutations(BAR_ID).update;
-      return () => mutateAsync({ id: id(400), json: { always_available: true } });
+      return (): Promise<PantryIngredient> =>
+        mutateAsync({ id: id(400), json: { always_available: true } });
     },
   ],
   [
     "deleting a Pantry ingredient",
-    () => {
+    (): (() => Promise<unknown>) => {
       const { mutateAsync } = usePantryMutations(BAR_ID).remove;
-      return () => mutateAsync(id(400));
+      return (): Promise<unknown> => mutateAsync(id(400));
     },
   ],
 ];
 
 it.each(stockChanges)("%s marks the cocktails stale", async (_label, useChange) => {
-  const answer = ({ request }: { request: Request }) =>
+  const answer = ({ request }: { request: Request }): HttpResponse<DefaultBodyType> =>
     request.method === "DELETE"
       ? new HttpResponse(null, { status: 204 })
       : HttpResponse.json({ id: id(400) });
@@ -291,7 +304,7 @@ it.each(stockChanges)("%s marks the cocktails stale", async (_label, useChange) 
   const listKey = [...cocktailsKey(BAR_ID), "list", {}];
   queryClient.setQueryData(listKey, { pages: [], pageParams: [] });
   const { result } = renderHook(useChange, {
-    wrapper: ({ children }) => (
+    wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     ),
   });

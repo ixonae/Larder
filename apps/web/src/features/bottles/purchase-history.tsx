@@ -7,7 +7,7 @@ import {
 } from "@larder/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Pencil, RotateCcw, Trash2 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { purchasesQuery, usePurchaseMutations } from "@/api/products.ts";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
 import { ErrorState, LoadingState } from "@/components/states.tsx";
@@ -33,7 +33,7 @@ export function PurchaseHistory({
   bar,
   product,
   canEdit,
-}: Readonly<{ bar: BarSummary; product: Product; canEdit: boolean }>) {
+}: Readonly<{ bar: BarSummary; product: Product; canEdit: boolean }>): JSX.Element {
   const purchases = useQuery(purchasesQuery(bar.id, product.id));
   const { update: updatePurchase, remove: removePurchase } = usePurchaseMutations(bar.id);
   const [editing, setEditing] = useState<PurchaseTarget>(null);
@@ -48,12 +48,12 @@ export function PurchaseHistory({
     ["Total spent", totalSpent(items)],
   ];
 
-  const reopen = (purchase: Purchase) =>
+  const reopen = (purchase: Purchase): void =>
     updatePurchase.mutate(
       { id: product.id, purchaseId: purchase.id, json: { finished_on: null } },
       {
         onSuccess: () => toast("Bottle reopened"),
-        onError: (err) =>
+        onError: (err: Error) =>
           toast("Could not reopen the bottle", { description: err.message, variant: "error" }),
       },
     );
@@ -61,7 +61,12 @@ export function PurchaseHistory({
   let history: ReactNode;
   if (purchases.isPending) history = <LoadingState label="Loading purchases…" />;
   else if (purchases.isError) {
-    history = <ErrorState error={purchases.error} onRetry={() => purchases.refetch()} />;
+    history = (
+      <ErrorState
+        error={purchases.error}
+        onRetry={(): ReturnType<typeof purchases.refetch> => purchases.refetch()}
+      />
+    );
   } else if (items.length === 0) {
     history = <p className="text-muted-foreground text-sm">No purchases recorded yet.</p>;
   } else {
@@ -96,7 +101,7 @@ export function PurchaseHistory({
                     variant="ghost"
                     size="sm"
                     disabled={updatePurchase.isPending}
-                    onClick={() => reopen(purchase)}
+                    onClick={(): void => reopen(purchase)}
                   >
                     <RotateCcw aria-hidden />
                     Reopen
@@ -106,7 +111,7 @@ export function PurchaseHistory({
                   variant="ghost"
                   size="icon"
                   aria-label={`Edit purchase of ${formatDate(purchase.bought_on)}`}
-                  onClick={() =>
+                  onClick={(): void =>
                     setEditing({
                       kind: "edit",
                       productId: product.id,
@@ -121,7 +126,7 @@ export function PurchaseHistory({
                   variant="ghost"
                   size="icon"
                   aria-label={`Delete purchase of ${formatDate(purchase.bought_on)}`}
-                  onClick={() => setDeleting(purchase)}
+                  onClick={(): void => setDeleting(purchase)}
                 >
                   <Trash2 aria-hidden />
                 </Button>
@@ -154,14 +159,14 @@ export function PurchaseHistory({
         barId={bar.id}
         currency={bar.currency}
         target={editing}
-        onClose={() => setEditing(null)}
+        onClose={(): void => setEditing(null)}
       />
       <ConfirmDialog
         open={deleting !== null}
-        onOpenChange={(open) => !open && setDeleting(null)}
+        onOpenChange={(open: boolean): void => void (!open && setDeleting(null))}
         title="Delete this purchase?"
         description="This cannot be undone."
-        onConfirm={async () => {
+        onConfirm={async (): Promise<void> => {
           // The dialog is only open while a purchase is chosen.
           const purchaseId = (deleting as Purchase).id;
           await removePurchase.mutateAsync({ id: product.id, purchaseId });

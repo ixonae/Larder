@@ -7,14 +7,15 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { CircleUserRound, KeyRound, Mail, ShieldCheck } from "lucide-react";
+import type { JSX } from "react";
 import { api, unwrap } from "@/api/client.ts";
 import { meQuery } from "@/api/queries.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { useSignedIn } from "@/features/bars/active-bar.tsx";
-import { FormError, FormField, PasswordField, useZodForm } from "@/lib/form.tsx";
+import { type ControlProps, FormError, FormField, PasswordField, useZodForm } from "@/lib/form.tsx";
 
-export function SettingsPage() {
+export function SettingsPage(): JSX.Element {
   const { user } = useSignedIn().me;
   return (
     <section className="mx-auto grid w-full max-w-5xl gap-6">
@@ -55,12 +56,12 @@ export function SettingsPage() {
   );
 }
 
-function EmailForm({ email }: Readonly<{ email: string }>) {
+function EmailForm({ email }: Readonly<{ email: string }>): JSX.Element {
   const client = useQueryClient();
   const form = useZodForm(changeEmailSchema, { defaultValues: { email, current_password: "" } });
   const change = useMutation({
     mutationFn: async (json: ChangeEmail) => unwrap(await api.api.me.email.$patch({ json })),
-    onSuccess: async (_result, { email }) => {
+    onSuccess: async (_result: unknown, { email }: { current_password: string; email: string }) => {
       form.reset({ email, current_password: "" });
       await client.invalidateQueries({ queryKey: meQuery.queryKey });
     },
@@ -76,7 +77,7 @@ function EmailForm({ email }: Readonly<{ email: string }>) {
         Change email
       </h3>
       <FormField form={form} name="email" label="Email">
-        {(control) => (
+        {(control: ControlProps): JSX.Element => (
           <Input {...control} {...form.register("email")} type="email" autoComplete="email" />
         )}
       </FormField>
@@ -95,7 +96,7 @@ function EmailForm({ email }: Readonly<{ email: string }>) {
   );
 }
 
-function PasswordForm() {
+function PasswordForm(): JSX.Element {
   const form = useZodForm(changePasswordSchema);
   const change = useMutation({
     mutationFn: async (json: ChangePassword) => unwrap(await api.api.me.password.$patch({ json })),

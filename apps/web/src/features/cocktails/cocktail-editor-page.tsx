@@ -10,8 +10,16 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { Check, Plus, X } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Controller, useFieldArray } from "react-hook-form";
+import {
+  type ChangeEvent,
+  type JSX,
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { Controller, type ControllerRenderProps, useFieldArray } from "react-hook-form";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { type CocktailFilters, cocktailQuery, useSaveCocktail } from "@/api/cocktails.ts";
 import { utensilOptionsQuery } from "@/api/utensils.ts";
@@ -25,8 +33,15 @@ import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { bottleCategoryOptions } from "@/features/categories/category-options.tsx";
-import { applyServerErrors, ComboboxField, FormField, useZodForm } from "@/lib/form.tsx";
 import {
+  applyServerErrors,
+  ComboboxField,
+  type ControlProps,
+  FormField,
+  useZodForm,
+} from "@/lib/form.tsx";
+import {
+  type CocktailEditorInput,
   type CocktailForm,
   cocktailDefaults,
   cocktailEditorSchema,
@@ -39,19 +54,21 @@ import { CocktailIngredientsEditor } from "./cocktail-ingredients-editor.tsx";
 const newRoute = getRouteApi("/cocktails/new");
 const editRoute = getRouteApi("/cocktails/$cocktailId/edit");
 
-export function NewCocktailPage() {
-  const search = newRoute.useSearch();
+export function NewCocktailPage(): JSX.Element {
+  const search: CocktailFilters = newRoute.useSearch();
   return (
-    <BarGate title="New cocktail">{(bar) => <EditorPage bar={bar} search={search} />}</BarGate>
+    <BarGate title="New cocktail">
+      {(bar: BarSummary): JSX.Element => <EditorPage bar={bar} search={search} />}
+    </BarGate>
   );
 }
 
-export function EditCocktailPage() {
-  const { cocktailId } = editRoute.useParams();
-  const search = editRoute.useSearch();
+export function EditCocktailPage(): JSX.Element {
+  const { cocktailId }: { cocktailId: string } = editRoute.useParams();
+  const search: CocktailFilters = editRoute.useSearch();
   return (
     <BarGate title="Edit cocktail">
-      {(bar) => <EditorPage bar={bar} id={cocktailId} search={search} />}
+      {(bar: BarSummary): JSX.Element => <EditorPage bar={bar} id={cocktailId} search={search} />}
     </BarGate>
   );
 }
@@ -64,7 +81,7 @@ function EditorPage({
   bar: BarSummary;
   id?: string;
   search: CocktailFilters;
-}>) {
+}>): JSX.Element {
   return (
     <section className="mx-auto grid max-w-5xl gap-4">
       <h1 className="text-3xl">{id ? "Edit cocktail" : "New cocktail"}</h1>
@@ -87,13 +104,19 @@ function EditorLoader({
   barId: string;
   id: string | undefined;
   search: CocktailFilters;
-}>) {
+}>): JSX.Element {
   const recipe = useQuery({ ...cocktailQuery(barId, id ?? ""), enabled: id !== undefined });
   const categories = useQuery(categoryTreeQuery(barId));
   const utensils = useQuery(utensilOptionsQuery(barId));
   const queries = [recipe, categories, utensils];
   const failed = queries.find((query) => query.isLoadingError);
-  if (failed) return <ErrorState error={failed.error} onRetry={() => failed.refetch()} />;
+  if (failed)
+    return (
+      <ErrorState
+        error={failed.error}
+        onRetry={(): ReturnType<typeof failed.refetch> => failed.refetch()}
+      />
+    );
   if (!categories.data || !utensils.data || (id && !recipe.data)) {
     return <LoadingState label="Loading recipe editor…" />;
   }
@@ -104,7 +127,10 @@ function EditorLoader({
   return (
     <>
       {refreshError && (
-        <ErrorState error={refreshError.error} onRetry={() => refreshError.refetch()} />
+        <ErrorState
+          error={refreshError.error}
+          onRetry={(): ReturnType<typeof refreshError.refetch> => refreshError.refetch()}
+        />
       )}
       <CocktailFormView
         barId={barId}
@@ -129,7 +155,7 @@ function CocktailFormView({
   categories: SourceOption[];
   utensils: Utensil[];
   search: CocktailFilters;
-}>) {
+}>): JSX.Element {
   const [defaultValues] = useState(() => cocktailDefaults(recipe));
   const [initial] = useState(() => recipe && cocktailEditorSchema.parse(defaultValues));
   const form = useZodForm(cocktailEditorSchema, { defaultValues });
@@ -139,11 +165,13 @@ function CocktailFormView({
   const active = useRef(false);
   useEffect(() => {
     active.current = true;
-    return () => {
+    return (): void => {
       active.current = false;
     };
   }, []);
-  const detailLocation = (id: string) => ({
+  const detailLocation = (
+    id: string,
+  ): { to: "/cocktails/$cocktailId"; params: { cocktailId: string }; search: CocktailFilters } => ({
     to: "/cocktails/$cocktailId" as const,
     params: { cocktailId: id },
     search,
@@ -181,10 +209,14 @@ function CocktailFormView({
           <div className="grid min-w-0 gap-4 lg:col-start-1 lg:row-start-1">
             <FormSection title="Basics">
               <FormField form={form} name="name" label="Name">
-                {(control) => <Input autoComplete="off" {...control} {...form.register("name")} />}
+                {(control: ControlProps): JSX.Element => (
+                  <Input autoComplete="off" {...control} {...form.register("name")} />
+                )}
               </FormField>
               <FormField form={form} name="description" label="Description">
-                {(control) => <Textarea rows={2} {...control} {...form.register("description")} />}
+                {(control: ControlProps): JSX.Element => (
+                  <Textarea rows={2} {...control} {...form.register("description")} />
+                )}
               </FormField>
               <ImageUpload
                 imageId={recipe?.image_id ?? null}
@@ -230,7 +262,7 @@ function CocktailFormView({
                   searchPlaceholder="Search glasses"
                 />
                 <FormField form={form} name="servings" label="Servings">
-                  {(control) => (
+                  {(control: ControlProps): JSX.Element => (
                     <Input
                       type="number"
                       min={1}
@@ -257,7 +289,9 @@ function CocktailFormView({
                   ] as const
                 ).map(([name, label]) => (
                   <FormField key={name} form={form} name={name} label={label}>
-                    {(control) => <Textarea rows={2} {...control} {...form.register(name)} />}
+                    {(control: ControlProps): JSX.Element => (
+                      <Textarea rows={2} {...control} {...form.register(name)} />
+                    )}
                   </FormField>
                 ))}
               </div>
@@ -269,7 +303,7 @@ function CocktailFormView({
           <Button
             type="button"
             variant="ghost"
-            onClick={() =>
+            onClick={(): Promise<void> =>
               navigate(recipe ? detailLocation(recipe.id) : { to: "/cocktails", search })
             }
           >
@@ -282,7 +316,10 @@ function CocktailFormView({
   );
 }
 
-function FormSection({ title, children }: Readonly<{ title?: string; children: ReactNode }>) {
+function FormSection({
+  title,
+  children,
+}: Readonly<{ title?: string; children: ReactNode }>): JSX.Element {
   return (
     <section className="@container grid min-w-0 gap-4 rounded-xl border bg-card p-4 shadow-xs sm:p-5">
       {title && <h2 className="font-semibold">{title}</h2>}
@@ -291,7 +328,7 @@ function FormSection({ title, children }: Readonly<{ title?: string; children: R
   );
 }
 
-function StepsField({ form }: Readonly<{ form: CocktailForm }>) {
+function StepsField({ form }: Readonly<{ form: CocktailForm }>): JSX.Element {
   const steps = useFieldArray({ control: form.control, name: "steps" });
   return (
     <fieldset className="grid gap-2">
@@ -312,7 +349,7 @@ function StepsField({ form }: Readonly<{ form: CocktailForm }>) {
                 label={`Step ${index + 1}`}
                 srOnlyLabel
               >
-                {(control) => (
+                {(control: ControlProps): JSX.Element => (
                   <Textarea
                     rows={1}
                     className="min-h-9"
@@ -327,7 +364,7 @@ function StepsField({ form }: Readonly<{ form: CocktailForm }>) {
               variant="ghost"
               size="icon"
               aria-label="Remove step"
-              onClick={() => steps.remove(index)}
+              onClick={(): void => steps.remove(index)}
             >
               <X />
             </Button>
@@ -339,7 +376,7 @@ function StepsField({ form }: Readonly<{ form: CocktailForm }>) {
         variant="outline"
         size="sm"
         className="justify-self-start"
-        onClick={() => steps.append({ text: "" })}
+        onClick={(): void => steps.append({ text: "" })}
       >
         <Plus aria-hidden />
         Add step
@@ -348,7 +385,10 @@ function StepsField({ form }: Readonly<{ form: CocktailForm }>) {
   );
 }
 
-function ToolsField({ form, utensils }: Readonly<{ form: CocktailForm; utensils: Utensil[] }>) {
+function ToolsField({
+  form,
+  utensils,
+}: Readonly<{ form: CocktailForm; utensils: Utensil[] }>): JSX.Element {
   const tools = utensils.filter(({ kind }) => kind === "tool");
   return (
     <fieldset className="grid gap-2">
@@ -359,7 +399,11 @@ function ToolsField({ form, utensils }: Readonly<{ form: CocktailForm; utensils:
         <Controller
           control={form.control}
           name="tool_ids"
-          render={({ field }) => (
+          render={({
+            field,
+          }: {
+            field: ControllerRenderProps<CocktailEditorInput, "tool_ids">;
+          }): JSX.Element => (
             <div className="flex flex-wrap gap-2">
               {tools.map(({ id, name }) => (
                 <label key={id} className={toggleChip({ className: "max-w-full" })}>
@@ -367,7 +411,7 @@ function ToolsField({ form, utensils }: Readonly<{ form: CocktailForm; utensils:
                     type="checkbox"
                     className="sr-only"
                     checked={field.value.includes(id)}
-                    onChange={(event) =>
+                    onChange={(event: ChangeEvent<HTMLInputElement>): void =>
                       field.onChange(
                         event.target.checked
                           ? [...field.value, id]
@@ -387,11 +431,11 @@ function ToolsField({ form, utensils }: Readonly<{ form: CocktailForm; utensils:
   );
 }
 
-function TagsField({ form }: Readonly<{ form: CocktailForm }>) {
+function TagsField({ form }: Readonly<{ form: CocktailForm }>): JSX.Element {
   const tags = useFieldArray({ control: form.control, name: "tags" });
   const [draft, setDraft] = useState("");
   const errors = form.formState.errors.tags;
-  const add = () => {
+  const add = (): void => {
     const name = draft.trim();
     // Tags are only added and removed here, so `fields` holds every current name.
     if (name && !tags.fields.some((tag) => nameKey(tag.name) === nameKey(name))) {
@@ -417,7 +461,7 @@ function TagsField({ form }: Readonly<{ form: CocktailForm }>) {
                   size="icon-xs"
                   className="rounded-full"
                   aria-label={`Remove tag ${name}`}
-                  onClick={() => tags.remove(index)}
+                  onClick={(): void => tags.remove(index)}
                 >
                   <X />
                 </Button>
@@ -442,8 +486,8 @@ function TagsField({ form }: Readonly<{ form: CocktailForm }>) {
           placeholder="Add a tag, then press Enter"
           className="max-w-72"
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
+          onChange={(event: ChangeEvent<HTMLInputElement>): void => setDraft(event.target.value)}
+          onKeyDown={(event: KeyboardEvent<HTMLInputElement>): void => {
             if (event.key !== "Enter") return;
             event.preventDefault();
             add();

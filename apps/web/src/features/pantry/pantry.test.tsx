@@ -9,7 +9,7 @@ import { choose, renderWithProviders } from "@/test/render.tsx";
 const url = `/api/bars/${BAR_ID}/pantry-ingredients`;
 const treeUrl = `/api/bars/${BAR_ID}/categories/tree`;
 let seq = 200;
-const nextId = () => fixtureId(++seq);
+const nextId = (): string => fixtureId(++seq);
 
 const category = (name: string): Category => ({
   id: nextId(),
@@ -42,11 +42,12 @@ const ingredient = (
 
 let store: PantryIngredient[] = [];
 let requests: { method: string; body?: unknown }[] = [];
-const byName = (name: string) => store.find((i) => i.name === name) as PantryIngredient;
-const groupOf = (id: string) => [garnish, pantry].find((c) => c.id === id) as Category;
+const byName = (name: string): PantryIngredient =>
+  store.find((i) => i.name === name) as PantryIngredient;
+const groupOf = (id: string): Category => [garnish, pantry].find((c) => c.id === id) as Category;
 
 /** A small fake of the pantry API: pages of `pageSize`, and a duplicate-name check. */
-function useFakeApi(pageSize = 200, tree = [garnish, pantry]) {
+function useFakeApi(pageSize = 200, tree = [garnish, pantry]): void {
   server.use(
     http.get(treeUrl, () =>
       HttpResponse.json({ items: tree.map((c) => ({ ...c, children: [] })) }),
@@ -104,13 +105,14 @@ beforeEach(() => {
   useFakeApi();
 });
 
-const rows = (name: string) =>
+const rows = (name: string): string[] =>
   within(screen.getByRole("list", { name }))
     .getAllByRole("listitem")
     .map((li) => li.textContent);
-const stockButton = (name: string) => screen.getByRole("button", { name: `${name} in stock` });
+const stockButton = (name: string): HTMLElement =>
+  screen.getByRole("button", { name: `${name} in stock` });
 
-async function open(path = "/pantry") {
+async function open(path = "/pantry"): Promise<ReturnType<typeof renderWithProviders>> {
   const view = renderWithProviders(path);
   await screen.findByRole("list", { name: "Garnish" });
   return view;
@@ -154,7 +156,10 @@ describe("PantryPage", () => {
 
   it("heads each group with its category path, keeping same-named sub-categories apart", async () => {
     const juice = category("Juice");
-    const citrus = (parent: Category) => ({ ...category("Citrus"), parent_id: parent.id });
+    const citrus = (parent: Category): Category => ({
+      ...category("Citrus"),
+      parent_id: parent.id,
+    });
     const garnishCitrus = citrus(garnish);
     const juiceCitrus = citrus(juice);
     store = [ingredient("Yuzu", garnishCitrus), ingredient("Yuzu juice", juiceCitrus)];

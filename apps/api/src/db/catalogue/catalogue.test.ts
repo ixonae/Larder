@@ -32,6 +32,7 @@ import {
 } from "../schema/index.ts";
 import {
   type Catalogue,
+  catalogueRecipeSchema,
   catalogueSourceSchema,
   categoryPictureKey,
   importCatalogue,
@@ -209,11 +210,11 @@ it("seeds high-resolution cocktail illustrations with lightweight thumbnails", a
   expect(recipeIds).toHaveLength(recipes.length);
   expect(new Set(recipeIds).size).toBe(recipes.length);
 
-  const starterRecipes = new Map<string, { glass: string; ice: string; name: string }>();
+  const starterRecipes = new Map<string, Catalogue["recipes"][number]>();
   for (const filename of ["classic-recipes.jsonl", "basic-recipes.jsonl"]) {
     const content = await readFile(new URL(filename, import.meta.url), "utf8");
     for (const line of content.trim().split(/\r?\n/)) {
-      const recipe = JSON.parse(line);
+      const recipe: Catalogue["recipes"][number] = catalogueRecipeSchema.parse(JSON.parse(line));
       starterRecipes.set(recipe.id, recipe);
     }
   }

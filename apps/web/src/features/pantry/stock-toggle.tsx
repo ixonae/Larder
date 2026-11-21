@@ -1,5 +1,6 @@
 import type { PantryIngredient } from "@larder/shared";
 import { Infinity as Always, Check, Plus } from "lucide-react";
+import type { JSX } from "react";
 import { useSetPantryStock } from "@/api/pantry.ts";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -16,7 +17,7 @@ export function StockToggle({
   barId: string;
   ingredient: PantryIngredient;
   canEdit: boolean;
-}>) {
+}>): JSX.Element {
   const setStock = useSetPantryStock(barId);
   if (ingredient.always_available) {
     return (
@@ -35,11 +36,11 @@ export function StockToggle({
       aria-pressed={ingredient.in_stock}
       aria-label={`${ingredient.name} in stock`}
       disabled={setStock.isPending}
-      onClick={() =>
+      onClick={(): void =>
         setStock.mutate(
           { id: ingredient.id, in_stock: !ingredient.in_stock },
           {
-            onError: (err) =>
+            onError: (err: Error) =>
               toast(`Could not update ${ingredient.name}`, {
                 description: err.message,
                 variant: "error",

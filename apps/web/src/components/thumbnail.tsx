@@ -1,6 +1,7 @@
 import { imageUrl } from "@larder/shared";
 import { cn } from "cn";
 import { ImageOff, type LucideIcon } from "lucide-react";
+import type { JSX } from "react";
 
 /** A square thumbnail of the item's picture, or a quiet placeholder when it has none. */
 export function Thumbnail({
@@ -12,7 +13,7 @@ export function Thumbnail({
   className?: string;
   /** Shown on the placeholder; pick one that hints at what the item is. */
   icon?: LucideIcon;
-}>) {
+}>): JSX.Element {
   const box = cn("size-10 shrink-0 rounded-md bg-muted object-cover", className);
   if (!imageId) {
     return (

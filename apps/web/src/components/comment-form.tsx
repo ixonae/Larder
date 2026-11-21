@@ -1,5 +1,6 @@
 import { COMMENT_MAX, type CommentInput, commentInputSchema } from "@larder/shared";
 import { type ReactElement, useState } from "react";
+import type { ControlProps } from "@/lib/form.tsx";
 import { FormError, FormField, useZodForm } from "@/lib/form.tsx";
 import { FeedbackVisibility } from "./feedback-visibility.tsx";
 import { Button } from "./ui/button.tsx";
@@ -34,13 +35,15 @@ export function CommentForm({
   return (
     <form onSubmit={submit} className="grid gap-2">
       <FormField form={form} name="body" label={label} srOnlyLabel>
-        {(control) => <Textarea {...control} {...form.register("body")} maxLength={COMMENT_MAX} />}
+        {(control: ControlProps) => (
+          <Textarea {...control} {...form.register("body")} maxLength={COMMENT_MAX} />
+        )}
       </FormField>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <FeedbackVisibility
           label="Comment visibility"
           value={!!isPrivate}
-          onChange={(value) => form.setValue("is_private", value)}
+          onChange={(value: boolean) => form.setValue("is_private", value)}
         />
         <div className="flex gap-2">
           {onCancel && (

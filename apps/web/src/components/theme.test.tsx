@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { mediaQuery } from "@/test/setup.ts";
 import { applyTheme, readTheme, ThemeToggle } from "./theme.tsx";
 
-const isDark = () => document.documentElement.classList.contains("dark");
+const isDark = (): boolean => document.documentElement.classList.contains("dark");
 
 describe("ThemeToggle", () => {
   it("cycles light → dark → system and remembers the choice", async () => {

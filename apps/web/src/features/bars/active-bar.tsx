@@ -1,6 +1,6 @@
 import type { BarSummary, Me } from "@larder/shared";
 import { useNavigate } from "@tanstack/react-router";
-import { createContext, type ReactNode, useContext, useMemo } from "react";
+import { createContext, type JSX, type ReactNode, useContext, useMemo } from "react";
 import { useStoredState } from "@/lib/stored-state.ts";
 
 type SignedIn = {
@@ -12,7 +12,7 @@ type SignedIn = {
 const ActiveBarContext = createContext<SignedIn | null>(null);
 
 /** The signed-in user and their bar selection; null outside the signed-in shell. */
-export const useActiveBar = () => useContext(ActiveBarContext);
+export const useActiveBar = (): SignedIn | null => useContext(ActiveBarContext);
 
 /** For pages the router only mounts inside the signed-in shell. */
 export function useSignedIn(): SignedIn {
@@ -21,7 +21,10 @@ export function useSignedIn(): SignedIn {
   return signedIn;
 }
 
-export function ActiveBarProvider({ me, children }: Readonly<{ me: Me; children: ReactNode }>) {
+export function ActiveBarProvider({
+  me,
+  children,
+}: Readonly<{ me: Me; children: ReactNode }>): JSX.Element {
   const [selected, select] = useStoredState(
     `larder.bar.${me.user.id}`,
     me.bars.map(({ id }) => id),

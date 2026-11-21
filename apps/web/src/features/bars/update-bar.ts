@@ -1,10 +1,13 @@
-import type { UpdateBar } from "@larder/shared";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { BarSummary, UpdateBar } from "@larder/shared";
+import { type UseMutationResult, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/api/client.ts";
 import { meQuery } from "@/api/queries.ts";
 
 /** The owner's update of a bar (name and/or currency); refreshes the signed-in user's bars. */
-export function useUpdateBar(barId: string, onSaved: () => void) {
+export function useUpdateBar(
+  barId: string,
+  onSaved: () => void,
+): UseMutationResult<Pick<BarSummary, "id" | "name" | "currency">, Error, UpdateBar> {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (json: UpdateBar) =>

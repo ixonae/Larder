@@ -1,10 +1,11 @@
 import { cn } from "cn";
 import { Star } from "lucide-react";
+import type { JSX } from "react";
 import { useId } from "react";
 
 const SCORES = [1, 2, 3, 4, 5] as const;
 
-const starClass = (filled: boolean) =>
+const starClass = (filled: boolean): string =>
   cn("size-5", filled ? "fill-amber-400 text-amber-400" : "text-muted-foreground");
 
 /** One star showing the community fill (amber, partial) under your rating's brand outline. */
@@ -12,7 +13,7 @@ function LayeredStar({
   score,
   value,
   average,
-}: Readonly<{ score: number; value: number | null; average: number | null }>) {
+}: Readonly<{ score: number; value: number | null; average: number | null }>): JSX.Element {
   const fill: number = average === null ? 0 : Math.min(1, Math.max(0, average - (score - 1)));
   return (
     <span className="relative size-5" aria-hidden>
@@ -48,7 +49,7 @@ export function RatingStars({
   onChange?: (value: number | null) => void;
   label?: string;
   average?: number | null;
-}>) {
+}>): JSX.Element {
   const name = useId();
   if (!onChange) {
     return (
@@ -78,8 +79,8 @@ export function RatingStars({
             checked={value === s}
             aria-label={`${s} star${s > 1 ? "s" : ""}`}
             className="sr-only"
-            onChange={() => onChange(s)}
-            onClick={() => {
+            onChange={(): void => onChange(s)}
+            onClick={(): void => {
               if (value === s) onChange(null);
             }}
           />

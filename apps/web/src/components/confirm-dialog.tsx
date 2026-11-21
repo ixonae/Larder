@@ -1,4 +1,5 @@
 import { type UsedBy, usedBySchema } from "@larder/shared";
+import type { ChangeEvent, JSX } from "react";
 import { useId, useState } from "react";
 import { ApiError } from "@/api/client.ts";
 import {
@@ -52,20 +53,20 @@ export function ConfirmDialog({
   confirmLabel?: string;
   confirmationText?: string;
   onConfirm: (confirmation: string) => Promise<unknown>;
-}>) {
+}>): JSX.Element {
   const inputId = useId();
   const [confirmation, setConfirmation] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const usedBy = usedByOf(error);
 
-  const change = (next: boolean) => {
+  const change = (next: boolean): void => {
     setError(null);
     setConfirmation("");
     onOpenChange(next);
   };
 
-  const confirm = async () => {
+  const confirm = async (): Promise<void> => {
     setPending(true);
     setError(null);
     try {
@@ -93,7 +94,9 @@ export function ConfirmDialog({
             <Input
               id={inputId}
               value={confirmation}
-              onChange={(event) => setConfirmation(event.currentTarget.value)}
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                setConfirmation(event.currentTarget.value)
+              }
               autoComplete="off"
               autoCapitalize="none"
               autoCorrect="off"

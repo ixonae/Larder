@@ -65,10 +65,10 @@ export const cocktailEditorSchema = createCocktailSchema
       .transform((tags) => tags.map(({ name }) => name)),
   });
 
-type EditorInput = z.input<typeof cocktailEditorSchema>;
+export type CocktailEditorInput = z.input<typeof cocktailEditorSchema>;
 type EditorOutput = z.output<typeof cocktailEditorSchema>;
-export type CocktailForm = UseFormReturn<EditorInput, unknown, EditorOutput>;
-export type SourceOption = EditorInput["ingredients"][number]["source"];
+export type CocktailForm = UseFormReturn<CocktailEditorInput, unknown, EditorOutput>;
+export type SourceOption = CocktailEditorInput["ingredients"][number]["source"];
 export const emptySource: SourceOption = { value: "", name: "" };
 
 export function sourceOption(kind: keyof IngredientSource, id: string, name: string): SourceOption {
@@ -80,7 +80,10 @@ type Source = Pick<
   "category_id" | "product_id" | "pantry_ingredient_id" | "name" | "note"
 >;
 
-function sourceDefaults({ category_id, product_id, pantry_ingredient_id, name, note }: Source) {
+function sourceDefaults({ category_id, product_id, pantry_ingredient_id, name, note }: Source): {
+  source: SourceOption;
+  note: string | null;
+} {
   if (category_id) return { source: sourceOption("category_id", category_id, name), note };
   if (product_id) return { source: sourceOption("product_id", product_id, name), note };
   return {
@@ -102,7 +105,7 @@ export function cocktailPatch(
   );
 }
 
-export function cocktailDefaults(recipe?: CocktailDetail): EditorInput {
+export function cocktailDefaults(recipe?: CocktailDetail): CocktailEditorInput {
   return {
     name: recipe?.name ?? "",
     description: recipe?.description ?? "",

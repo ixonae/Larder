@@ -1,13 +1,13 @@
 import type { BarMember, BarSummary, UpdateBarMember } from "@larder/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { api, unwrap } from "@/api/client.ts";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
 import { ErrorState, LoadingState } from "@/components/states.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { FormError } from "@/lib/form.tsx";
 
-export function Members({ bar }: Readonly<{ bar: BarSummary }>) {
+export function Members({ bar }: Readonly<{ bar: BarSummary }>): JSX.Element {
   const client = useQueryClient();
   const queryKey = ["bars", bar.id, "members"];
   const result = useQuery({
@@ -19,7 +19,12 @@ export function Members({ bar }: Readonly<{ bar: BarSummary }>) {
     <section className="grid gap-3 rounded-xl border bg-card p-4 sm:p-5">
       <h2 className="break-words text-xl">Members of {bar.name}</h2>
       {result.isPending && <LoadingState />}
-      {result.isError && <ErrorState error={result.error} onRetry={() => result.refetch()} />}
+      {result.isError && (
+        <ErrorState
+          error={result.error}
+          onRetry={(): ReturnType<typeof result.refetch> => result.refetch()}
+        />
+      )}
       {result.data && (
         <ul className="divide-y">
           {result.data.members.map((member) => (
@@ -32,7 +37,7 @@ export function Members({ bar }: Readonly<{ bar: BarSummary }>) {
                 <MemberActions
                   bar={bar}
                   member={member}
-                  onChanged={() => client.invalidateQueries({ queryKey })}
+                  onChanged={(): Promise<void> => client.invalidateQueries({ queryKey })}
                 />
               )}
             </li>
@@ -47,7 +52,7 @@ function MemberActions({
   bar,
   member,
   onChanged,
-}: Readonly<{ bar: BarSummary; member: BarMember; onChanged: () => Promise<void> }>) {
+}: Readonly<{ bar: BarSummary; member: BarMember; onChanged: () => Promise<void> }>): JSX.Element {
   const [confirm, setConfirm] = useState(false);
   const endpoint = api.api.bars[":barId"].members[":id"];
   const param = { barId: bar.id, id: member.id };
@@ -65,7 +70,7 @@ function MemberActions({
           size="sm"
           aria-label={`Make ${member.display_name} ${nextRole}`}
           disabled={update.isPending}
-          onClick={() => update.mutate({ role: nextRole })}
+          onClick={(): void => update.mutate({ role: nextRole })}
         >
           Make {nextRole}
         </Button>
@@ -74,7 +79,7 @@ function MemberActions({
           size="sm"
           aria-label={`Remove ${member.display_name}`}
           disabled={update.isPending}
-          onClick={() => setConfirm(true)}
+          onClick={(): void => setConfirm(true)}
         >
           Remove
         </Button>
@@ -86,7 +91,7 @@ function MemberActions({
         title={`Remove ${member.display_name}?`}
         description={`They will lose access to ${bar.name}. Their contributions will stay in the bar.`}
         confirmLabel="Remove member"
-        onConfirm={async () => {
+        onConfirm={async (): Promise<void> => {
           await unwrap(await endpoint.$delete({ param }));
           await onChanged();
         }}

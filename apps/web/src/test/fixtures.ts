@@ -1,8 +1,9 @@
 import type { ErrorCode } from "@larder/shared";
+import type { JsonBodyType } from "msw";
 import { HttpResponse } from "msw";
 
 /** A fixed UUID for fixtures. `prefix` (hex) keeps one test file's ids apart from another's. */
-export function fixtureId(n: number, prefix = "") {
+export function fixtureId(n: number, prefix = ""): string {
   const last = `${prefix}${String(n).padStart(12 - prefix.length, "0")}`;
   if (last.length !== 12) throw new Error(`Fixture id ${n} does not fit after "${prefix}"`);
   return `01a1f326-d941-7d74-8a40-${last}`;
@@ -15,8 +16,10 @@ export const timestamps = {
 };
 
 /** An MSW answer holding one page of a list endpoint. */
-export const page = <T>(items: T[], next_cursor: string | null = null) =>
-  HttpResponse.json({ items, next_cursor });
+export const page = <T>(
+  items: T[],
+  next_cursor: string | null = null,
+): HttpResponse<JsonBodyType> => HttpResponse.json({ items, next_cursor });
 
 /** An MSW answer in the API's error shape. */
 export const failure = (
@@ -24,7 +27,8 @@ export const failure = (
   status: number,
   message: string = code,
   details?: unknown,
-) => HttpResponse.json({ error: { code, message, details } }, { status });
+): HttpResponse<JsonBodyType> =>
+  HttpResponse.json({ error: { code, message, details } }, { status });
 
 /** The rating and favourite fields of a cocktail nobody has rated or favourited. */
 export const unrated: {

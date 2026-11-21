@@ -21,10 +21,10 @@ const utensil = (name: string, extra: Partial<Utensil> = {}): Utensil => ({
 
 let store: Utensil[] = [];
 let requests: { method: string; body?: unknown }[] = [];
-const byName = (name: string) => store.find((u) => u.name === name) as Utensil;
+const byName = (name: string): Utensil => store.find((u) => u.name === name) as Utensil;
 
 /** A small fake of the utensils API: pages of `pageSize`, and a duplicate-name check. */
-function useFakeApi(pageSize = 200) {
+function useFakeApi(pageSize = 200): void {
   server.use(
     http.get(url, ({ request }) => {
       const start = Number(new URL(request.url).searchParams.get("cursor") ?? 0);
@@ -67,13 +67,13 @@ beforeEach(() => {
   useFakeApi();
 });
 
-const group = (name: string) => screen.getByRole("list", { name });
-const rows = (name: string) =>
+const group = (name: string): HTMLElement => screen.getByRole("list", { name });
+const rows = (name: string): string[] =>
   within(group(name))
     .getAllByRole("listitem")
     .map((li) => li.textContent);
 
-async function open() {
+async function open(): Promise<ReturnType<typeof renderWithProviders>> {
   const view = renderWithProviders("/utensils");
   await screen.findByRole("list", { name: "Glasses" });
   return view;

@@ -1,11 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { JSX } from "react";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { choose } from "@/test/render.tsx";
 import { type Amount, AmountInput } from "./amount-input.tsx";
 
-function Harness({ initial }: { initial: Amount }) {
+function Harness({ initial }: { initial: Amount }): JSX.Element {
   const [value, setValue] = useState(initial);
   return (
     <>
@@ -15,9 +16,9 @@ function Harness({ initial }: { initial: Amount }) {
   );
 }
 
-const pickUnit = (name: string) => choose(userEvent, "Unit", name);
+const pickUnit = (name: string): Promise<void> => choose(userEvent, "Unit", name);
 
-const shown = () => JSON.parse(screen.getByRole("status").textContent ?? "") as Amount;
+const shown = (): Amount => JSON.parse(screen.getByRole("status").textContent ?? "") as Amount;
 
 describe("AmountInput", () => {
   it("edits the amount and the unit", async () => {

@@ -1,4 +1,5 @@
 import { type BarSummary, barFieldsSchema } from "@larder/shared";
+import type { JSX } from "react";
 import { currencyPicker } from "@/components/currency-options.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { ComboboxField, FormError, useZodForm } from "@/lib/form.tsx";
@@ -10,7 +11,7 @@ type PricedBar = Pick<BarSummary, "id" | "name" | "currency">;
 const currencyFormSchema = barFieldsSchema.pick({ currency: true });
 
 /** Owner-only: opens a sheet to choose the currency prices in this bar are given in. */
-export function ChangeCurrencyButton({ bar }: Readonly<{ bar: PricedBar }>) {
+export function ChangeCurrencyButton({ bar }: Readonly<{ bar: PricedBar }>): JSX.Element {
   return (
     <BarSettingSheet
       label="Currency"
@@ -18,12 +19,15 @@ export function ChangeCurrencyButton({ bar }: Readonly<{ bar: PricedBar }>) {
       title="Bar currency"
       description="Prices in this bar are given in this currency."
     >
-      {(onSaved) => <CurrencyForm bar={bar} onSaved={onSaved} />}
+      {(onSaved: () => void): JSX.Element => <CurrencyForm bar={bar} onSaved={onSaved} />}
     </BarSettingSheet>
   );
 }
 
-function CurrencyForm({ bar, onSaved }: Readonly<{ bar: PricedBar; onSaved: () => void }>) {
+function CurrencyForm({
+  bar,
+  onSaved,
+}: Readonly<{ bar: PricedBar; onSaved: () => void }>): JSX.Element {
   const form = useZodForm(currencyFormSchema, { defaultValues: { currency: bar.currency } });
   const update = useUpdateBar(bar.id, onSaved);
   return (

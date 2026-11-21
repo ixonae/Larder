@@ -1,16 +1,27 @@
-import type { CreateCocktail, ListCocktailsQuery, UpdateCocktail } from "@larder/shared";
+import type {
+  Cocktail,
+  CocktailDetail,
+  CreateCocktail,
+  ListCocktailsQuery,
+  Page,
+  Tag,
+  UpdateCocktail,
+} from "@larder/shared";
 import {
   hashKey,
   infiniteQueryOptions,
   keepPreviousData,
+  type Query,
   queryOptions,
+  type UseMutationResult,
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
 import { api, unwrap } from "./client.ts";
 import { collectPages } from "./pagination.ts";
+import type { ApiInfiniteQueryOptions, ApiQueryOptions } from "./query-options.ts";
 
-const bar = api.api.bars[":barId"];
+const bar: (typeof api.api.bars)[":barId"] = api.api.bars[":barId"];
 export const cocktailsKey = (barId: string) => ["bars", barId, "cocktails"] as const;
 /** Every cached cocktail list (any filters). */
 export const cocktailListKey = (barId: string) => [...cocktailsKey(barId), "list"] as const;
@@ -20,12 +31,21 @@ export const cocktailDetailKey = (barId: string, id: string) =>
 export type CocktailFilters = Omit<ListCocktailsQuery, "limit" | "cursor">;
 
 /** The API takes a list filter as one comma-separated value. */
-const joined = (values: readonly string[] | undefined) => values?.join(",");
+const joined = (values: readonly string[] | undefined): string | undefined => values?.join(",");
 
-export const cocktailListQuery = (barId: string, filters: CocktailFilters) =>
+export const cocktailListQuery = (
+  barId: string,
+  filters: CocktailFilters,
+): ApiInfiniteQueryOptions<Cocktail, string | undefined, (string | CocktailFilters)[]> =>
   infiniteQueryOptions({
     queryKey: [...cocktailListKey(barId), filters],
-    queryFn: async ({ pageParam, signal }) => {
+    queryFn: async ({
+      pageParam,
+      signal,
+    }: {
+      pageParam: string | undefined;
+      signal: AbortSignal;
+    }) => {
       const query = {
         ...filters,
         alcohol: joined(filters.alcohol),
@@ -39,11 +59,15 @@ export const cocktailListQuery = (barId: string, filters: CocktailFilters) =>
       return unwrap(await bar.cocktails.$get({ param: { barId }, query }, { init: { signal } }));
     },
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    getNextPageParam: (last: Page<Cocktail>) => last.next_cursor ?? undefined,
     placeholderData: keepPreviousData,
   });
 
-export const cocktailQuery = (barId: string, id: string, servings?: number) =>
+export const cocktailQuery = (
+  barId: string,
+  id: string,
+  servings?: number,
+): ApiQueryOptions<CocktailDetail, (string | number | undefined)[]> =>
   queryOptions({
     queryKey: [...cocktailDetailKey(barId, id), servings],
     queryFn: async () =>
@@ -55,7 +79,7 @@ export const cocktailQuery = (barId: string, id: string, servings?: number) =>
       ),
   });
 
-export const cocktailTagsQuery = (barId: string) =>
+export const cocktailTagsQuery = (barId: string): ApiQueryOptions<Tag[], string[]> =>
   queryOptions({
     queryKey: [...cocktailsKey(barId), "tags"],
     queryFn: () =>
@@ -64,7 +88,9 @@ export const cocktailTagsQuery = (barId: string) =>
 
 type SaveCocktail = { id?: undefined; json: CreateCocktail } | { id: string; json: UpdateCocktail };
 
-export function useSaveCocktail(barId: string) {
+export function useSaveCocktail(
+  barId: string,
+): UseMutationResult<CocktailDetail, Error, SaveCocktail> {
   const client = useQueryClient();
   const endpoint = bar.cocktails;
   return useMutation({
@@ -72,14 +98,14 @@ export function useSaveCocktail(barId: string) {
       id !== undefined
         ? unwrap(await endpoint[":id"].$patch({ param: { barId, id }, json }))
         : unwrap(await endpoint.$post({ param: { barId }, json })),
-    onSuccess: async (recipe) => {
+    onSuccess: async (recipe: CocktailDetail) => {
       const { queryKey } = cocktailQuery(barId, recipe.id);
       await client.cancelQueries({ queryKey, exact: true });
       client.setQueryData(queryKey, recipe);
       const saved = hashKey(queryKey);
       await client.invalidateQueries({
         queryKey: cocktailsKey(barId),
-        predicate: (query) => query.queryHash !== saved,
+        predicate: (query: Query) => query.queryHash !== saved,
       });
     },
   });

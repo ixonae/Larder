@@ -1,8 +1,8 @@
-import type { BarSummary, Product } from "@larder/shared";
+import type { BarSummary, Product, Tasting } from "@larder/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Plus, Star } from "lucide-react";
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { useMe } from "@/api/queries.ts";
 import { RECENT_TASTINGS, recentTastingsQuery } from "@/api/tastings.ts";
 import { ErrorState, LoadingState } from "@/components/states.tsx";
@@ -19,15 +19,20 @@ export function BottleTastings({
   bar,
   product,
   canEdit,
-}: Readonly<{ bar: BarSummary; product: Product; canEdit: boolean }>) {
+}: Readonly<{ bar: BarSummary; product: Product; canEdit: boolean }>): JSX.Element {
   const userId = useMe().data?.user.id;
   const recent = useQuery(recentTastingsQuery(bar.id, product.id));
   const [target, setTarget] = useState<TastingTarget>(null);
   const { count, avg_score, last_tasted_on } = product.tasting_summary;
-  let list = null;
+  let list: JSX.Element | null = null;
   if (recent.isPending) list = <LoadingState label="Loading tastings…" />;
   else if (recent.isError) {
-    list = <ErrorState error={recent.error} onRetry={() => recent.refetch()} />;
+    list = (
+      <ErrorState
+        error={recent.error}
+        onRetry={(): ReturnType<typeof recent.refetch> => recent.refetch()}
+      />
+    );
   } else if (recent.data.items.length > 0) {
     list = (
       <ul
@@ -41,7 +46,7 @@ export function BottleTastings({
             tasting={tasting}
             showBottle={false}
             mine={canEdit && tasting.author.id === userId}
-            onEdit={(edited) => setTarget({ kind: "edit", tasting: edited })}
+            onEdit={(edited: Tasting): void => setTarget({ kind: "edit", tasting: edited })}
           />
         ))}
       </ul>
@@ -81,7 +86,7 @@ export function BottleTastings({
         {canEdit && (
           <Button
             size="sm"
-            onClick={() =>
+            onClick={(): void =>
               setTarget({
                 kind: "new",
                 bottle: { id: product.id, name: product.name, status: product.status },
@@ -103,7 +108,7 @@ export function BottleTastings({
           See all {count} tastings
         </Link>
       )}
-      <TastingSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
+      <TastingSheet barId={bar.id} target={target} onClose={(): void => setTarget(null)} />
     </div>
   );
 }

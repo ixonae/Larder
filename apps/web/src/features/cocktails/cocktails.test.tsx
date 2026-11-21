@@ -1,5 +1,13 @@
 import type { CocktailDetail, CocktailIngredient, CreateCocktail, Utensil } from "@larder/shared";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  type BoundFunctions,
+  fireEvent,
+  type queries,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
 import { failure, fixtureId, page, timestamps, unrated } from "@/test/fixtures.ts";
@@ -7,7 +15,7 @@ import { BAR_ID, meFixture, server } from "@/test/msw.ts";
 import { choose, pick, renderWithProviders } from "@/test/render.tsx";
 
 const base = `/api/bars/${BAR_ID}`;
-const id = (n: number) => fixtureId(n, "504a488cd");
+const id = (n: number): string => fixtureId(n, "504a488cd");
 const gin = { id: id(1), name: "Gin" };
 const glass: Utensil = {
   ...timestamps,
@@ -73,7 +81,7 @@ const recipe: CocktailDetail = {
   tools: [{ id: id(10), name: "Shaker" }],
   tags: [tag],
 };
-const emptyRecipe = {
+const emptyRecipe: CocktailDetail = {
   ...recipe,
   id: id(11),
   name: "Water",
@@ -145,7 +153,7 @@ it("filters and pages cocktail cards, and restores filters after viewing a recip
   expect(await within(cards).findByText("Water")).toBeInTheDocument();
   expect(requests.at(-1)?.get("cursor")).toBe("more");
 
-  const tick = async (label: string, option: string) => {
+  const tick = async (label: string, option: string): Promise<void> => {
     await user.click(screen.getByRole("combobox", { name: label }));
     await user.click(await screen.findByRole("option", { name: option }));
     await user.keyboard("{Escape}");
@@ -295,7 +303,7 @@ const lime = { id: id(13), name: "Lime" };
 const bottle = { id: id(14), name: "London Dry" };
 const shaker: Utensil = { ...glass, id: id(10), name: "Shaker", kind: "tool" };
 
-function editorCatalogue() {
+function editorCatalogue(): void {
   server.use(
     http.get(`${base}/utensils`, ({ request }) =>
       page(new URL(request.url).searchParams.get("kind") === "glass" ? [glass] : [glass, shaker]),
@@ -353,7 +361,8 @@ it("creates a recipe with reordered ingredients, alternatives, steps, tools, tag
 
   const addIngredient = screen.getByRole("button", { name: "Add ingredient" });
   const save = screen.getByRole("button", { name: "Add cocktail" });
-  const row = (index: number) => within(screen.getByRole("group", { name: `Ingredient ${index}` }));
+  const row = (index: number): BoundFunctions<typeof queries> =>
+    within(screen.getByRole("group", { name: `Ingredient ${index}` }));
   await user.click(addIngredient);
   await user.click(save);
   expect(await screen.findByText("Choose an ingredient source")).toBeInTheDocument();
@@ -720,7 +729,7 @@ it("lets users clear unavailable filters from a bookmarked URL", async () => {
       new URL(request.url).searchParams.size > 0 ? page([]) : page([recipe]),
     ),
   );
-  const list = (...ids: number[]) => encodeURIComponent(JSON.stringify(ids.map(id)));
+  const list = (...ids: number[]): string => encodeURIComponent(JSON.stringify(ids.map(id)));
   const lone = renderWithProviders(`/cocktails?tag=${id(52)}`);
   expect(await screen.findByRole("combobox", { name: "Tags" })).toHaveTextContent(/Tags: /);
   lone.unmount();

@@ -1,4 +1,4 @@
-import type { BottleComment, Product } from "@larder/shared";
+import type { BottleComment, Product, User } from "@larder/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, expect, it } from "vitest";
@@ -6,9 +6,9 @@ import { failure, fixtureId, page, timestamps } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 
-const id = (n: number) => fixtureId(n, "cc");
+const id = (n: number): string => fixtureId(n, "cc");
 const url = `/api/bars/${BAR_ID}/products/${id(10)}`;
-const ME = meFixture.user;
+const ME: User = meFixture.user;
 const BOB = { id: id(999), display_name: "Bob" };
 
 const gin = (): Product => ({
@@ -82,7 +82,8 @@ beforeEach(() => {
   );
 });
 
-const section = async () => screen.findByRole("tabpanel", { name: /^Comments/ });
+const section = async (): Promise<HTMLElement> =>
+  screen.findByRole("tabpanel", { name: /^Comments/ });
 
 it("lists the thread with authors and times, and posts a comment", async () => {
   thread = [comment("Lovely with cucumber", BOB)];

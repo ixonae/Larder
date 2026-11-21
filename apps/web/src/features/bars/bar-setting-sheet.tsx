@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import {
   Sheet,
@@ -22,7 +22,7 @@ export function BarSettingSheet({
   title: string;
   description: string;
   children: (onSaved: () => void) => ReactNode;
-}>) {
+}>): JSX.Element {
   const [open, setOpen] = useState(false);
   return (
     <Sheet open={open} onOpenChange={setOpen}>

@@ -1,4 +1,5 @@
 import { PRODUCT_STATUSES, type ProductStatus } from "@larder/shared";
+import type { JSX } from "react";
 import { badge } from "@/components/badge.ts";
 
 const STATUS_LABEL: Record<ProductStatus, string> = {
@@ -13,7 +14,7 @@ const STATUS_LABEL: Record<ProductStatus, string> = {
 export const NO_STATUS_LABEL = "No status";
 
 /** "Owned", or "No status" for a bottle without one. */
-export const statusLabel = (status: ProductStatus | null) =>
+export const statusLabel = (status: ProductStatus | null): string =>
   status === null ? NO_STATUS_LABEL : STATUS_LABEL[status];
 
 /** Combobox options for every status, in their usual order. */
@@ -31,7 +32,9 @@ const TONE: Record<ProductStatus, "brand" | "secondary" | "muted"> = {
 };
 
 /** Nothing for a bottle without a status (one only in the catalogue). */
-export function StatusBadge({ status }: Readonly<{ status: ProductStatus | null }>) {
+export function StatusBadge({
+  status,
+}: Readonly<{ status: ProductStatus | null }>): JSX.Element | null {
   if (status === null) return null;
   return <span className={badge({ tone: TONE[status] })}>{statusLabel(status)}</span>;
 }

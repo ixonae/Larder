@@ -1,12 +1,14 @@
 import {
+  type CategoryTreeNode,
   createProductSchema,
   createTastingSchema,
   type Product,
   type ProductStatus,
   type Tasting,
 } from "@larder/shared";
-import { useState } from "react";
-import { Controller } from "react-hook-form";
+import { type JSX, useState } from "react";
+import { Controller, type ControllerRenderProps } from "react-hook-form";
+import type { z } from "zod";
 import { useProductMutations, useSetBottleStatus } from "@/api/products.ts";
 import { useTastingMutations } from "@/api/tastings.ts";
 import { countryPicker } from "@/components/country-picker.tsx";
@@ -30,7 +32,13 @@ import {
   categoryIdField,
 } from "@/features/categories/category-options.tsx";
 import { localToday } from "@/lib/dates.ts";
-import { applyServerErrors, ComboboxField, FormField, useZodForm } from "@/lib/form.tsx";
+import {
+  applyServerErrors,
+  ComboboxField,
+  type ControlProps,
+  FormField,
+  useZodForm,
+} from "@/lib/form.tsx";
 import { BottlePicker, bottleLabel } from "./bottle-picker.tsx";
 
 /** The bottle a tasting is about: enough to name it and suggest a status change. */
@@ -54,10 +62,10 @@ export function TastingSheet({
   barId,
   target,
   onClose,
-}: Readonly<{ barId: string; target: TastingTarget; onClose: () => void }>) {
+}: Readonly<{ barId: string; target: TastingTarget; onClose: () => void }>): JSX.Element {
   // Here rather than in the form, so the toast's action still works once the sheet has closed.
   const setStatus = useSetBottleStatus(barId);
-  const suggestTasted = (bottle: TastingBottle) =>
+  const suggestTasted = (bottle: TastingBottle): number =>
     toast("Tasting saved", {
       description: `Mark ${bottle.name} as tasted?`,
       action: {
@@ -78,7 +86,7 @@ export function TastingSheet({
   const preset = target?.kind === "new" ? target.bottle : editing?.product;
   const header = shown?.kind === "edit" ? shown.tasting.product : shown?.bottle;
   return (
-    <Sheet open={target !== null} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={target !== null} onOpenChange={(open: boolean): void => void (!open && onClose())}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{shown?.kind === "edit" ? "Edit tasting" : "Add tasting"}</SheetTitle>
@@ -89,7 +97,7 @@ export function TastingSheet({
             barId={barId}
             editing={editing}
             preset={preset ?? null}
-            onSaved={(bottle) => {
+            onSaved={(bottle: TastingBottle): void => {
               if (!editing && WANTED.includes(bottle.status)) suggestTasted(bottle);
               else toast("Tasting saved");
               onClose();
@@ -113,7 +121,7 @@ function TastingForm({
   editing: Tasting | null;
   preset: TastingBottle | null;
   onSaved: (bottle: TastingBottle) => void;
-}>) {
+}>): JSX.Element {
   const { create, update } = useTastingMutations(barId);
   const [picked, setPicked] = useState<Product | null>(null);
   const bottle = preset ?? picked;
@@ -155,8 +163,8 @@ function TastingForm({
         <NewBottleForm
           barId={barId}
           name={newName}
-          onCancel={() => setNewName(null)}
-          onCreated={(created) => {
+          onCancel={(): void => setNewName(null)}
+          onCreated={(created: Product): void => {
             setPicked(created);
             setBottleError(null);
             setNewName(null);
@@ -175,20 +183,26 @@ function TastingForm({
             value={picked?.id}
             fallbackLabel={picked ? bottleLabel(picked) : undefined}
             error={bottleError}
-            onChange={(next) => {
+            onChange={(next: Product | null): void => {
               setPicked(next);
               setBottleError(null);
             }}
-            create={{ label: (name) => `Add “${name}”`, onSelect: setNewName }}
+            create={{ label: (name: string): string => `Add “${name}”`, onSelect: setNewName }}
           />
         )}
         <FormField form={form} name="tasted_on" label="Date">
-          {(control) => <Input type="date" {...control} {...form.register("tasted_on")} />}
+          {(control: ControlProps): JSX.Element => (
+            <Input type="date" {...control} {...form.register("tasted_on")} />
+          )}
         </FormField>
         <Controller
           control={form.control}
           name="score"
-          render={({ field }) => (
+          render={({
+            field,
+          }: {
+            field: ControllerRenderProps<z.input<typeof formSchema>, "score">;
+          }): JSX.Element => (
             <div className="grid gap-1.5">
               <span className="font-medium text-sm">Score</span>
               <RatingStars value={field.value} onChange={field.onChange} label="Score" />
@@ -196,10 +210,12 @@ function TastingForm({
           )}
         />
         <FormField form={form} name="notes" label="Notes">
-          {(control) => <Textarea rows={3} {...control} {...form.register("notes")} />}
+          {(control: ControlProps): JSX.Element => (
+            <Textarea rows={3} {...control} {...form.register("notes")} />
+          )}
         </FormField>
         <FormField form={form} name="location" label="Location">
-          {(control) => (
+          {(control: ControlProps): JSX.Element => (
             <Input
               autoComplete="off"
               placeholder="Home, a bar, a distillery…"
@@ -211,7 +227,11 @@ function TastingForm({
         <Controller
           control={form.control}
           name="is_private"
-          render={({ field }) => (
+          render={({
+            field,
+          }: {
+            field: ControllerRenderProps<z.input<typeof formSchema>, "is_private">;
+          }): JSX.Element => (
             <FeedbackVisibility
               label="Tasting visibility"
               value={field.value}
@@ -245,7 +265,7 @@ function NewBottleForm({
   name: string;
   onCancel: () => void;
   onCreated: (bottle: Product) => void;
-}>) {
+}>): JSX.Element {
   const { create } = useProductMutations(barId);
   const form = useZodForm(newBottleSchema, {
     defaultValues: { name, category_id: "", country: null },
@@ -263,10 +283,12 @@ function NewBottleForm({
   return (
     <form onSubmit={submit} aria-label="New bottle" className="flex flex-col gap-4 px-4" noValidate>
       <FormField form={form} name="name" label="Name">
-        {(control) => <Input autoComplete="off" {...control} {...form.register("name")} />}
+        {(control: ControlProps): JSX.Element => (
+          <Input autoComplete="off" {...control} {...form.register("name")} />
+        )}
       </FormField>
       <CategoryTreeLoader barId={barId}>
-        {(tree) => (
+        {(tree: CategoryTreeNode[]): JSX.Element => (
           <ComboboxField
             form={form}
             name="category_id"
@@ -282,7 +304,7 @@ function NewBottleForm({
         label="Country"
         {...countryPicker}
         clearLabel="No country"
-        toValue={(value) => value || null}
+        toValue={(value: string): string | null => value || null}
       />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>

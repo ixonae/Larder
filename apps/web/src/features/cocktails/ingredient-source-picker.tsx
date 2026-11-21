@@ -1,6 +1,6 @@
 import { PANTRY_INGREDIENT_NAME_MAX, searchKey } from "@larder/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { type Ref, useState } from "react";
+import { type JSX, type Ref, useState } from "react";
 import { pantryListQuery } from "@/api/pantry.ts";
 import { productListQuery } from "@/api/products.ts";
 import { Combobox } from "@/components/combobox.tsx";
@@ -24,7 +24,7 @@ export function IngredientSourcePicker({
   categories,
   field,
   ...control
-}: ControlProps & { barId: string; categories: SourceOption[]; field: PickerField }) {
+}: ControlProps & { barId: string; categories: SourceOption[]; field: PickerField }): JSX.Element {
   const [categoryLimit, setCategoryLimit] = useState(SOURCE_PAGE_SIZE);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useDebouncedSearch(query, setQuery);
@@ -72,7 +72,7 @@ export function IngredientSourcePicker({
       {...control}
       {...field}
       value={current.value}
-      onChange={(value, name) => field.onChange({ value, name })}
+      onChange={(value: string, name: string): void => field.onChange({ value, name })}
       options={groups.flatMap(({ label, options }) =>
         options.map(({ value, name }) => ({ value, label: name, group: label })),
       )}
@@ -81,7 +81,7 @@ export function IngredientSourcePicker({
       searchPlaceholder="Search ingredients"
       search={{
         text: search,
-        onChange: (value) => {
+        onChange: (value: string): void => {
           setCategoryLimit(SOURCE_PAGE_SIZE);
           setSearch(value.slice(0, PANTRY_INGREDIENT_NAME_MAX));
         },
@@ -102,7 +102,7 @@ export function IngredientSourcePicker({
                   variant="outline"
                   size="sm"
                   disabled={loading}
-                  onClick={() =>
+                  onClick={(): Promise<unknown[]> =>
                     Promise.all(
                       failed.map((list) =>
                         list.isFetchNextPageError ? list.fetchNextPage() : list.refetch(),
@@ -120,7 +120,7 @@ export function IngredientSourcePicker({
                   variant="ghost"
                   size="sm"
                   disabled={loading}
-                  onClick={() => {
+                  onClick={(): Promise<unknown[]> => {
                     if (moreCategories) setCategoryLimit((limit) => limit + SOURCE_PAGE_SIZE);
                     return Promise.all(more.map((list) => list.fetchNextPage()));
                   }}

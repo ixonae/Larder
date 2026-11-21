@@ -1,18 +1,24 @@
-import type { BarMember, BarSummary, PendingInvitation } from "@larder/shared";
+import type {
+  BarMember,
+  BarSummary,
+  invitationPreviewSchema,
+  PendingInvitation,
+} from "@larder/shared";
 import { screen, waitFor, within } from "@testing-library/react";
-import { HttpResponse, http } from "msw";
+import { HttpResponse, http, type JsonBodyType } from "msw";
 import { expect, it } from "vitest";
+import type { z } from "zod";
 import { failure, page } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
 import { choose, renderWithProviders } from "@/test/render.tsx";
 
-const second: BarSummary = {
+const second: BarSummary & { role: "viewer" } = {
   id: "01a1f326-d941-7d74-8a40-504a488cd390",
   name: "Patio",
   currency: "JPY",
   role: "viewer",
 };
-const pending = {
+const pending: PendingInvitation = {
   id: "01a1f326-d941-7d74-8a40-504a488cd391",
   role: "editor",
   expires_at: "2027-01-01T00:00:00.000Z",
@@ -21,13 +27,13 @@ const token = "a".repeat(43);
 const inviteUrl = `https://bar.example.test/invite#${token}`;
 const invitations = `/api/bars/${BAR_ID}/invitations`;
 const members = `/api/bars/${BAR_ID}/members`;
-const preview = {
+const preview: z.output<typeof invitationPreviewSchema> = {
   bar_name: second.name,
   can_register: true,
   role: second.role,
   expires_at: pending.expires_at,
 };
-const guest = () => failure("UNAUTHORIZED", 401, "Sign in");
+const guest = (): HttpResponse<JsonBodyType> => failure("UNAUTHORIZED", 401, "Sign in");
 
 it("switches bars, remembers the selection, and applies the new role to the UI", async () => {
   server.use(

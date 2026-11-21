@@ -54,7 +54,9 @@ const indexRoute = createRoute({
  * A filter that takes several values; anything malformed in the URL is dropped. A lone value
  * (an older `?tag=<id>` bookmark) counts as a list of one.
  */
-const listOf = <T extends z.ZodType>(item: T) =>
+const listOf = <T extends z.ZodType>(
+  item: T,
+): z.ZodCatch<z.ZodOptional<z.ZodPreprocess<z.ZodArray<T>, unknown>>> =>
   z
     .preprocess(
       (value) => (typeof value === "string" ? [value] : value),
@@ -137,7 +139,10 @@ export const routeTree = rootRoute.addChildren([
   createRoute({ getParentRoute: () => rootRoute, path: "/utensils", component: UtensilsPage }),
 ]);
 
-export function createAppRouter(context: RouterContext, history?: RouterHistory) {
+export function createAppRouter(
+  context: RouterContext,
+  history?: RouterHistory,
+): ReturnType<typeof createRouter<typeof routeTree>> {
   return createRouter({ routeTree, context, ...(history && { history }) });
 }
 

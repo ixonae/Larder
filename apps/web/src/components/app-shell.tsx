@@ -1,3 +1,4 @@
+import type { StaticDataRouteOption } from "@tanstack/react-router";
 import { Link, Outlet, useLocation, useMatches } from "@tanstack/react-router";
 import { cn } from "cn";
 import {
@@ -10,6 +11,7 @@ import {
   UtensilsCrossed,
   Wine,
 } from "lucide-react";
+import type { JSX } from "react";
 import { Fragment } from "react";
 import { useMe } from "@/api/queries.ts";
 import { SignInForm } from "@/features/account/sign-in.tsx";
@@ -32,7 +34,7 @@ const NAV = [
   { to: "/categories", label: "Categories", icon: FolderTree },
 ] as const;
 
-function NavLinks({ variant }: { variant: "side" | "bottom" }) {
+function NavLinks({ variant }: { variant: "side" | "bottom" }): JSX.Element[] {
   const base =
     variant === "side"
       ? "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent/60"
@@ -42,7 +44,9 @@ function NavLinks({ variant }: { variant: "side" | "bottom" }) {
     variant === "side"
       ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium [&>svg]:text-brand"
       : "text-brand font-medium";
-  const inTastings = useLocation({ select: (l) => l.pathname.startsWith("/tastings") });
+  const inTastings = useLocation({
+    select: (l: { pathname: string }) => l.pathname.startsWith("/tastings"),
+  });
   const items = NAV.filter((item) => variant === "side" || !("sideOnly" in item));
   return items.map(({ to, label, icon: Icon }) => {
     const activeProps = { className: active, "aria-current": "page" } as const;
@@ -65,7 +69,7 @@ function NavLinks({ variant }: { variant: "side" | "bottom" }) {
   });
 }
 
-function Brand({ className }: Readonly<{ className?: string }>) {
+function Brand({ className }: Readonly<{ className?: string }>): JSX.Element {
   return (
     <span className={cn("flex items-center gap-2", className)}>
       <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-brand-foreground shadow-sm">
@@ -77,13 +81,17 @@ function Brand({ className }: Readonly<{ className?: string }>) {
 }
 
 /** Mobile first: bottom tab bar on phones, sidebar from the `md` breakpoint. */
-export function AppShell() {
+export function AppShell(): JSX.Element {
   const me = useMe();
   const publicPage = useMatches({
-    select: (matches) => matches.some((match) => match.staticData.public),
+    select: (matches: readonly { staticData: StaticDataRouteOption }[]) =>
+      matches.some((match) => match.staticData.public),
   });
   if (me.isPending) return <LoadingState />;
-  if (me.isLoadingError) return <ErrorState error={me.error} onRetry={() => me.refetch()} />;
+  if (me.isLoadingError)
+    return (
+      <ErrorState error={me.error} onRetry={(): ReturnType<typeof me.refetch> => me.refetch()} />
+    );
   if (me.data === null) {
     return (
       <main className="mx-auto grid min-h-dvh w-full max-w-sm content-center gap-6 px-5 py-8">
@@ -105,7 +113,7 @@ export function AppShell() {
       <SignedInLayout
         isAdmin={me.data.user.is_admin}
         error={me.error}
-        onRetry={() => me.refetch()}
+        onRetry={(): ReturnType<typeof me.refetch> => me.refetch()}
       />
     </ActiveBarProvider>
   );
@@ -115,7 +123,7 @@ function SignedInLayout({
   isAdmin,
   error,
   onRetry,
-}: Readonly<{ isAdmin: boolean; error: Error | null; onRetry: () => void }>) {
+}: Readonly<{ isAdmin: boolean; error: Error | null; onRetry: () => void }>): JSX.Element {
   const bar = useActiveBar()?.bar;
   return (
     <div className="min-h-dvh bg-background text-foreground md:flex">
@@ -183,7 +191,7 @@ function AccountLink({
   to: "/settings" | "/admin";
   icon: typeof CircleUserRound;
   label: string;
-}>) {
+}>): JSX.Element {
   return (
     <Link
       to={to}

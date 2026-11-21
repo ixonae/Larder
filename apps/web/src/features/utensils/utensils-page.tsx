@@ -7,7 +7,7 @@ import {
 } from "@larder/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2, UtensilsCrossed } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { useUtensilMutations, utensilListQuery } from "@/api/utensils.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
@@ -17,11 +17,15 @@ import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { UtensilSheet, type UtensilTarget } from "./utensil-sheet.tsx";
 
-export function UtensilsPage() {
-  return <BarGate title="Utensils">{(bar) => <UtensilsView key={bar.id} bar={bar} />}</BarGate>;
+export function UtensilsPage(): JSX.Element {
+  return (
+    <BarGate title="Utensils">
+      {(bar: BarSummary): JSX.Element => <UtensilsView key={bar.id} bar={bar} />}
+    </BarGate>
+  );
 }
 
-function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>) {
+function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>): JSX.Element {
   const canEdit = hasRole(bar.role, "editor");
   const list = useInfiniteQuery(utensilListQuery(bar.id));
   const { remove } = useUtensilMutations(bar.id);
@@ -33,7 +37,12 @@ function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>) {
   if (list.isPending) {
     content = <LoadingState label="Loading utensils…" />;
   } else if (list.isError) {
-    content = <ErrorState error={list.error} onRetry={() => list.refetch()} />;
+    content = (
+      <ErrorState
+        error={list.error}
+        onRetry={(): ReturnType<typeof list.refetch> => list.refetch()}
+      />
+    );
   } else if (items.length === 0) {
     content = <EmptyState title="No utensils yet">Add your glasses and bar tools.</EmptyState>;
   } else {
@@ -74,7 +83,7 @@ function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>) {
                           variant="ghost"
                           size="icon"
                           aria-label={`Edit ${utensil.name}`}
-                          onClick={() => setTarget(utensil)}
+                          onClick={(): void => setTarget(utensil)}
                         >
                           <Pencil aria-hidden />
                         </Button>
@@ -82,7 +91,7 @@ function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>) {
                           variant="ghost"
                           size="icon"
                           aria-label={`Delete ${utensil.name}`}
-                          onClick={() => setDeleting(utensil)}
+                          onClick={(): void => setDeleting(utensil)}
                         >
                           <Trash2 aria-hidden />
                         </Button>
@@ -98,7 +107,7 @@ function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>) {
           <Button
             variant="outline"
             disabled={list.isFetchingNextPage}
-            onClick={() => list.fetchNextPage()}
+            onClick={(): ReturnType<typeof list.fetchNextPage> => list.fetchNextPage()}
           >
             Load more
           </Button>
@@ -112,7 +121,7 @@ function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>) {
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-3xl">Utensils</h1>
         {canEdit && (
-          <Button onClick={() => setTarget("new")}>
+          <Button onClick={(): void => setTarget("new")}>
             <Plus aria-hidden />
             Add utensil
           </Button>
@@ -121,14 +130,14 @@ function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>) {
 
       {content}
 
-      <UtensilSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
+      <UtensilSheet barId={bar.id} target={target} onClose={(): void => setTarget(null)} />
       {deleting && (
         <ConfirmDialog
           open
-          onOpenChange={(open) => !open && setDeleting(null)}
+          onOpenChange={(open: boolean): void => void (!open && setDeleting(null))}
           title={`Delete ${deleting.name}?`}
           description="This cannot be undone."
-          onConfirm={async () => {
+          onConfirm={async (): Promise<void> => {
             await remove.mutateAsync(deleting.id);
             toast(`Deleted ${deleting.name}`);
           }}

@@ -1,8 +1,20 @@
-import { type CreateCategory, categoryTreeSchema, type UpdateCategory } from "@larder/shared";
-import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  type Category,
+  type CategoryTreeNode,
+  type CreateCategory,
+  categoryTreeSchema,
+  type UpdateCategory,
+} from "@larder/shared";
+import {
+  queryOptions,
+  type UseMutationResult,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { api, unwrap } from "./client.ts";
+import type { ApiQueryOptions } from "./query-options.ts";
 
-const bar = api.api.bars[":barId"];
+const bar: (typeof api.api.bars)[":barId"] = api.api.bars[":barId"];
 
 export const categoriesKey = (barId: string) => ["bars", barId, "categories"] as const;
 
@@ -10,7 +22,7 @@ export const categoriesKey = (barId: string) => ["bars", barId, "categories"] as
  * The whole category tree of a bar. Hono's RPC types cannot express the recursive `children`, so the
  * body is typed (and checked) with the shared schema.
  */
-export const categoryTreeQuery = (barId: string) =>
+export const categoryTreeQuery = (barId: string): ApiQueryOptions<CategoryTreeNode[], string[]> =>
   queryOptions({
     queryKey: [...categoriesKey(barId), "tree"],
     queryFn: async () => {
@@ -23,9 +35,14 @@ export const categoryTreeQuery = (barId: string) =>
  * Create, update and delete. Each refreshes every query of the bar, not only the categories: bottles
  * carry their category's name.
  */
-export function useCategoryMutations(barId: string) {
+export function useCategoryMutations(barId: string): {
+  create: UseMutationResult<Category, Error, CreateCategory>;
+  update: UseMutationResult<Category, Error, { id: string; json: UpdateCategory }>;
+  remove: UseMutationResult<unknown, Error, string>;
+} {
   const queryClient = useQueryClient();
-  const onSuccess = () => queryClient.invalidateQueries({ queryKey: ["bars", barId] });
+  const onSuccess = (): Promise<void> =>
+    queryClient.invalidateQueries({ queryKey: ["bars", barId] });
   return {
     create: useMutation({
       mutationFn: async (json: CreateCategory) =>

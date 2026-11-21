@@ -2,7 +2,7 @@ import { type BarSummary, countryName, hasRole, imageUrl, type Product } from "@
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { z } from "zod";
 import { ApiError } from "@/api/client.ts";
 import { productQuery, useProductMutations, useSetBottleFavourite } from "@/api/products.ts";
@@ -30,21 +30,23 @@ export const bottleSearchSchema = z.object({
 });
 
 /** A small count next to a tab label; nothing for zero. */
-const Count = ({ value }: { value: number }) =>
+const Count = ({ value }: { value: number }): JSX.Element | null =>
   value > 0 ? (
     <span className={badge({ tone: "muted", className: "tabular-nums" })}>{value}</span>
   ) : null;
 
-export function BottleDetailPage() {
-  const { productId } = route.useParams();
+export function BottleDetailPage(): JSX.Element {
+  const { productId }: { productId: string } = route.useParams();
   return (
     <BarGate title="Bottle">
-      {(bar) => <BottleView key={productId} bar={bar} productId={productId} />}
+      {(bar: BarSummary): JSX.Element => (
+        <BottleView key={productId} bar={bar} productId={productId} />
+      )}
     </BarGate>
   );
 }
 
-const BackLink = () => (
+const BackLink = (): JSX.Element => (
   <Link
     to="/bottles"
     className="flex items-center gap-1 text-muted-foreground text-sm hover:underline"
@@ -54,7 +56,10 @@ const BackLink = () => (
   </Link>
 );
 
-function BottleView({ bar, productId }: Readonly<{ bar: BarSummary; productId: string }>) {
+function BottleView({
+  bar,
+  productId,
+}: Readonly<{ bar: BarSummary; productId: string }>): JSX.Element {
   const product = useQuery(productQuery(bar.id, productId));
   let body: ReactNode;
   if (product.isPending) body = <LoadingState label="Loading bottle…" />;
@@ -63,7 +68,10 @@ function BottleView({ bar, productId }: Readonly<{ bar: BarSummary; productId: s
       product.error instanceof ApiError && product.error.code === "NOT_FOUND" ? (
         <EmptyState title="Bottle not found">It may have been deleted.</EmptyState>
       ) : (
-        <ErrorState error={product.error} onRetry={() => product.refetch()} />
+        <ErrorState
+          error={product.error}
+          onRetry={(): ReturnType<typeof product.refetch> => product.refetch()}
+        />
       );
   } else body = <BottleDetails bar={bar} product={product.data} />;
   return (
@@ -74,10 +82,15 @@ function BottleView({ bar, productId }: Readonly<{ bar: BarSummary; productId: s
   );
 }
 
-function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Product }>) {
+function BottleDetails({
+  bar,
+  product,
+}: Readonly<{ bar: BarSummary; product: Product }>): JSX.Element {
   const canEdit = hasRole(bar.role, "editor");
   const navigate = useNavigate();
-  const tab = route.useSearch({ select: (search) => search.tab ?? "details" });
+  const tab = route.useSearch({
+    select: (search: z.output<typeof bottleSearchSchema>) => search.tab ?? "details",
+  });
   const { remove } = useProductMutations(bar.id);
   const setFavourite = useSetBottleFavourite(bar.id);
   const [target, setTarget] = useState<ProductTarget>(null);
@@ -100,7 +113,9 @@ function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Pr
         <FavouriteButton
           favourite={product.is_favourite}
           disabled={setFavourite.pendingIds.includes(product.id)}
-          onToggle={(favourite) => setFavourite.mutate({ id: product.id, favourite })}
+          onToggle={(favourite: boolean): void =>
+            setFavourite.mutate({ id: product.id, favourite })
+          }
         />
         <StockAction barId={bar.id} currency={bar.currency} product={product} canEdit={canEdit} />
         {canEdit && (
@@ -109,7 +124,7 @@ function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Pr
               variant="outline"
               size="icon"
               aria-label="Edit bottle"
-              onClick={() => setTarget(product)}
+              onClick={(): void => setTarget(product)}
             >
               <Pencil aria-hidden />
             </Button>
@@ -117,7 +132,7 @@ function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Pr
               variant="outline"
               size="icon"
               aria-label="Delete bottle"
-              onClick={() => setDeleting(true)}
+              onClick={(): void => setDeleting(true)}
             >
               <Trash2 aria-hidden />
             </Button>
@@ -127,7 +142,7 @@ function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Pr
 
       <Tabs
         value={tab}
-        onValueChange={(value) =>
+        onValueChange={(value: string): Promise<void> =>
           navigate({
             to: ".",
             search: { tab: value === "details" ? undefined : (value as BottleTab) },
@@ -178,13 +193,13 @@ function BottleDetails({ bar, product }: Readonly<{ bar: BarSummary; product: Pr
         </TabsContent>
       </Tabs>
 
-      <ProductSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
+      <ProductSheet barId={bar.id} target={target} onClose={(): void => setTarget(null)} />
       <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}
         title={`Delete ${product.name}?`}
         description="This cannot be undone."
-        onConfirm={async () => {
+        onConfirm={async (): Promise<void> => {
           await remove.mutateAsync(product.id);
           toast(`Deleted ${product.name}`);
           await navigate({ to: "/bottles" });

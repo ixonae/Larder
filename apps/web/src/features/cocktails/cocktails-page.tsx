@@ -3,6 +3,7 @@ import {
   type BarSummary,
   COCKTAIL_METHODS,
   type Cocktail,
+  type CocktailMethod,
   type CocktailSort,
   hasRole,
   MIXER_KINDS,
@@ -12,7 +13,7 @@ import { type UseMutationResult, useInfiniteQuery, useQuery } from "@tanstack/re
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { cn } from "cn";
 import { ArrowUpDown, ChevronRight, Heart, LayoutGrid, List, Martini } from "lucide-react";
-import type { ChangeEvent, ReactElement } from "react";
+import type { ChangeEvent, JSX, ReactElement } from "react";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { type CocktailFilters, cocktailListQuery, cocktailTagsQuery } from "@/api/cocktails.ts";
 import { useSetFavourite } from "@/api/feedback.ts";
@@ -41,24 +42,28 @@ const VIEWS = [
 ] as const;
 type View = (typeof VIEWS)[number]["value"];
 
-export function CocktailsPage() {
-  return <BarGate title="Cocktails">{(bar) => <CocktailsView key={bar.id} bar={bar} />}</BarGate>;
+export function CocktailsPage(): JSX.Element {
+  return (
+    <BarGate title="Cocktails">
+      {(bar: BarSummary): JSX.Element => <CocktailsView key={bar.id} bar={bar} />}
+    </BarGate>
+  );
 }
 
-function CocktailsView({ bar }: Readonly<{ bar: BarSummary }>) {
+function CocktailsView({ bar }: Readonly<{ bar: BarSummary }>): JSX.Element {
   const barId = bar.id;
   const search: CocktailFilters = route.useSearch();
   const navigate = route.useNavigate();
   const setFilter = <K extends keyof CocktailFilters>(
     name: K,
     value: CocktailFilters[K] | undefined,
-  ) =>
+  ): Promise<void> =>
     navigate({
       to: "/cocktails",
       search: { ...search, [name]: value === "" ? undefined : value },
       replace: true,
     });
-  const clearFilters = () =>
+  const clearFilters = (): Promise<void> =>
     navigate({ to: "/cocktails", search: { q: search.q, sort: search.sort }, replace: true });
   const [q, setQ] = useDebouncedSearch(search.q ?? "", (value) => setFilter("q", value));
   const list = useInfiniteQuery(
@@ -67,7 +72,7 @@ function CocktailsView({ bar }: Readonly<{ bar: BarSummary }>) {
   const items: Cocktail[] = list.data?.pages.flatMap((page) => page.items) ?? [];
   // The router drops unset keys, so every value here is a chosen filter (or a blank search);
   // the sort order only reorders the list.
-  const isSet = (skip: string[]) =>
+  const isSet = (skip: string[]): boolean =>
     Object.entries(search).some(([key, value]) => !skip.includes(key) && String(value).trim());
   const filtered = isSet(["sort"]);
   const filtering = isSet(["sort", "q"]);
@@ -81,7 +86,12 @@ function CocktailsView({ bar }: Readonly<{ bar: BarSummary }>) {
   if (list.isPending) {
     content = <LoadingState label="Loading cocktails…" />;
   } else if (list.isLoadingError) {
-    content = <ErrorState error={list.error} onRetry={() => list.refetch()} />;
+    content = (
+      <ErrorState
+        error={list.error}
+        onRetry={(): ReturnType<typeof list.refetch> => list.refetch()}
+      />
+    );
   } else if (items.length === 0) {
     content = <EmptyState title={filtered ? "No cocktails match" : "No cocktails yet"} />;
   } else {
@@ -107,7 +117,7 @@ function CocktailsView({ bar }: Readonly<{ bar: BarSummary }>) {
           aria-label="Search cocktails"
           placeholder="Search cocktails"
           value={q}
-          onChange={(event) => setQ(event.target.value)}
+          onChange={(event: ChangeEvent<HTMLInputElement>): void => setQ(event.target.value)}
         />
         <fieldset aria-label="Layout" className="flex shrink-0 rounded-md border p-0.5">
           {VIEWS.map(({ value, label, icon: Icon }) => (
@@ -118,7 +128,7 @@ function CocktailsView({ bar }: Readonly<{ bar: BarSummary }>) {
               variant={view === value ? "secondary" : "ghost"}
               aria-label={label}
               aria-pressed={view === value}
-              onClick={() => setView(value)}
+              onClick={(): void => setView(value)}
             >
               <Icon />
             </Button>
@@ -133,7 +143,12 @@ function CocktailsView({ bar }: Readonly<{ bar: BarSummary }>) {
       />
 
       {content}
-      {list.isRefetchError && <ErrorState error={list.error} onRetry={() => list.refetch()} />}
+      {list.isRefetchError && (
+        <ErrorState
+          error={list.error}
+          onRetry={(): ReturnType<typeof list.refetch> => list.refetch()}
+        />
+      )}
       {list.isFetchNextPageError && (
         <p role="alert" className="text-destructive text-sm">
           {list.error.message}
@@ -143,7 +158,7 @@ function CocktailsView({ bar }: Readonly<{ bar: BarSummary }>) {
         <Button
           variant="outline"
           disabled={list.isFetchingNextPage || list.isPlaceholderData}
-          onClick={() => list.fetchNextPage()}
+          onClick={(): ReturnType<typeof list.fetchNextPage> => list.fetchNextPage()}
         >
           {list.isFetchNextPageError ? "Retry loading more" : "Load more"}
         </Button>
@@ -153,12 +168,12 @@ function CocktailsView({ bar }: Readonly<{ bar: BarSummary }>) {
 }
 
 /** "Gin, Lime juice, Simple syrup": the preferred ingredients, as a quick read of the recipe. */
-const ingredientList = (cocktail: Cocktail) => cocktail.computed.ingredients.join(", ");
+const ingredientList = (cocktail: Cocktail): string => cocktail.computed.ingredients.join(", ");
 /** "Shaken · Gin": how it is made and which spirits it is built on. */
-const summary = (cocktail: Cocktail) =>
+const summary = (cocktail: Cocktail): string =>
   [cocktail.method, ...cocktail.computed.spirits.map(({ name }) => name)].join(" · ");
 
-const LAYOUT = {
+const LAYOUT: Record<View, { list: string; item: string; link: string; heart: string }> = {
   list: {
     list: "flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs",
     item: "relative",
@@ -183,7 +198,7 @@ function CocktailList({
   items: Cocktail[];
   search: CocktailFilters;
   view: View;
-}>) {
+}>): JSX.Element {
   const layout = LAYOUT[view];
   const setFavourite: UseMutationResult<unknown, Error, { id: string; favourite: boolean }> =
     useSetFavourite(barId);
@@ -216,7 +231,7 @@ function CocktailList({
   );
 }
 
-function CocktailRow({ cocktail }: Readonly<{ cocktail: Cocktail }>) {
+function CocktailRow({ cocktail }: Readonly<{ cocktail: Cocktail }>): JSX.Element {
   return (
     <>
       <Thumbnail imageId={cocktail.image_id} icon={Martini} className="size-11" />
@@ -238,7 +253,7 @@ function CocktailRow({ cocktail }: Readonly<{ cocktail: Cocktail }>) {
   );
 }
 
-function CocktailCard({ cocktail }: Readonly<{ cocktail: Cocktail }>) {
+function CocktailCard({ cocktail }: Readonly<{ cocktail: Cocktail }>): JSX.Element {
   return (
     <>
       <Thumbnail
@@ -283,7 +298,7 @@ function RatingLine({
 }
 
 /** "Can make" or "Missing 2": whether the bar has every required ingredient right now. */
-function StockBadge({ missing }: Readonly<{ missing: MissingIngredient[] }>) {
+function StockBadge({ missing }: Readonly<{ missing: MissingIngredient[] }>): JSX.Element {
   const ready = missing.length === 0;
   return (
     <span className={badge({ tone: ready ? "brand" : "muted" })}>
@@ -292,7 +307,7 @@ function StockBadge({ missing }: Readonly<{ missing: MissingIngredient[] }>) {
   );
 }
 
-function MissingLine({ missing }: Readonly<{ missing: MissingIngredient[] }>) {
+function MissingLine({ missing }: Readonly<{ missing: MissingIngredient[] }>): JSX.Element | null {
   if (missing.length === 0) return null;
   return (
     <span className="truncate text-destructive text-xs">
@@ -313,7 +328,7 @@ const SORTS: ChipOption<CocktailSort>[] = [
   { value: "rating", label: "Top rated" },
 ];
 
-function AbvBadge({ abv }: Readonly<{ abv: number }>) {
+function AbvBadge({ abv }: Readonly<{ abv: number }>): JSX.Element {
   return <span className={badge({ className: "tabular-nums" })}>≈ {Math.round(abv)}% ABV</span>;
 }
 
@@ -330,12 +345,12 @@ function FilterOptions({
     value: CocktailFilters[K] | undefined,
   ) => unknown;
   onClear: (() => unknown) | undefined;
-}>) {
+}>): JSX.Element {
   const categories = useQuery(categoryTreeQuery(barId));
   const tags = useQuery(cocktailTagsQuery(barId));
   const failed = [categories, tags].find((query) => query.isError);
   const tree = categories.data ?? [];
-  const named = (items: { id: string; name: string }[] = []) =>
+  const named = (items: { id: string; name: string }[] = []): { value: string; label: string }[] =>
     items.map(({ id, name }) => ({ value: id, label: name }));
 
   return (
@@ -347,7 +362,7 @@ function FilterOptions({
           values={search.alcohol}
           options={categoryOptions(tree, (item) => ALCOHOL_KINDS.has(item.kind))}
           pending={categories.isPending}
-          onChange={(value) => setFilter("alcohol", value)}
+          onChange={(value: string[] | undefined): unknown => setFilter("alcohol", value)}
         />
         <FilterSelect
           label="Mixers"
@@ -355,7 +370,7 @@ function FilterOptions({
           values={search.mixer}
           options={categoryOptions(tree, (item) => MIXER_KINDS.has(item.kind))}
           pending={categories.isPending}
-          onChange={(value) => setFilter("mixer", value)}
+          onChange={(value: string[] | undefined): unknown => setFilter("mixer", value)}
         />
         <FilterSelect
           label="Tags"
@@ -363,7 +378,7 @@ function FilterOptions({
           values={search.tag}
           options={named(tags.data)}
           pending={tags.isPending}
-          onChange={(value) => setFilter("tag", value)}
+          onChange={(value: string[] | undefined): unknown => setFilter("tag", value)}
         />
         <FilterSelect
           label="Method"
@@ -371,14 +386,14 @@ function FilterOptions({
           values={search.method}
           options={COCKTAIL_METHODS.map((method) => ({ value: method, label: method }))}
           pending={false}
-          onChange={(value) => setFilter("method", value)}
+          onChange={(value: CocktailMethod[] | undefined): unknown => setFilter("method", value)}
         />
         <ChoiceMenu<number | undefined>
           label="Availability"
           options={AVAILABILITY}
           value={search.missing}
           initial={undefined}
-          onChange={(value) => setFilter("missing", value)}
+          onChange={(value: number | undefined): unknown => setFilter("missing", value)}
         />
         <label className={toggleChip({ size: "sm" })}>
           <input
@@ -410,13 +425,18 @@ function FilterOptions({
             options={SORTS}
             value={search.sort ?? "name"}
             initial="name"
-            onChange={(value: CocktailSort) =>
+            onChange={(value: CocktailSort): unknown =>
               setFilter("sort", value === "name" ? undefined : value)
             }
           />
         </div>
       </div>
-      {failed && <ErrorState error={failed.error} onRetry={() => failed.refetch()} />}
+      {failed && (
+        <ErrorState
+          error={failed.error}
+          onRetry={(): ReturnType<typeof failed.refetch> => failed.refetch()}
+        />
+      )}
     </>
   );
 }
@@ -435,12 +455,12 @@ function FilterSelect<T extends string>({
   options: ComboboxOption[];
   pending: boolean;
   onChange: (values: T[] | undefined) => unknown;
-}>) {
+}>): JSX.Element {
   return (
     <MultiCombobox
       label={label}
       values={values ?? []}
-      onChange={(next) => onChange(next.length > 0 ? (next as T[]) : undefined)}
+      onChange={(next: string[]): unknown => onChange(next.length > 0 ? (next as T[]) : undefined)}
       options={options}
       fallbackLabel={pending ? "Loading…" : "Unavailable"}
       searchPlaceholder={`Search ${noun}`}

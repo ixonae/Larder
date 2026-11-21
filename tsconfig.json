@@ -4,5 +4,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["*.config.ts"]
+  "include": ["*.config.ts", ".github/release/*.mts", ".github/release/*.d.ts"]
 }

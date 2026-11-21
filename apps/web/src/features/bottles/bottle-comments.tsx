@@ -1,7 +1,13 @@
-import type { BarSummary, BottleComment, Product, Visibility } from "@larder/shared";
+import type {
+  BarSummary,
+  BottleComment,
+  BottleCommentInput,
+  Product,
+  Visibility,
+} from "@larder/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Pencil, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { bottleCommentsQuery, useBottleCommentMutations } from "@/api/bottle-comments.ts";
 import { useMe } from "@/api/queries.ts";
 import { CommentForm } from "@/components/comment-form.tsx";
@@ -19,7 +25,12 @@ function CommentItem({
   productId,
   comment,
   mine,
-}: Readonly<{ barId: string; productId: string; comment: BottleComment; mine: boolean }>) {
+}: Readonly<{
+  barId: string;
+  productId: string;
+  comment: BottleComment;
+  mine: boolean;
+}>): JSX.Element {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const { edit, remove } = useBottleCommentMutations(barId, productId);
@@ -37,7 +48,7 @@ function CommentItem({
               variant="ghost"
               className="text-muted-foreground"
               aria-label="Edit comment"
-              onClick={() => setEditing(true)}
+              onClick={(): void => setEditing(true)}
             >
               <Pencil aria-hidden />
             </Button>
@@ -46,7 +57,7 @@ function CommentItem({
               variant="ghost"
               className="text-muted-foreground"
               aria-label="Delete comment"
-              onClick={() => setDeleting(true)}
+              onClick={(): void => setDeleting(true)}
             >
               <Trash2 aria-hidden />
             </Button>
@@ -55,7 +66,7 @@ function CommentItem({
               onOpenChange={setDeleting}
               title="Delete this comment?"
               description="This cannot be undone."
-              onConfirm={() => remove.mutateAsync(comment.id)}
+              onConfirm={(): Promise<unknown> => remove.mutateAsync(comment.id)}
             />
           </span>
         )}
@@ -65,11 +76,11 @@ function CommentItem({
           initial={{ body: comment.body, is_private: comment.is_private }}
           label="Edit comment"
           submitLabel="Save"
-          onSubmit={async (json) => {
+          onSubmit={async (json: BottleCommentInput): Promise<void> => {
             await edit.mutateAsync({ commentId: comment.id, json });
             setEditing(false);
           }}
-          onCancel={() => setEditing(false)}
+          onCancel={(): void => setEditing(false)}
         />
       ) : (
         <p className="whitespace-pre-line break-words">{comment.body}</p>
@@ -83,16 +94,21 @@ export function BottleComments({
   bar,
   product,
   canEdit,
-}: Readonly<{ bar: BarSummary; product: Product; canEdit: boolean }>) {
+}: Readonly<{ bar: BarSummary; product: Product; canEdit: boolean }>): JSX.Element {
   const userId = useMe().data?.user.id;
   const [visibility, setVisibility] = useState<Visibility>();
   const thread = useInfiniteQuery(bottleCommentsQuery(bar.id, product.id, visibility));
   const { post } = useBottleCommentMutations(bar.id, product.id);
   const items = thread.data?.pages.flatMap((page) => page.items) ?? [];
-  let list = null;
+  let list: JSX.Element | null = null;
   if (thread.isPending) list = <LoadingState label="Loading comments…" />;
   else if (thread.isError && items.length === 0) {
-    list = <ErrorState error={thread.error} onRetry={() => thread.refetch()} />;
+    list = (
+      <ErrorState
+        error={thread.error}
+        onRetry={(): ReturnType<typeof thread.refetch> => thread.refetch()}
+      />
+    );
   } else if (items.length === 0) {
     list = <EmptyState title={visibility ? "No comments match" : "No comments yet"} />;
   } else {
@@ -117,7 +133,7 @@ export function BottleComments({
           initial={{ body: "", is_private: false }}
           label="Write a comment"
           submitLabel="Post"
-          onSubmit={(json) => post.mutateAsync(json)}
+          onSubmit={(json: BottleCommentInput): Promise<BottleComment> => post.mutateAsync(json)}
         />
       )}
       <FeedbackVisibilityFilter value={visibility} onChange={setVisibility} />
@@ -126,7 +142,7 @@ export function BottleComments({
         <Button
           variant="outline"
           disabled={thread.isFetchingNextPage}
-          onClick={() => thread.fetchNextPage()}
+          onClick={(): ReturnType<typeof thread.fetchNextPage> => thread.fetchNextPage()}
         >
           Load more
         </Button>

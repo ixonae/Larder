@@ -1,7 +1,11 @@
 import { appendFileSync } from "node:fs";
-import semanticRelease from "semantic-release";
+import semanticRelease, { type ReleaseInfo } from "semantic-release";
 
-const releaseRules = [
+type ReleaseRule = ({ breaking: true } | { type: string }) & {
+  release: "major" | "minor" | "patch";
+};
+
+const releaseRules: ReleaseRule[] = [
   { breaking: true, release: "major" },
   { type: "feat", release: "minor" },
   { type: "fix", release: "patch" },
@@ -9,7 +13,7 @@ const releaseRules = [
   { type: "revert", release: "patch" },
 ];
 
-const release = await semanticRelease({
+const release: Awaited<ReturnType<typeof semanticRelease>> = await semanticRelease({
   branches: ["main"],
   plugins: [
     ["@semantic-release/commit-analyzer", { preset: "conventionalcommits", releaseRules }],
@@ -28,7 +32,7 @@ if (!release) {
   process.exit(0);
 }
 
-const { version, gitTag } = release.nextRelease;
+const { version, gitTag }: ReleaseInfo = release.nextRelease;
 console.log(`Released ${gitTag}.`);
 if (process.env.GITHUB_OUTPUT) {
   appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\ntag=${gitTag}\n`);

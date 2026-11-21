@@ -3,7 +3,7 @@ import { type ErrorCode, errorBodySchema, SESSION_REQUEST_HEADER } from "@larder
 import { hc } from "hono/client";
 
 /** Typed RPC client for the Larder API (types come straight from the Hono routes). */
-export const api = hc<AppType>(window.location.origin, {
+export const api: ReturnType<typeof hc<AppType>> = hc<AppType>(window.location.origin, {
   headers: { [SESSION_REQUEST_HEADER]: "1" },
 });
 

@@ -1,11 +1,12 @@
-import { type CreateBar, createBarSchema, DEFAULT_CURRENCY } from "@larder/shared";
+import { type BarSummary, type CreateBar, createBarSchema, DEFAULT_CURRENCY } from "@larder/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { JSX } from "react";
 import { api, unwrap } from "@/api/client.ts";
 import { meQuery } from "@/api/queries.ts";
 import { currencyLabel, currencyPicker } from "@/components/currency-options.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { ComboboxField, FormError, FormField, useZodForm } from "@/lib/form.tsx";
+import { ComboboxField, type ControlProps, FormError, FormField, useZodForm } from "@/lib/form.tsx";
 import { useSignedIn } from "./active-bar.tsx";
 import { ChangeCurrencyButton } from "./bar-currency.tsx";
 import { DeleteBarButton } from "./delete-bar.tsx";
@@ -13,7 +14,7 @@ import { InvitationManager } from "./invitation-manager.tsx";
 import { Members } from "./members.tsx";
 import { RenameBarButton } from "./rename-bar.tsx";
 
-export function BarsPage() {
+export function BarsPage(): JSX.Element {
   const { me, bar, enterBar } = useSignedIn();
   const client = useQueryClient();
   return (
@@ -47,7 +48,7 @@ export function BarsPage() {
                       <Button
                         variant="outline"
                         aria-label={`Open ${name}`}
-                        onClick={() => void enterBar(id)}
+                        onClick={(): undefined => void enterBar(id)}
                       >
                         Open
                       </Button>
@@ -114,7 +115,7 @@ export function BarsPage() {
           </div>
           <DeleteBarButton
             barName={bar.name}
-            onDelete={async (name) => {
+            onDelete={async (name: string): Promise<void> => {
               await unwrap(
                 await api.api.bars[":barId"].$delete({ param: { barId: bar.id }, json: { name } }),
               );
@@ -127,14 +128,16 @@ export function BarsPage() {
   );
 }
 
-function NewBarForm({ onCreate }: Readonly<{ onCreate: (id: string) => Promise<void> }>) {
+function NewBarForm({
+  onCreate,
+}: Readonly<{ onCreate: (id: string) => Promise<void> }>): JSX.Element {
   const client = useQueryClient();
   const form = useZodForm(createBarSchema, {
     defaultValues: { currency: DEFAULT_CURRENCY, seed_data: false },
   });
   const create = useMutation({
     mutationFn: async (data: CreateBar) => unwrap(await api.api.bars.$post({ json: data })),
-    onSuccess: async ({ id }) => {
+    onSuccess: async ({ id }: Pick<BarSummary, "id">) => {
       await client.invalidateQueries({ queryKey: meQuery.queryKey });
       await onCreate(id);
     },
@@ -146,7 +149,7 @@ function NewBarForm({ onCreate }: Readonly<{ onCreate: (id: string) => Promise<v
     >
       <h2 className="text-xl">Create a bar</h2>
       <FormField form={form} name="name" label="Bar name">
-        {(control) => <Input {...control} {...form.register("name")} />}
+        {(control: ControlProps): JSX.Element => <Input {...control} {...form.register("name")} />}
       </FormField>
       <ComboboxField form={form} name="currency" label="Currency" {...currencyPicker} />
       <label className="flex items-center gap-2 text-sm">

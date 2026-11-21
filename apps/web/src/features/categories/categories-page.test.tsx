@@ -9,7 +9,12 @@ import { choose, renderWithProviders } from "@/test/render.tsx";
 const url = `/api/bars/${BAR_ID}/categories`;
 const treeUrl = `${url}/tree`;
 let seq = 0;
-const cat = (name: string, kind: CategoryKind, parent: Category | null = null, extra = {}) => ({
+const cat = (
+  name: string,
+  kind: CategoryKind,
+  parent: Category | null = null,
+  extra = {},
+): Category => ({
   id: fixtureId(++seq),
   name,
   parent_id: parent?.id ?? null,
@@ -25,7 +30,7 @@ let store: Category[] = [];
 let requests: { method: string; id?: string; body?: unknown }[] = [];
 
 /** A small fake of the categories API, enough to check what the page sends and shows. */
-function useFakeApi() {
+function useFakeApi(): void {
   server.use(
     http.get(treeUrl, () => {
       const sorted = [...store].sort((a, b) => a.name.localeCompare(b.name));
@@ -71,7 +76,7 @@ function useFakeApi() {
   );
 }
 
-const byName = (name: string) => store.find((c) => c.name === name) as Category;
+const byName = (name: string): Category => store.find((c) => c.name === name) as Category;
 
 beforeEach(() => {
   const spirit = cat("Spirit", "spirit");
@@ -89,15 +94,15 @@ beforeEach(() => {
   useFakeApi();
 });
 
-async function openPage() {
+async function openPage(): Promise<ReturnType<typeof renderWithProviders>> {
   const view = renderWithProviders("/categories");
   await screen.findByRole("navigation", { name: "Category tree" });
   return view;
 }
 
-const tree = () => screen.getByRole("navigation", { name: "Category tree" });
+const tree = (): HTMLElement => screen.getByRole("navigation", { name: "Category tree" });
 /** Names of the rows shown, in order, read from each row's "Edit …" button. */
-const visibleNames = () =>
+const visibleNames = (): (string | undefined)[] =>
   within(tree())
     .getAllByRole("button", { name: /^Edit / })
     .map((button) => button.getAttribute("aria-label")?.replace(/^Edit /, ""));

@@ -5,7 +5,7 @@ import {
   isPantryRoot,
   type PantryIngredient,
 } from "@larder/shared";
-import { useMemo } from "react";
+import { type JSX, useMemo } from "react";
 import { usePantryMutations } from "@/api/pantry.ts";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
 import { toast } from "@/components/toaster.tsx";
@@ -24,7 +24,13 @@ import {
   categoryIdField,
   categoryOptions,
 } from "@/features/categories/category-options.tsx";
-import { applyServerErrors, ComboboxField, FormField, useZodForm } from "@/lib/form.tsx";
+import {
+  applyServerErrors,
+  ComboboxField,
+  type ControlProps,
+  FormField,
+  useZodForm,
+} from "@/lib/form.tsx";
 
 /** What the sheet is open for: the ingredient being edited, `"new"` to add one, or null when closed. */
 export type IngredientTarget = PantryIngredient | "new" | null;
@@ -38,10 +44,10 @@ export function IngredientSheet({
   barId: string;
   target: IngredientTarget;
   onClose: () => void;
-}>) {
+}>): JSX.Element {
   const editing = target === "new" ? null : target;
   return (
-    <Sheet open={target !== null} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={target !== null} onOpenChange={(open: boolean): void => void (!open && onClose())}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{editing ? `Edit ${editing.name}` : "New ingredient"}</SheetTitle>
@@ -49,7 +55,7 @@ export function IngredientSheet({
         </SheetHeader>
         {target && (
           <CategoryTreeLoader barId={barId}>
-            {(tree) => (
+            {(tree: CategoryTreeNode[]): JSX.Element => (
               <IngredientForm barId={barId} editing={editing} onDone={onClose} tree={tree} />
             )}
           </CategoryTreeLoader>
@@ -73,7 +79,7 @@ function IngredientForm({
   editing,
   onDone,
   tree,
-}: FormProps & { tree: CategoryTreeNode[] }) {
+}: FormProps & { tree: CategoryTreeNode[] }): JSX.Element {
   const { create, update } = usePantryMutations(barId);
   const picture = useImageField(barId, "pantry-ingredients");
   const currentCategoryId = editing?.category_id;
@@ -116,7 +122,9 @@ function IngredientForm({
   return (
     <form onSubmit={submit} className="flex flex-1 flex-col gap-4 px-4" noValidate>
       <FormField form={form} name="name" label="Name">
-        {(control) => <Input autoComplete="off" {...control} {...form.register("name")} />}
+        {(control: ControlProps): JSX.Element => (
+          <Input autoComplete="off" {...control} {...form.register("name")} />
+        )}
       </FormField>
 
       <ComboboxField

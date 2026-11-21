@@ -1,12 +1,13 @@
 import { type SignIn, signInSchema } from "@larder/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { JSX } from "react";
 import { api, unwrap } from "@/api/client.ts";
 import { meQuery } from "@/api/queries.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { FormError, FormField, PasswordField, useZodForm } from "@/lib/form.tsx";
+import { type ControlProps, FormError, FormField, PasswordField, useZodForm } from "@/lib/form.tsx";
 
-export function SignInForm() {
+export function SignInForm(): JSX.Element {
   const client = useQueryClient();
   const form = useZodForm(signInSchema);
   const signIn = useMutation({
@@ -22,7 +23,7 @@ export function SignInForm() {
       onSubmit={form.handleSubmit((data) => signIn.mutate(data))}
     >
       <FormField form={form} name="email" label="Email">
-        {(control) => (
+        {(control: ControlProps): JSX.Element => (
           <Input {...control} {...form.register("email")} type="email" autoComplete="username" />
         )}
       </FormField>

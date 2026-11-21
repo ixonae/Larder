@@ -1,11 +1,11 @@
 import { screen } from "@testing-library/react";
-import { HttpResponse, http } from "msw";
+import { HttpResponse, http, type JsonBodyType } from "msw";
 import { expect, it } from "vitest";
 import { failure } from "@/test/fixtures.ts";
 import { meFixture, server } from "@/test/msw.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 
-const guest = () => failure("UNAUTHORIZED", 401, "Sign in");
+const guest = (): HttpResponse<JsonBodyType> => failure("UNAUTHORIZED", 401, "Sign in");
 
 it("offers public registration when enabled and takes the new user to Bars", async () => {
   let authenticated = false;

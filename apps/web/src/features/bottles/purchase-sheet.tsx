@@ -9,6 +9,7 @@ import {
   toMinorUnits,
   updatePurchaseSchema,
 } from "@larder/shared";
+import type { JSX } from "react";
 import { z } from "zod";
 import { useBuyBottle, usePurchaseMutations } from "@/api/products.ts";
 import { currencyPicker } from "@/components/currency-options.ts";
@@ -28,6 +29,7 @@ import { localToday } from "@/lib/dates.ts";
 import {
   applyServerErrors,
   ComboboxField,
+  type ControlProps,
   emptyToNullNumber,
   FormField,
   useZodForm,
@@ -62,9 +64,9 @@ export function PurchaseSheet({
   currency: CurrencyCode;
   target: PurchaseTarget;
   onClose: () => void;
-}>) {
+}>): JSX.Element {
   return (
-    <Sheet open={target !== null} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={target !== null} onOpenChange={(open: boolean): void => void (!open && onClose())}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{target?.kind === "edit" ? "Edit purchase" : "Bought"}</SheetTitle>
@@ -88,7 +90,7 @@ function PurchaseForm({
   currency: CurrencyCode;
   target: NonNullable<PurchaseTarget>;
   onDone: () => void;
-}>) {
+}>): JSX.Element {
   const buy = useBuyBottle(barId);
   const { update: updatePurchase } = usePurchaseMutations(barId);
   const existing = target.kind === "edit" ? target.purchase : null;
@@ -146,13 +148,16 @@ function PurchaseForm({
     }
   });
 
-  const date = (name: "bought_on" | "finished_on", label: string) => (
+  const date = (name: "bought_on" | "finished_on", label: string): JSX.Element => (
     <FormField form={form} name={name} label={label}>
-      {(control) => (
+      {(control: ControlProps): JSX.Element => (
         <Input
           type="date"
           {...control}
-          {...form.register(name, name === "finished_on" ? { setValueAs: (v) => v || null } : {})}
+          {...form.register(
+            name,
+            name === "finished_on" ? { setValueAs: (v: string) => v || null } : {},
+          )}
         />
       )}
     </FormField>
@@ -163,7 +168,7 @@ function PurchaseForm({
       {date("bought_on", "Date")}
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField form={form} name="price" label="Price per bottle">
-          {(control) => (
+          {(control: ControlProps): JSX.Element => (
             <Input
               type="number"
               inputMode={digits > 0 ? "decimal" : "numeric"}
@@ -181,7 +186,7 @@ function PurchaseForm({
         date("finished_on", "Ran out on")
       ) : (
         <FormField form={form} name="count" label="Number of bottles">
-          {(control) => (
+          {(control: ControlProps): JSX.Element => (
             <Input
               type="number"
               inputMode="numeric"
@@ -193,10 +198,14 @@ function PurchaseForm({
         </FormField>
       )}
       <FormField form={form} name="store" label="Store">
-        {(control) => <Input autoComplete="off" {...control} {...form.register("store")} />}
+        {(control: ControlProps): JSX.Element => (
+          <Input autoComplete="off" {...control} {...form.register("store")} />
+        )}
       </FormField>
       <FormField form={form} name="notes" label="Notes">
-        {(control) => <Textarea rows={2} {...control} {...form.register("notes")} />}
+        {(control: ControlProps): JSX.Element => (
+          <Textarea rows={2} {...control} {...form.register("notes")} />
+        )}
       </FormField>
       <SheetFooter className="px-0">
         <Button type="submit" disabled={form.formState.isSubmitting}>

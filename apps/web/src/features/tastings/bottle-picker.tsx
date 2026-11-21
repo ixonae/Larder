@@ -1,6 +1,6 @@
 import { nameKey, type Product } from "@larder/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { type JSX, useId, useState } from "react";
 import { productListQuery } from "@/api/products.ts";
 import { Combobox, type ComboboxProps } from "@/components/combobox.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -9,7 +9,7 @@ import { useDebouncedSearch } from "@/lib/debounced-search.ts";
 
 const PICKER_PAGE_SIZE = 25;
 
-export const bottleLabel = ({ name, vintage }: Pick<Product, "name" | "vintage">) =>
+export const bottleLabel = ({ name, vintage }: Pick<Product, "name" | "vintage">): string =>
   vintage === null ? name : `${name} (${vintage})`;
 
 /** Search and page through bottles when recording or filtering tastings. */
@@ -25,7 +25,7 @@ export function BottlePicker({
     error?: string | null;
     onChange: (bottle: Product | null) => void;
   }
->) {
+>): JSX.Element {
   const id = useId();
   const [query, setQuery] = useState("");
   const [text, setText] = useDebouncedSearch(query, setQuery);
@@ -52,14 +52,16 @@ export function BottlePicker({
           value: bottle.id,
           label: `${bottleLabel(bottle)} · ${bottle.category_name}`,
         }))}
-        onChange={(value) => onChange(items.find((bottle) => bottle.id === value) ?? null)}
+        onChange={(value: string): void =>
+          onChange(items.find((bottle) => bottle.id === value) ?? null)
+        }
         footer={
           bottles.hasNextPage && (
             <Button
               type="button"
               variant="outline"
               disabled={bottles.isFetchingNextPage}
-              onClick={() => bottles.fetchNextPage()}
+              onClick={(): ReturnType<typeof bottles.fetchNextPage> => bottles.fetchNextPage()}
             >
               Load more bottles
             </Button>

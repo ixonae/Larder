@@ -6,7 +6,7 @@ import { failure, fixtureId, page, timestamps } from "@/test/fixtures.ts";
 import { BAR_ID, server } from "@/test/msw.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 
-const id = (n: number) => fixtureId(n, "fa");
+const id = (n: number): string => fixtureId(n, "fa");
 const url = `/api/bars/${BAR_ID}/products`;
 
 const bottle = (n: number, name: string, is_favourite = false): Product => ({
@@ -59,7 +59,7 @@ beforeEach(() => {
   );
 });
 
-const row = async (name: string) =>
+const row = async (name: string): Promise<HTMLElement> =>
   (await screen.findByRole("link", { name })).closest("li") as HTMLElement;
 
 it("favourites a bottle from its row at once", async () => {

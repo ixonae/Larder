@@ -1,7 +1,8 @@
 import { Star } from "lucide-react";
+import type { JSX } from "react";
 
 /** A compact score, "★ 4", for lists where a row of five stars would be noisy. */
-export function Score({ value }: Readonly<{ value: number | null }>) {
+export function Score({ value }: Readonly<{ value: number | null }>): JSX.Element {
   if (value === null) return <span className="text-muted-foreground text-sm">No score</span>;
   return (
     <span

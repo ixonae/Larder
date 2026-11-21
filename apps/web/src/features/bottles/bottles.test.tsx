@@ -1,6 +1,6 @@
 import { buildTree, type Category, type Product, type Purchase, subtreeIds } from "@larder/shared";
 import { screen, waitFor, within } from "@testing-library/react";
-import { delay, HttpResponse, http } from "msw";
+import { delay, HttpResponse, http, type JsonBodyType } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { localToday } from "@/lib/dates.ts";
 import { failure, fixtureId as id, page, timestamps } from "@/test/fixtures.ts";
@@ -23,9 +23,9 @@ const spirit = category(1, "Spirit");
 const whisky = category(2, "Whisky", spirit);
 const scotch = category(3, "Scotch", whisky);
 const gin = category(4, "Gin", spirit);
-const syrup = { ...category(5, "Syrup"), kind: "syrup" as const };
-const juice = { ...category(6, "Juice"), kind: "juice" as const };
-const categories = [spirit, whisky, scotch, gin, syrup, juice];
+const syrup: Category = { ...category(5, "Syrup"), kind: "syrup" as const };
+const juice: Category = { ...category(6, "Juice"), kind: "juice" as const };
+const categories: Category[] = [spirit, whisky, scotch, gin, syrup, juice];
 
 let seq = 100;
 const product = (name: string, cat: Category, extra: Partial<Product> = {}): Product => ({
@@ -55,7 +55,7 @@ let purchases: Purchase[] = [];
 let requests: { method: string; path: string; body?: unknown }[] = [];
 const PAGE = 2;
 
-const conflict = (message: string) =>
+const conflict = (message: string): HttpResponse<JsonBodyType> =>
   failure("CONFLICT", 409, message, [{ path: ["name"], message }]);
 
 const purchase = (productId: string, extra: Partial<Purchase> = {}): Purchase => ({
@@ -71,14 +71,14 @@ const purchase = (productId: string, extra: Partial<Purchase> = {}): Purchase =>
   ...extra,
 });
 
-function setProduct(productId: string, change: Partial<Product>) {
+function setProduct(productId: string, change: Partial<Product>): Product | undefined {
   store = store.map((p) => (p.id === productId ? { ...p, ...change } : p));
   return store.find((p) => p.id === productId);
 }
 
 /** A small fake of the products API: filters, two-item pages, and a duplicate-name check. */
-function useFakeApi() {
-  const save = (body: Record<string, unknown>, existing?: Product) => {
+function useFakeApi(): void {
+  const save = (body: Record<string, unknown>, existing?: Product): Product => {
     const cat = categories.find((c) => c.id === (body.category_id ?? existing?.category_id));
     return { ...(existing ?? product("", spirit)), ...body, category_name: cat?.name } as Product;
   };
@@ -182,36 +182,38 @@ beforeEach(() => {
   useFakeApi();
 });
 
-const list = () => screen.getByRole("list", { name: "Bottles" });
-const names = () =>
+const list = (): HTMLElement => screen.getByRole("list", { name: "Bottles" });
+const names = (): string[] =>
   within(list())
     .getAllByRole("link")
     .map((a) => a.textContent);
-const byName = (name: string) => store.find((p) => p.name === name) as Product;
+const byName = (name: string): Product => store.find((p) => p.name === name) as Product;
 /** The status dropdown of a bottle, on the list or its page. */
-const statusOf = (name: string) =>
-  screen.getByRole("button", { name: (accessible) => accessible.startsWith(`Status of ${name}:`) });
+const statusOf = (name: string): HTMLElement =>
+  screen.getByRole("button", {
+    name: (accessible: string) => accessible.startsWith(`Status of ${name}:`),
+  });
 /** Opens a bottle's status dropdown and picks `item` in it. */
 async function openStock(
   user: ReturnType<typeof renderWithProviders>["user"],
   name: string,
   item: string,
-) {
+): Promise<void> {
   await user.click(
     await screen.findByRole("button", {
-      name: (accessible) => accessible.startsWith(`Status of ${name}:`),
+      name: (accessible: string) => accessible.startsWith(`Status of ${name}:`),
     }),
   );
   await user.click(await screen.findByRole("button", { name: item }));
 }
 
-async function openList(path = "/bottles") {
+async function openList(path = "/bottles"): Promise<ReturnType<typeof renderWithProviders>> {
   const view = renderWithProviders(path);
   await screen.findByRole("list", { name: "Bottles" });
   return view;
 }
 
-function asViewer() {
+function asViewer(): void {
   server.use(
     http.get("/api/me", () =>
       HttpResponse.json({ ...meFixture, bars: [{ ...meFixture.bars[0], role: "viewer" }] }),
@@ -233,7 +235,7 @@ describe("BottlesPage", () => {
   it("filters by search, category including children, and statuses, kept in the URL", async () => {
     store.push(product("Ardbeg 10", scotch, { status: null }));
     const { user, router } = await openList();
-    const chip = (name: string) => screen.getByRole("checkbox", { name });
+    const chip = (name: string): HTMLElement => screen.getByRole("checkbox", { name });
     await choose(user, "Category", "Whisky");
     await waitFor(() => expect(names()).toEqual(["Ardbeg 10", "Blended whisky"]));
     await user.click(chip("Owned"));
@@ -612,7 +614,10 @@ describe("ProductSheet without categories", () => {
 });
 
 describe("BottleDetailPage", () => {
-  async function openDetail(name = "Talisker 10", tab?: string) {
+  async function openDetail(
+    name = "Talisker 10",
+    tab?: string,
+  ): Promise<ReturnType<typeof renderWithProviders>> {
     const view = renderWithProviders(`/bottles/${byName(name).id}${tab ? `?tab=${tab}` : ""}`);
     await screen.findByRole("heading", { name });
     return view;

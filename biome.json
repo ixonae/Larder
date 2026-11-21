@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!**/pnpm-lock.yaml", "!**/*.md", "!apps/web/src/components/ui"]
+    "includes": ["**", "!**/pnpm-lock.yaml", "!**/*.md"]
   },
   "formatter": {
     "enabled": true,
@@ -23,7 +23,7 @@
   },
   "overrides": [
     {
-      "includes": ["apps/api/**/*.ts", "packages/shared/**/*.ts"],
+      "includes": ["**/*.{ts,tsx,mts,cts}"],
       "linter": {
         "rules": {
           "suspicious": {

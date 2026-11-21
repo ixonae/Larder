@@ -1,16 +1,17 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { JSX } from "react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/client.ts";
 import { ConfirmDialog, usedByOf } from "./confirm-dialog.tsx";
 
-function Harness({ onConfirm }: { onConfirm: () => Promise<unknown> }) {
+function Harness({ onConfirm }: { onConfirm: () => Promise<unknown> }): JSX.Element {
   const [open, setOpen] = useState(true);
   return (
     <>
       <span>{open ? "open" : "closed"}</span>
-      <button type="button" onClick={() => setOpen(true)}>
+      <button type="button" onClick={(): void => setOpen(true)}>
         Reopen
       </button>
       <ConfirmDialog
@@ -43,7 +44,7 @@ describe("ConfirmDialog", () => {
   });
 
   it("lists what still uses the item on a conflict", async () => {
-    render(<Harness onConfirm={() => Promise.reject(conflict)} />);
+    render(<Harness onConfirm={(): Promise<unknown> => Promise.reject(conflict)} />);
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent('"Rum" still has sub-categories');
@@ -71,8 +72,8 @@ describe("ConfirmDialog", () => {
   });
 
   it("disables the button while the action runs", async () => {
-    let finish = () => {};
-    render(<Harness onConfirm={() => new Promise<void>((r) => (finish = r))} />);
+    let finish = (): void => {};
+    render(<Harness onConfirm={(): Promise<void> => new Promise<void>((r) => (finish = r))} />);
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(screen.getByRole("button", { name: "Working…" })).toBeDisabled();
     finish();

@@ -1,12 +1,12 @@
 import type { AdminUser, SignupSettings } from "@larder/shared";
-import { screen, waitFor, within } from "@testing-library/react";
+import { type BoundFunctions, type queries, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
 import { failure } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
 import { renderWithProviders } from "@/test/render.tsx";
 
-const guest = {
+const guest: AdminUser = {
   id: "01a1f326-d941-7d74-8a40-504a488cd392",
   email: "alex@example.com",
   display_name: "Alex",
@@ -14,7 +14,7 @@ const guest = {
   disabled: false,
   last_login_at: null,
 } satisfies AdminUser;
-const admin = { ...meFixture.user, disabled: false, last_login_at: null };
+const admin: AdminUser = { ...meFixture.user, disabled: false, last_login_at: null };
 const base = "/api/admin";
 
 it("shows installation controls only to installation admins", async () => {
@@ -79,7 +79,7 @@ it("recovers from loading errors and manages signup and user access", async () =
   await user.clear(search);
   expect(screen.queryByRole("button", { name: "Manage Owner" })).not.toBeInTheDocument();
   const manage = screen.getByRole("button", { name: "Manage Alex" });
-  const action = async (name: string) => {
+  const action = async (name: string): Promise<void> => {
     await user.click(manage);
     await user.click(await screen.findByRole("menuitem", { name }));
   };
@@ -189,7 +189,7 @@ it("shows the last sign-in and requires the exact email before deleting an accou
     "datetime",
     lastLogin,
   );
-  const remove = async () => {
+  const remove = async (): Promise<BoundFunctions<typeof queries>> => {
     await user.click(screen.getByRole("button", { name: "Manage Alex" }));
     await user.click(await screen.findByRole("menuitem", { name: "Delete account" }));
     const dialog = within(await screen.findByRole("alertdialog", { name: "Delete Alex?" }));
@@ -202,8 +202,8 @@ it("shows the last sign-in and requires the exact email before deleting an accou
     await user.click(confirm);
     return dialog;
   };
-  const dialog = await remove();
-  const alert = await dialog.findByRole("alert");
+  const dialog: BoundFunctions<typeof queries> = await remove();
+  const alert: HTMLElement = await dialog.findByRole("alert");
   expect(alert).toHaveTextContent("This user owns a bar.");
   expect(within(alert).getByRole("listitem")).toHaveTextContent("Home bar (Bar)");
   await user.click(dialog.getByRole("button", { name: "Close" }));

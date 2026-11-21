@@ -1,4 +1,5 @@
 import { COUNTRY_CODES, countryName } from "@larder/shared";
+import type { JSX } from "react";
 import { Combobox, type ComboboxOption, type ComboboxProps } from "@/components/combobox.tsx";
 
 const byName = new Intl.Collator("en");
@@ -12,6 +13,6 @@ export const countryPicker = {
 };
 
 /** A searchable country dropdown ("jap" finds Japan, "reunion" finds Réunion). */
-export function CountryPicker(props: Readonly<Omit<ComboboxProps, "options">>) {
+export function CountryPicker(props: Readonly<Omit<ComboboxProps, "options">>): JSX.Element {
   return <Combobox {...countryPicker} {...props} />;
 }

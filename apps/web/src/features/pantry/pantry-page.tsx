@@ -8,7 +8,7 @@ import {
 } from "@larder/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Apple, Pencil, Plus, Trash2 } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type JSX, type ReactNode, useMemo, useState } from "react";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { pantryListQuery, usePantryMutations } from "@/api/pantry.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
@@ -20,8 +20,12 @@ import { Button } from "@/components/ui/button.tsx";
 import { IngredientSheet, type IngredientTarget } from "./ingredient-sheet.tsx";
 import { StockToggle } from "./stock-toggle.tsx";
 
-export function PantryPage() {
-  return <BarGate title="Pantry">{(bar) => <PantryView key={bar.id} bar={bar} />}</BarGate>;
+export function PantryPage(): JSX.Element {
+  return (
+    <BarGate title="Pantry">
+      {(bar: BarSummary): JSX.Element => <PantryView key={bar.id} bar={bar} />}
+    </BarGate>
+  );
 }
 
 /** Each category's path ("Garnish › Citrus"), so same-named sub-categories stay apart. */
@@ -39,7 +43,10 @@ function categoryPaths(tree: CategoryTreeNode[]): Map<string, string> {
  * Ingredients grouped by category, headed by its path (just the name until the tree loads), groups
  * sorted by heading; items keep the API's name order.
  */
-function byCategory(items: PantryIngredient[], paths: Map<string, string>) {
+function byCategory(
+  items: PantryIngredient[],
+  paths: Map<string, string>,
+): [string, { name: string; items: PantryIngredient[] }][] {
   const groups = new Map<string, { name: string; items: PantryIngredient[] }>();
   for (const item of items) {
     const name = paths.get(item.category_id) ?? item.category_name;
@@ -50,7 +57,7 @@ function byCategory(items: PantryIngredient[], paths: Map<string, string>) {
   return [...groups.entries()].sort(([, a], [, b]) => a.name.localeCompare(b.name));
 }
 
-function PantryView({ bar }: Readonly<{ bar: BarSummary }>) {
+function PantryView({ bar }: Readonly<{ bar: BarSummary }>): JSX.Element {
   const canEdit = hasRole(bar.role, "editor");
   const list = useInfiniteQuery(pantryListQuery(bar.id));
   const { remove } = usePantryMutations(bar.id);
@@ -67,7 +74,12 @@ function PantryView({ bar }: Readonly<{ bar: BarSummary }>) {
   if (list.isPending) {
     content = <LoadingState label="Loading the pantry…" />;
   } else if (list.isError) {
-    content = <ErrorState error={list.error} onRetry={() => list.refetch()} />;
+    content = (
+      <ErrorState
+        error={list.error}
+        onRetry={(): ReturnType<typeof list.refetch> => list.refetch()}
+      />
+    );
   } else if (groups.length === 0) {
     content = (
       <EmptyState title="The pantry is empty">
@@ -94,8 +106,8 @@ function PantryView({ bar }: Readonly<{ bar: BarSummary }>) {
                     barId={bar.id}
                     ingredient={ingredient}
                     canEdit={canEdit}
-                    onEdit={() => setTarget(ingredient)}
-                    onDelete={() => setDeleting(ingredient)}
+                    onEdit={(): void => setTarget(ingredient)}
+                    onDelete={(): void => setDeleting(ingredient)}
                   />
                 ))}
               </ul>
@@ -106,7 +118,7 @@ function PantryView({ bar }: Readonly<{ bar: BarSummary }>) {
           <Button
             variant="outline"
             disabled={list.isFetchingNextPage}
-            onClick={() => list.fetchNextPage()}
+            onClick={(): ReturnType<typeof list.fetchNextPage> => list.fetchNextPage()}
           >
             Load more
           </Button>
@@ -120,7 +132,7 @@ function PantryView({ bar }: Readonly<{ bar: BarSummary }>) {
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-3xl">Pantry</h1>
         {canEdit && (
-          <Button onClick={() => setTarget("new")}>
+          <Button onClick={(): void => setTarget("new")}>
             <Plus aria-hidden />
             Add ingredient
           </Button>
@@ -129,14 +141,14 @@ function PantryView({ bar }: Readonly<{ bar: BarSummary }>) {
 
       {content}
 
-      <IngredientSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
+      <IngredientSheet barId={bar.id} target={target} onClose={(): void => setTarget(null)} />
       {deleting && (
         <ConfirmDialog
           open
-          onOpenChange={(open) => !open && setDeleting(null)}
+          onOpenChange={(open: boolean): void => void (!open && setDeleting(null))}
           title={`Delete ${deleting.name}?`}
           description="This cannot be undone."
-          onConfirm={async () => {
+          onConfirm={async (): Promise<void> => {
             await remove.mutateAsync(deleting.id);
             toast(`Deleted ${deleting.name}`);
           }}
@@ -158,7 +170,7 @@ function IngredientRow({
   canEdit: boolean;
   onEdit: () => void;
   onDelete: () => void;
-}>) {
+}>): JSX.Element {
   return (
     <li className="flex items-center gap-2 p-3">
       <Thumbnail imageId={ingredient.image_id} icon={Apple} />

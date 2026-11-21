@@ -1,7 +1,13 @@
-import { CATEGORY_KIND_LABEL, type Category, type CategoryTreeNode, hasRole } from "@larder/shared";
+import {
+  type BarSummary,
+  CATEGORY_KIND_LABEL,
+  type Category,
+  type CategoryTreeNode,
+  hasRole,
+} from "@larder/shared";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { categoryTreeQuery, useCategoryMutations } from "@/api/categories.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
@@ -11,12 +17,12 @@ import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { CategorySheet, type SheetTarget } from "./category-sheet.tsx";
 
-const Title = () => <h1 className="text-3xl">Categories</h1>;
+const Title = (): JSX.Element => <h1 className="text-3xl">Categories</h1>;
 
-export function CategoriesPage() {
+export function CategoriesPage(): JSX.Element {
   return (
     <BarGate title="Categories">
-      {(bar) => (
+      {(bar: BarSummary): JSX.Element => (
         <section className="mx-auto flex max-w-5xl flex-col gap-4">
           <CategoriesView barId={bar.id} canEdit={hasRole(bar.role, "editor")} />
         </section>
@@ -35,7 +41,10 @@ interface RowActions {
   remove: (category: Category) => void;
 }
 
-function CategoriesView({ barId, canEdit }: Readonly<{ barId: string; canEdit: boolean }>) {
+function CategoriesView({
+  barId,
+  canEdit,
+}: Readonly<{ barId: string; canEdit: boolean }>): JSX.Element {
   const tree = useQuery(categoryTreeQuery(barId));
   const { remove } = useCategoryMutations(barId);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -45,17 +54,17 @@ function CategoriesView({ barId, canEdit }: Readonly<{ barId: string; canEdit: b
   const actions: RowActions = {
     canEdit,
     expanded,
-    toggle: (id) =>
+    toggle: (id: string) =>
       setExpanded((prev) => {
         const next = new Set(prev);
         if (!next.delete(id)) next.add(id);
         return next;
       }),
-    add: (parent) => {
+    add: (parent: Category) => {
       setExpanded((prev) => new Set(prev).add(parent.id));
       setTarget({ editing: null, parentId: parent.id });
     },
-    edit: (category) => setTarget({ editing: category, parentId: null }),
+    edit: (category: Category) => setTarget({ editing: category, parentId: null }),
     remove: setDeleting,
   };
 
@@ -63,7 +72,12 @@ function CategoriesView({ barId, canEdit }: Readonly<{ barId: string; canEdit: b
   if (tree.isPending) {
     content = <LoadingState label="Loading categories…" />;
   } else if (tree.isError) {
-    content = <ErrorState error={tree.error} onRetry={() => tree.refetch()} />;
+    content = (
+      <ErrorState
+        error={tree.error}
+        onRetry={(): ReturnType<typeof tree.refetch> => tree.refetch()}
+      />
+    );
   } else if (tree.data.length === 0) {
     content = (
       <EmptyState title="No categories yet">Add one to start organising your bar.</EmptyState>
@@ -81,7 +95,7 @@ function CategoriesView({ barId, canEdit }: Readonly<{ barId: string; canEdit: b
       <div className="flex items-center justify-between gap-2">
         <Title />
         {canEdit && (
-          <Button onClick={() => setTarget({ editing: null, parentId: null })}>
+          <Button onClick={(): void => setTarget({ editing: null, parentId: null })}>
             <Plus aria-hidden />
             Add category
           </Button>
@@ -94,15 +108,15 @@ function CategoriesView({ barId, canEdit }: Readonly<{ barId: string; canEdit: b
         barId={barId}
         tree={tree.data ?? []}
         target={target}
-        onClose={() => setTarget(null)}
+        onClose={(): void => setTarget(null)}
       />
       {deleting && (
         <ConfirmDialog
           open
-          onOpenChange={(open) => !open && setDeleting(null)}
+          onOpenChange={(open: boolean): void => void (!open && setDeleting(null))}
           title={`Delete ${deleting.name}?`}
           description="This cannot be undone."
-          onConfirm={async () => {
+          onConfirm={async (): Promise<void> => {
             await remove.mutateAsync(deleting.id);
             toast(`Deleted ${deleting.name}`);
           }}
@@ -120,7 +134,7 @@ function TreeList({
   nodes: CategoryTreeNode[];
   depth: number;
   actions: RowActions;
-}>) {
+}>): JSX.Element {
   return (
     <ul
       className={
@@ -142,7 +156,7 @@ function TreeRow({
   node: CategoryTreeNode;
   depth: number;
   actions: RowActions;
-}>) {
+}>): JSX.Element {
   const { children, ...category } = node;
   const open = actions.expanded.has(node.id);
   return (
@@ -157,7 +171,7 @@ function TreeRow({
             size="icon"
             aria-expanded={open}
             aria-label={`${open ? "Collapse" : "Expand"} ${node.name}`}
-            onClick={() => actions.toggle(node.id)}
+            onClick={(): void => actions.toggle(node.id)}
           >
             {open ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
           </Button>
@@ -176,7 +190,7 @@ function TreeRow({
               variant="ghost"
               size="icon"
               aria-label={`Add under ${node.name}`}
-              onClick={() => actions.add(category)}
+              onClick={(): void => actions.add(category)}
             >
               <Plus aria-hidden />
             </Button>
@@ -184,7 +198,7 @@ function TreeRow({
               variant="ghost"
               size="icon"
               aria-label={`Edit ${node.name}`}
-              onClick={() => actions.edit(category)}
+              onClick={(): void => actions.edit(category)}
             >
               <Pencil aria-hidden />
             </Button>
@@ -192,7 +206,7 @@ function TreeRow({
               variant="ghost"
               size="icon"
               aria-label={`Delete ${node.name}`}
-              onClick={() => actions.remove(category)}
+              onClick={(): void => actions.remove(category)}
             >
               <Trash2 aria-hidden />
             </Button>

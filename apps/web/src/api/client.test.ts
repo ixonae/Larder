@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ApiError, unwrap } from "./client.ts";
 
-const response = (status: number, body: unknown) =>
+const response = (status: number, body: unknown): Response =>
   new Response(typeof body === "string" ? body : JSON.stringify(body), { status });
 
 describe("unwrap", () => {
@@ -14,7 +14,7 @@ describe("unwrap", () => {
   });
 
   it("throws an ApiError built from the error body", async () => {
-    const err = await unwrap(
+    const err: unknown = await unwrap<unknown>(
       response(409, { error: { code: "CONFLICT", message: "In use", details: ["Negroni"] } }),
     ).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);

@@ -14,7 +14,7 @@ describe("AppShell", () => {
 
   it("renders both navigations, keeping Tastings out of the phone's five tabs", async () => {
     renderWithProviders("/cocktails");
-    const names = async (name: string) =>
+    const names = async (name: string): Promise<string[]> =>
       within(await screen.findByRole("navigation", { name }))
         .getAllByRole("link")
         .map((l) => l.textContent);
@@ -40,7 +40,7 @@ describe("AppShell", () => {
     const tabs = await screen.findByRole("navigation", { name: "Bottles section" });
     await user.click(within(tabs).getByRole("link", { name: "Tastings" }));
     expect(await screen.findByRole("heading", { name: "Tastings" })).toBeInTheDocument();
-    const current = (name: string, link: string) =>
+    const current = (name: string, link: string): HTMLElement =>
       within(screen.getByRole("navigation", { name })).getByRole("link", { name: link });
     expect(current("Bottom navigation", "Bottles")).toHaveAttribute("aria-current", "page");
     expect(current("Sidebar", "Tastings")).toHaveAttribute("aria-current", "page");

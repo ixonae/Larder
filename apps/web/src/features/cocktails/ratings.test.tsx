@@ -1,4 +1,4 @@
-import type { Cocktail, CocktailDetail, Comment, RatingInput } from "@larder/shared";
+import type { Cocktail, CocktailDetail, Comment, RatingInput, User } from "@larder/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { expect, it } from "vitest";
@@ -11,7 +11,10 @@ const id = (n: number): string => fixtureId(n, "504a488cf");
 const cocktailId: string = id(1);
 const detailUrl: string = `${base}/cocktails/${cocktailId}`;
 const ann = { id: id(20), display_name: "Ann" };
-const owner = { id: meFixture.user.id, display_name: meFixture.user.display_name };
+const owner: Pick<User, "id" | "display_name"> = {
+  id: meFixture.user.id,
+  display_name: meFixture.user.display_name,
+};
 
 const detail = (extra: Partial<CocktailDetail> = {}): CocktailDetail => ({
   ...timestamps,
@@ -81,7 +84,7 @@ function serveDetail(start: Partial<CocktailDetail>): {
   );
   return {
     puts: seen.puts,
-    get deletes() {
+    get deletes(): number {
       return seen.deletes;
     },
     favourites: seen.favourites,
@@ -196,7 +199,11 @@ const comment = (n: number, extra: Partial<Comment> = {}): Comment => ({
 });
 
 /** A comment thread the handlers keep up to date; newest first, two pages. */
-function serveComments(start: Comment[]) {
+function serveComments(start: Comment[]): {
+  posts: unknown[];
+  patches: unknown[];
+  deleted: string[];
+} {
   let items: Comment[] = start;
   const seen = { posts: [] as unknown[], patches: [] as unknown[], deleted: [] as string[] };
   const comments = `${detailUrl}/comments`;

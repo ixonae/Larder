@@ -1,6 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MIN_PASSWORD_LENGTH } from "@larder/shared";
+import type { JSX } from "react";
 import { type ReactNode, useId } from "react";
+import type { ControllerRenderProps } from "react-hook-form";
 import {
   Controller,
   type FieldValues,
@@ -20,7 +22,7 @@ import { Label } from "@/components/ui/label.tsx";
 export function useZodForm<S extends z.ZodType<FieldValues, FieldValues>>(
   schema: S,
   props: Omit<UseFormProps<z.input<S>, unknown, z.output<S>>, "resolver"> = {},
-) {
+): UseFormReturn<z.input<S>, unknown, z.output<S>> {
   return useForm<z.input<S>, unknown, z.output<S>>({
     // The resolver is typed loosely for generic schemas; its output is the schema's output.
     resolver: zodResolver(schema) as unknown as Resolver<z.input<S>, unknown, z.output<S>>,
@@ -29,8 +31,7 @@ export function useZodForm<S extends z.ZodType<FieldValues, FieldValues>>(
   });
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: forms of any schema; only field state is read.
-type AnyForm<T extends FieldValues> = UseFormReturn<T, any, any>;
+type FormFieldState<T extends FieldValues> = Pick<UseFormReturn<T>, "getFieldState" | "formState">;
 
 interface Issue {
   path: PropertyKey[];
@@ -39,13 +40,19 @@ interface Issue {
 
 const isIssueList = (details: unknown): details is Issue[] =>
   Array.isArray(details) &&
-  details.every(
-    (d) =>
-      typeof d === "object" && d !== null && Array.isArray(d.path) && typeof d.message === "string",
-  );
+  details.every((value: unknown): boolean => {
+    const issue = value as { path?: unknown; message?: unknown } | null;
+    return (
+      typeof issue === "object" &&
+      issue !== null &&
+      Array.isArray(issue.path) &&
+      typeof issue.message === "string"
+    );
+  });
 
 /** `setValueAs` for optional number inputs. */
-export const emptyToNullNumber = (v: unknown) => (v === "" || v === null ? null : Number(v));
+export const emptyToNullNumber = (v: unknown): number | null =>
+  v === "" || v === null ? null : Number(v);
 
 /**
  * Puts the API's field issues (from `VALIDATION`, or a `CONFLICT` such as a duplicate name) on the
@@ -53,7 +60,7 @@ export const emptyToNullNumber = (v: unknown) => (v === "" || v === null ? null 
  * attached to a field, so the caller can show the error another way (a toast).
  */
 export function applyServerErrors<T extends FieldValues>(
-  form: AnyForm<T>,
+  form: Pick<UseFormReturn<T>, "setError">,
   error: unknown,
 ): boolean {
   if (
@@ -87,14 +94,14 @@ export function FormField<T extends FieldValues>({
   srOnlyLabel = false,
   children,
 }: Readonly<{
-  form: AnyForm<T>;
+  form: FormFieldState<T>;
   name: Path<T>;
   label: string;
   hint?: string;
   /** Keep the label for screen readers only, where the layout already says what the field is. */
   srOnlyLabel?: boolean;
   children: (control: ControlProps) => ReactNode;
-}>) {
+}>): JSX.Element {
   const id = useId();
   const { error } = form.getFieldState(name, form.formState);
   const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
@@ -126,12 +133,12 @@ export function PasswordField<T extends FieldValues>({
   autoComplete,
   lengthHint = false,
 }: Readonly<{
-  form: AnyForm<T>;
+  form: FormFieldState<T> & Pick<UseFormReturn<T>, "register">;
   name: Path<T>;
   label: string;
   autoComplete: "current-password" | "new-password";
   lengthHint?: boolean;
-}>) {
+}>): JSX.Element {
   return (
     <FormField
       form={form}
@@ -139,7 +146,7 @@ export function PasswordField<T extends FieldValues>({
       label={label}
       hint={lengthHint ? `Use at least ${MIN_PASSWORD_LENGTH} characters.` : undefined}
     >
-      {(control) => (
+      {(control: ControlProps): JSX.Element => (
         <Input {...control} {...form.register(name)} type="password" autoComplete={autoComplete} />
       )}
     </FormField>
@@ -147,7 +154,9 @@ export function PasswordField<T extends FieldValues>({
 }
 
 /** The error of a failed request, announced to screen readers. */
-export function FormError({ error }: Readonly<{ error: Error | null | undefined }>) {
+export function FormError({
+  error,
+}: Readonly<{ error: Error | null | undefined }>): JSX.Element | null {
   if (!error) return null;
   return (
     <p role="alert" className="text-destructive text-sm">
@@ -156,8 +165,8 @@ export function FormError({ error }: Readonly<{ error: Error | null | undefined 
   );
 }
 
-type ComboboxFieldProps<T extends FieldValues> = {
-  form: AnyForm<T>;
+type ComboboxFieldProps<T extends FieldValues, TOutput extends FieldValues> = {
+  form: FormFieldState<T> & Pick<UseFormReturn<T, unknown, TOutput>, "control">;
   name: Path<T>;
   label: string;
   hint?: string;
@@ -169,21 +178,21 @@ type ComboboxFieldProps<T extends FieldValues> = {
 >;
 
 /** A labelled `Combobox` bound to a form field. */
-export function ComboboxField<T extends FieldValues>({
+export function ComboboxField<T extends FieldValues, TOutput extends FieldValues>({
   form,
   name,
   label,
   hint,
-  toValue = (value) => value,
+  toValue = (value: string): string => value,
   ...combobox
-}: ComboboxFieldProps<T>) {
+}: ComboboxFieldProps<T, TOutput>): JSX.Element {
   return (
     <FormField form={form} name={name} label={label} hint={hint}>
-      {(control) => (
+      {(control: ControlProps): JSX.Element => (
         <Controller
           control={form.control}
           name={name}
-          render={({ field }) => (
+          render={({ field }: { field: ControllerRenderProps<T, Path<T>> }): JSX.Element => (
             <Combobox
               {...control}
               {...combobox}
@@ -191,7 +200,7 @@ export function ComboboxField<T extends FieldValues>({
               value={field.value}
               disabled={field.disabled}
               onBlur={field.onBlur}
-              onChange={(value) => field.onChange(toValue(value))}
+              onChange={(value: string): void => field.onChange(toValue(value))}
             />
           )}
         />

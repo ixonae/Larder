@@ -1,10 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { JSX } from "react";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { RatingStars } from "./rating-stars.tsx";
 
-function Harness() {
+function Harness(): JSX.Element {
   const [value, setValue] = useState<number | null>(null);
   return (
     <>

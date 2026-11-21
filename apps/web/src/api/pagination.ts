@@ -2,7 +2,7 @@ import { MAX_PAGE_LIMIT, type Page } from "@larder/shared";
 
 export async function collectPages<T>(
   fetchPage: (query: { limit: string; cursor?: string }) => Promise<Page<T>>,
-) {
+): Promise<T[]> {
   const items: T[] = [];
   let cursor: string | null = null;
   do {

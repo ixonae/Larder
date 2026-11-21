@@ -41,7 +41,7 @@ const bottle = (id: number, name: string, image_id: string | null): Product => (
 
 let store: Product[] = [];
 let requests: { method: string; path: string; type?: string }[] = [];
-const photo = () => new File(["png"], "lime.png", { type: "image/png" });
+const photo = (): File => new File(["png"], "lime.png", { type: "image/png" });
 
 beforeEach(() => {
   store = [bottle(10, "Hendrick's", IMAGE), bottle(11, "Tanqueray", null)];
@@ -75,7 +75,9 @@ beforeEach(() => {
   );
 });
 
-async function openSheet(button: string) {
+async function openSheet(
+  button: string,
+): Promise<ReturnType<typeof renderWithProviders> & { sheet: HTMLElement }> {
   const view = renderWithProviders("/bottles");
   await screen.findByRole("list", { name: "Bottles" });
   if (button === "Add bottle") await view.user.click(screen.getByRole("button", { name: button }));

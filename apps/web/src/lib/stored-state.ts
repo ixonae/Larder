@@ -4,7 +4,11 @@ import { useCallback, useState } from "react";
  * A per-viewer UI preference kept in localStorage. Falls back to `initial` when storage is empty,
  * holds an unknown value, or is unavailable (private mode, blocked site data).
  */
-export function useStoredState<T extends string>(key: string, allowed: readonly T[], initial: T) {
+export function useStoredState<T extends string>(
+  key: string,
+  allowed: readonly T[],
+  initial: T,
+): readonly [T, (next: T) => void] {
   const [value, setValue] = useState<T>(() => {
     try {
       const stored = localStorage.getItem(key);

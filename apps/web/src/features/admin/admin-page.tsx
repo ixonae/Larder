@@ -1,8 +1,14 @@
-import { type SignupSettings, searchKey } from "@larder/shared";
+import {
+  type AdminBar,
+  type AdminUser,
+  type NewAccount,
+  type SignupSettings,
+  searchKey,
+} from "@larder/shared";
 import { type UseQueryResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Plus, ShieldCheck, UsersRound } from "lucide-react";
 import { Tabs } from "radix-ui";
-import { type ReactNode, useState } from "react";
+import { type ChangeEvent, type JSX, type ReactNode, type SubmitEvent, useState } from "react";
 import { api, unwrap } from "@/api/client.ts";
 import { meQuery, signupSettingsQuery } from "@/api/queries.ts";
 import { SearchInput } from "@/components/search-input.tsx";
@@ -29,7 +35,7 @@ const adminTabs = [
   { id: "bars", label: "Bars", icon: Building2 },
 ] as const;
 
-export function AdminPage() {
+export function AdminPage(): JSX.Element {
   const { me } = useSignedIn();
   return (
     <section className="mx-auto grid w-full max-w-5xl gap-6">
@@ -76,13 +82,19 @@ export function AdminPage() {
 function AdminData<T>({
   result,
   children,
-}: Readonly<{ result: UseQueryResult<T>; children: (data: T) => ReactNode }>) {
+}: Readonly<{ result: UseQueryResult<T>; children: (data: T) => ReactNode }>): ReactNode {
   if (result.isPending) return <LoadingState />;
-  if (result.isError) return <ErrorState error={result.error} onRetry={() => result.refetch()} />;
+  if (result.isError)
+    return (
+      <ErrorState
+        error={result.error}
+        onRetry={(): ReturnType<typeof result.refetch> => result.refetch()}
+      />
+    );
   return children(result.data);
 }
 
-function UsersPanel() {
+function UsersPanel(): JSX.Element {
   const [query, setQuery] = useState("");
   const result = useQuery({
     queryKey: adminUsersKey,
@@ -91,7 +103,7 @@ function UsersPanel() {
 
   return (
     <AdminData result={result}>
-      {({ users }) => {
+      {({ users }: { users: AdminUser[] }): JSX.Element => {
         const search = searchKey(query.trim());
         const filtered = users.filter(
           ({ display_name, email }) =>
@@ -108,7 +120,9 @@ function UsersPanel() {
               aria-label="Search users"
               placeholder="Search name or email"
               value={query}
-              onChange={(event) => setQuery(event.currentTarget.value)}
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                setQuery(event.currentTarget.value)
+              }
             />
             {filtered.length ? (
               <UserDirectory users={filtered} />
@@ -122,7 +136,7 @@ function UsersPanel() {
   );
 }
 
-function CreateUser() {
+function CreateUser(): JSX.Element {
   const [open, setOpen] = useState(false);
   const client = useQueryClient();
   return (
@@ -141,7 +155,7 @@ function CreateUser() {
         <div className="px-6 pb-6">
           <NewAccountForm
             label="Create user"
-            submit={async (json) => {
+            submit={async (json: NewAccount): Promise<void> => {
               await unwrap(await api.api.admin.users.$post({ json }));
               await client.invalidateQueries({ queryKey: adminUsersKey });
               setOpen(false);
@@ -171,23 +185,27 @@ const signupOptions = [
   },
 ] as const;
 
-function SignupPanel() {
+function SignupPanel(): JSX.Element {
   const result = useQuery(signupSettingsQuery);
-  return <AdminData result={result}>{(settings) => <SignupMode settings={settings} />}</AdminData>;
+  return (
+    <AdminData result={result}>
+      {(settings: SignupSettings): JSX.Element => <SignupMode settings={settings} />}
+    </AdminData>
+  );
 }
 
-function SignupMode({ settings }: Readonly<{ settings: SignupSettings }>) {
+function SignupMode({ settings }: Readonly<{ settings: SignupSettings }>): JSX.Element {
   const [selected, setSelected] = useState(settings.signup_mode);
   const client = useQueryClient();
   const save = useMutation({
     mutationFn: async () =>
       unwrap(await api.api.admin["signup-settings"].$patch({ json: { signup_mode: selected } })),
-    onSuccess: (data) => client.setQueryData(signupSettingsQuery.queryKey, data),
+    onSuccess: (data: SignupSettings) => client.setQueryData(signupSettingsQuery.queryKey, data),
   });
   return (
     <form
       className="grid max-w-2xl gap-4"
-      onSubmit={(event) => {
+      onSubmit={(event: SubmitEvent<HTMLFormElement>): void => {
         event.preventDefault();
         save.mutate();
       }}
@@ -205,7 +223,7 @@ function SignupMode({ settings }: Readonly<{ settings: SignupSettings }>) {
               name="signup-mode"
               value={value}
               checked={selected === value}
-              onChange={() => setSelected(value)}
+              onChange={(): void => setSelected(value)}
               aria-label={label}
             />
             <span className="grid gap-1">
@@ -228,7 +246,7 @@ function SignupMode({ settings }: Readonly<{ settings: SignupSettings }>) {
   );
 }
 
-function BarsPanel() {
+function BarsPanel(): JSX.Element {
   const client = useQueryClient();
   const result = useQuery({
     queryKey: ADMIN_BARS,
@@ -236,7 +254,7 @@ function BarsPanel() {
   });
   return (
     <AdminData result={result}>
-      {({ bars }) => (
+      {({ bars }: { bars: AdminBar[] }): JSX.Element => (
         <section className="grid gap-4">
           <h2 className="text-xl">All bars</h2>
           {bars.length ? (
@@ -249,7 +267,7 @@ function BarsPanel() {
                   </div>
                   <DeleteBarButton
                     barName={name}
-                    onDelete={async (confirmedName) => {
+                    onDelete={async (confirmedName: string): Promise<void> => {
                       await unwrap(
                         await api.api.admin.bars[":id"].$delete({
                           param: { id },

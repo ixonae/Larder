@@ -1,9 +1,13 @@
+import type { RenderHookResult } from "@testing-library/react";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useStoredState } from "./stored-state.ts";
 
 const VIEWS = ["grid", "list"] as const;
-const render = () => renderHook(() => useStoredState("larder.test", VIEWS, "grid"));
+type View = (typeof VIEWS)[number];
+
+const render = (): RenderHookResult<readonly [View, (next: View) => void], unknown> =>
+  renderHook(() => useStoredState("larder.test", VIEWS, "grid"));
 
 describe("useStoredState", () => {
   it("restores a stored choice and remembers a new one", () => {

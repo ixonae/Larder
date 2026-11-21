@@ -9,9 +9,9 @@ import {
 import { type UseMutationResult, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { ArrowLeft, Pencil } from "lucide-react";
-import { Fragment, type ReactElement, useState } from "react";
+import { Fragment, type JSX, type ReactElement, useState } from "react";
 import { ApiError } from "@/api/client.ts";
-import { cocktailQuery } from "@/api/cocktails.ts";
+import { type CocktailFilters, cocktailQuery } from "@/api/cocktails.ts";
 import { useSetFavourite } from "@/api/feedback.ts";
 import { utensilQuery } from "@/api/utensils.ts";
 import { badge } from "@/components/badge.ts";
@@ -25,17 +25,19 @@ import { CocktailRaters, RatingSummary } from "./cocktail-ratings.tsx";
 
 const route = getRouteApi("/cocktails/$cocktailId");
 
-export function CocktailDetailPage() {
-  const { cocktailId } = route.useParams();
+export function CocktailDetailPage(): JSX.Element {
+  const { cocktailId }: { cocktailId: string } = route.useParams();
   return (
     <BarGate title="Cocktail">
-      {(bar) => <CocktailView key={`${bar.id}/${cocktailId}`} bar={bar} id={cocktailId} />}
+      {(bar: BarSummary): JSX.Element => (
+        <CocktailView key={`${bar.id}/${cocktailId}`} bar={bar} id={cocktailId} />
+      )}
     </BarGate>
   );
 }
 
-function CocktailView({ bar, id }: Readonly<{ bar: BarSummary; id: string }>) {
-  const search = route.useSearch();
+function CocktailView({ bar, id }: Readonly<{ bar: BarSummary; id: string }>): JSX.Element {
+  const search: CocktailFilters = route.useSearch();
   const recipe = useQuery(cocktailQuery(bar.id, id));
   let content: ReactElement;
   if (recipe.isPending) {
@@ -45,7 +47,10 @@ function CocktailView({ bar, id }: Readonly<{ bar: BarSummary; id: string }>) {
       recipe.error instanceof ApiError && recipe.error.code === "NOT_FOUND" ? (
         <EmptyState title="Cocktail not found" />
       ) : (
-        <ErrorState error={recipe.error} onRetry={() => recipe.refetch()} />
+        <ErrorState
+          error={recipe.error}
+          onRetry={(): ReturnType<typeof recipe.refetch> => recipe.refetch()}
+        />
       );
   } else {
     content = <CocktailRecipe barId={bar.id} recipe={recipe.data} />;
@@ -79,7 +84,10 @@ function CocktailView({ bar, id }: Readonly<{ bar: BarSummary; id: string }>) {
   );
 }
 
-function CocktailRecipe({ barId, recipe }: Readonly<{ barId: string; recipe: CocktailDetail }>) {
+function CocktailRecipe({
+  barId,
+  recipe,
+}: Readonly<{ barId: string; recipe: CocktailDetail }>): JSX.Element {
   const setFavourite: UseMutationResult<unknown, Error, { id: string; favourite: boolean }> =
     useSetFavourite(barId);
   return (
@@ -113,7 +121,10 @@ function CocktailRecipe({ barId, recipe }: Readonly<{ barId: string; recipe: Coc
   );
 }
 
-function CocktailDetails({ barId, recipe }: Readonly<{ barId: string; recipe: CocktailDetail }>) {
+function CocktailDetails({
+  barId,
+  recipe,
+}: Readonly<{ barId: string; recipe: CocktailDetail }>): JSX.Element {
   const [servings, setServings] = useState<number>();
   const [unit, setUnit] = useState<DisplayUnit>("ml");
   // Bottles picked while pouring, by line. Only this view remembers them; the recipe stays generic.
@@ -128,14 +139,21 @@ function CocktailDetails({ barId, recipe }: Readonly<{ barId: string; recipe: Co
   if (scaled.isPending) {
     ingredients = <LoadingState label="Scaling recipe…" />;
   } else if (scaled.isError) {
-    ingredients = <ErrorState error={scaled.error} onRetry={() => scaled.refetch()} />;
+    ingredients = (
+      <ErrorState
+        error={scaled.error}
+        onRetry={(): ReturnType<typeof scaled.refetch> => scaled.refetch()}
+      />
+    );
   } else {
     ingredients = (
       <IngredientList
         recipe={scaled.data}
         unit={unit}
         poured={poured}
-        onPour={(lineId, productId) => setPoured({ ...poured, [lineId]: productId })}
+        onPour={(lineId: string, productId: string): void =>
+          setPoured({ ...poured, [lineId]: productId })
+        }
       />
     );
   }
@@ -162,7 +180,7 @@ function CocktailDetails({ barId, recipe }: Readonly<{ barId: string; recipe: Co
               variant="outline"
               aria-label="Fewer servings"
               disabled={count === 1}
-              onClick={() => setServings(count - 1)}
+              onClick={(): void => setServings(count - 1)}
             >
               −
             </Button>
@@ -174,7 +192,7 @@ function CocktailDetails({ barId, recipe }: Readonly<{ barId: string; recipe: Co
               variant="outline"
               aria-label="More servings"
               disabled={count === Number.MAX_SAFE_INTEGER}
-              onClick={() => setServings(count + 1)}
+              onClick={(): void => setServings(count + 1)}
             >
               +
             </Button>
@@ -186,7 +204,7 @@ function CocktailDetails({ barId, recipe }: Readonly<{ barId: string; recipe: Co
                 size="sm"
                 variant={unit === option ? "secondary" : "ghost"}
                 aria-pressed={unit === option}
-                onClick={() => setUnit(option)}
+                onClick={(): void => setUnit(option)}
               >
                 {option}
               </Button>
@@ -223,7 +241,10 @@ function CocktailDetails({ barId, recipe }: Readonly<{ barId: string; recipe: Co
   );
 }
 
-function CocktailFacts({ barId, recipe }: Readonly<{ barId: string; recipe: CocktailDetail }>) {
+function CocktailFacts({
+  barId,
+  recipe,
+}: Readonly<{ barId: string; recipe: CocktailDetail }>): JSX.Element {
   const glass = useQuery({
     ...utensilQuery(barId, recipe.glass_id ?? ""),
     enabled: recipe.glass_id !== null,
@@ -252,7 +273,12 @@ function CocktailFacts({ barId, recipe }: Readonly<{ barId: string; recipe: Cock
             </div>
           ))}
       </dl>
-      {glass.isError && <ErrorState error={glass.error} onRetry={() => glass.refetch()} />}
+      {glass.isError && (
+        <ErrorState
+          error={glass.error}
+          onRetry={(): ReturnType<typeof glass.refetch> => glass.refetch()}
+        />
+      )}
     </div>
   );
 }
@@ -267,7 +293,7 @@ function IngredientList({
   unit: DisplayUnit;
   poured: Record<string, string>;
   onPour: (lineId: string, productId: string) => void;
-}) {
+}): JSX.Element {
   const missing = new Set(recipe.missing.map(({ id }) => id));
   return recipe.ingredients.length === 0 ? (
     <p>No ingredients yet.</p>
@@ -302,7 +328,7 @@ function IngredientList({
                 aria-label={`Use this bottle for ${line.name}`}
                 className="max-w-xs"
                 value={poured[line.id]}
-                onChange={(value) => onPour(line.id, value)}
+                onChange={(value: string): void => onPour(line.id, value)}
                 options={bottles.map(({ id, name }) => ({ value: id, label: name }))}
                 clearLabel="Any bottle"
                 fallbackLabel="Bottle no longer in the bar"

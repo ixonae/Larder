@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { JSX } from "react";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { Combobox, type ComboboxOption } from "./combobox.tsx";
@@ -21,7 +22,7 @@ function Harness({
 }: {
   initial?: string;
   options?: ComboboxOption[];
-}) {
+}): JSX.Element {
   const [value, setValue] = useState(initial);
   return (
     <Combobox

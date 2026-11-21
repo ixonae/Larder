@@ -20,8 +20,9 @@ import { toast } from "@/components/toaster.tsx";
 import { api, unwrap } from "./client.ts";
 import { cocktailDetailKey, cocktailListKey, cocktailsKey } from "./cocktails.ts";
 import { isFavouritesList, patchQueries, restoreQueries, type Snapshot } from "./query-cache.ts";
+import type { ApiInfiniteQueryOptions } from "./query-options.ts";
 
-const bar = api.api.bars[":barId"];
+const bar: (typeof api.api.bars)[":barId"] = api.api.bars[":barId"];
 const routes = (): (typeof bar.cocktails)[":id"] => bar.cocktails[":id"];
 
 type QueryKeyPrefix = readonly unknown[];
@@ -78,7 +79,10 @@ const commentsKey = (barId: string, id: string): QueryKeyPrefix => [
   id,
 ];
 
-export const commentsQuery = (barId: string, id: string) =>
+export const commentsQuery = (
+  barId: string,
+  id: string,
+): ApiInfiniteQueryOptions<Comment, string | undefined> =>
   infiniteQueryOptions({
     queryKey: commentsKey(barId, id),
     queryFn: async ({ pageParam }: { pageParam: string | undefined }): Promise<Page<Comment>> =>

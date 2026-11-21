@@ -1,5 +1,6 @@
 import type { Visibility } from "@larder/shared";
 import { Globe, Lock } from "lucide-react";
+import type { JSX } from "react";
 import { type ChipOption, ChipRadioGroup } from "./chip-radio-group.tsx";
 
 const choices: ChipOption<boolean>[] = [
@@ -11,7 +12,7 @@ export function FeedbackVisibility({
   label,
   value,
   onChange,
-}: Readonly<{ label: string; value: boolean; onChange: (value: boolean) => void }>) {
+}: Readonly<{ label: string; value: boolean; onChange: (value: boolean) => void }>): JSX.Element {
   return <ChipRadioGroup label={label} options={choices} value={value} onChange={onChange} />;
 }
 
@@ -24,7 +25,10 @@ const filters: ChipOption<Visibility | undefined>[] = [
 export function FeedbackVisibilityFilter({
   value,
   onChange,
-}: Readonly<{ value: Visibility | undefined; onChange: (value: Visibility | undefined) => void }>) {
+}: Readonly<{
+  value: Visibility | undefined;
+  onChange: (value: Visibility | undefined) => void;
+}>): JSX.Element {
   return (
     <ChipRadioGroup
       label="Filter by visibility"
@@ -35,7 +39,7 @@ export function FeedbackVisibilityFilter({
   );
 }
 
-export function PrivateFeedbackLabel() {
+export function PrivateFeedbackLabel(): JSX.Element {
   return (
     <span className="flex items-center gap-1 text-muted-foreground">
       <Lock className="size-3.5" aria-hidden />

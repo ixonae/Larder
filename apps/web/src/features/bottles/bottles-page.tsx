@@ -11,7 +11,7 @@ import {
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import { Heart, Plus, Wine } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ChangeEvent, type JSX, type ReactNode, useState } from "react";
 import { z } from "zod";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { productListQuery, useSetBottleFavourite } from "@/api/products.ts";
@@ -49,16 +49,20 @@ export type BottlesSearch = z.infer<typeof bottlesSearchSchema>;
 
 const route = getRouteApi("/bottles");
 
-export function BottlesPage() {
-  return <BarGate title="Bottles">{(bar) => <BottlesView key={bar.id} bar={bar} />}</BarGate>;
+export function BottlesPage(): JSX.Element {
+  return (
+    <BarGate title="Bottles">
+      {(bar: BarSummary): JSX.Element => <BottlesView key={bar.id} bar={bar} />}
+    </BarGate>
+  );
 }
 
-function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
+function BottlesView({ bar }: Readonly<{ bar: BarSummary }>): JSX.Element {
   const canEdit = hasRole(bar.role, "editor");
-  const search = route.useSearch();
+  const search: BottlesSearch = route.useSearch();
   const navigate = route.useNavigate();
-  const setSearch = (patch: Partial<BottlesSearch>) =>
-    navigate({ search: { ...search, ...patch }, replace: true });
+  const setSearch = (patch: Partial<BottlesSearch>): Promise<void> =>
+    navigate({ to: "/bottles", search: { ...search, ...patch }, replace: true });
   const [target, setTarget] = useState<ProductTarget>(null);
   const [q, setQ] = useDebouncedSearch(search.q ?? "", (value) =>
     setSearch({ q: value || undefined }),
@@ -84,7 +88,12 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
   if (list.isPending) {
     content = <LoadingState label="Loading bottles…" />;
   } else if (list.isError) {
-    content = <ErrorState error={list.error} onRetry={() => list.refetch()} />;
+    content = (
+      <ErrorState
+        error={list.error}
+        onRetry={(): ReturnType<typeof list.refetch> => list.refetch()}
+      />
+    );
   } else if (items.length === 0) {
     content = filtered ? (
       <EmptyState title="No bottles match">Try another search or filter.</EmptyState>
@@ -127,7 +136,9 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
               <FavouriteButton
                 favourite={product.is_favourite}
                 disabled={setFavourite.pendingIds.includes(product.id)}
-                onToggle={(favourite) => setFavourite.mutate({ id: product.id, favourite })}
+                onToggle={(favourite: boolean): void =>
+                  setFavourite.mutate({ id: product.id, favourite })
+                }
               />
               <StockAction
                 barId={bar.id}
@@ -142,7 +153,7 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
           <Button
             variant="outline"
             disabled={list.isFetchingNextPage}
-            onClick={() => list.fetchNextPage()}
+            onClick={(): ReturnType<typeof list.fetchNextPage> => list.fetchNextPage()}
           >
             Load more
           </Button>
@@ -157,7 +168,7 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-3xl">Bottles</h1>
         {canEdit && (
-          <Button onClick={() => setTarget("new")}>
+          <Button onClick={(): void => setTarget("new")}>
             <Plus aria-hidden />
             Add bottle
           </Button>
@@ -171,13 +182,13 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
           aria-label="Search bottles"
           placeholder="Search name or producer"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>): void => setQ(e.target.value)}
         />
         <Combobox
           aria-label="Category"
           className="lg:w-48"
           value={search.category}
-          onChange={(value) => setSearch({ category: value || undefined })}
+          onChange={(value: string): Promise<void> => setSearch({ category: value || undefined })}
           options={bottleCategoryOptions(tree.data ?? [], search.category)}
           clearLabel="All categories"
           searchPlaceholder="Search categories"
@@ -186,7 +197,9 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
           aria-label="Country"
           className="lg:w-44"
           value={search.country}
-          onChange={(value) => setSearch({ country: countrySchema.safeParse(value).data })}
+          onChange={(value: string): Promise<void> =>
+            setSearch({ country: countrySchema.safeParse(value).data })
+          }
           clearLabel="All countries"
         />
       </div>
@@ -197,7 +210,9 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
             type="checkbox"
             className="sr-only"
             checked={search.favourite === true}
-            onChange={(event) => setSearch({ favourite: event.target.checked || undefined })}
+            onChange={(event: ChangeEvent<HTMLInputElement>): Promise<void> =>
+              setSearch({ favourite: event.target.checked || undefined })
+            }
           />
           <Heart className="size-3.5" aria-hidden />
           Favourites
@@ -211,7 +226,7 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
                 type="checkbox"
                 className="sr-only"
                 checked={checked}
-                onChange={() => {
+                onChange={(): void => {
                   const next = checked
                     ? selected.filter((s) => s !== status)
                     : STATUS_FILTERS.filter((s) => s === status || selected.includes(s));
@@ -226,7 +241,7 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>) {
 
       {content}
 
-      <ProductSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
+      <ProductSheet barId={bar.id} target={target} onClose={(): void => setTarget(null)} />
     </section>
   );
 }

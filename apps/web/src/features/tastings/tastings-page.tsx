@@ -2,15 +2,17 @@ import {
   type BarSummary,
   hasRole,
   idSchema,
+  type Product,
   TASTING_SCORE_MAX,
   TASTING_SCORE_MIN,
   type Tasting,
+  type Visibility,
   visibilitySchema,
 } from "@larder/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { NotebookPen, Plus, SlidersHorizontal, X } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ChangeEvent, type JSX, type ReactNode, useState } from "react";
 import { z } from "zod";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { productQuery } from "@/api/products.ts";
@@ -51,8 +53,12 @@ type TastingsSearch = z.infer<typeof tastingsSearchSchema>;
 
 const route = getRouteApi("/tastings");
 
-export function TastingsPage() {
-  return <BarGate title="Tastings">{(bar) => <TastingsView key={bar.id} bar={bar} />}</BarGate>;
+export function TastingsPage(): JSX.Element {
+  return (
+    <BarGate title="Tastings">
+      {(bar: BarSummary): JSX.Element => <TastingsView key={bar.id} bar={bar} />}
+    </BarGate>
+  );
 }
 
 const monthFormat = new Intl.DateTimeFormat("en", {
@@ -73,13 +79,13 @@ function byMonth(items: Tasting[]): [string, Tasting[]][] {
   return [...months];
 }
 
-function TastingsView({ bar }: Readonly<{ bar: BarSummary }>) {
+function TastingsView({ bar }: Readonly<{ bar: BarSummary }>): JSX.Element {
   const canEdit = hasRole(bar.role, "editor");
   const userId = useMe().data?.user.id;
-  const search = route.useSearch();
+  const search: TastingsSearch = route.useSearch();
   const navigate = route.useNavigate();
-  const setSearch = (patch: Partial<TastingsSearch>) =>
-    navigate({ search: { ...search, ...patch }, replace: true });
+  const setSearch = (patch: Partial<TastingsSearch>): Promise<void> =>
+    navigate({ to: "/tastings", search: { ...search, ...patch }, replace: true });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [target, setTarget] = useState<TastingTarget>(null);
   const list = useInfiniteQuery(
@@ -109,7 +115,12 @@ function TastingsView({ bar }: Readonly<{ bar: BarSummary }>) {
   if (list.isPending) content = <LoadingState label="Loading tastings…" />;
   // A failed "Load more" keeps the loaded entries; the error shows by the button instead.
   else if (list.isError && items.length === 0) {
-    content = <ErrorState error={list.error} onRetry={() => list.refetch()} />;
+    content = (
+      <ErrorState
+        error={list.error}
+        onRetry={(): ReturnType<typeof list.refetch> => list.refetch()}
+      />
+    );
   } else if (items.length === 0) {
     content =
       activeFilters > 0 ? (
@@ -130,7 +141,7 @@ function TastingsView({ bar }: Readonly<{ bar: BarSummary }>) {
                   barId={bar.id}
                   tasting={tasting}
                   mine={canEdit && tasting.author.id === userId}
-                  onEdit={(edited) => setTarget({ kind: "edit", tasting: edited })}
+                  onEdit={(edited: Tasting): void => setTarget({ kind: "edit", tasting: edited })}
                 />
               ))}
             </ul>
@@ -140,7 +151,7 @@ function TastingsView({ bar }: Readonly<{ bar: BarSummary }>) {
           <Button
             variant="outline"
             disabled={list.isFetchingNextPage}
-            onClick={() => list.fetchNextPage()}
+            onClick={(): ReturnType<typeof list.fetchNextPage> => list.fetchNextPage()}
           >
             Load more
           </Button>
@@ -159,7 +170,7 @@ function TastingsView({ bar }: Readonly<{ bar: BarSummary }>) {
       <BottlesTabs />
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-3xl">Tastings</h1>
-        <Button variant="outline" onClick={() => setFiltersOpen(true)}>
+        <Button variant="outline" onClick={(): void => setFiltersOpen(true)}>
           <SlidersHorizontal aria-hidden />
           {activeFilters > 0 ? `Filters (${activeFilters})` : "Filters"}
         </Button>
@@ -172,7 +183,7 @@ function TastingsView({ bar }: Readonly<{ bar: BarSummary }>) {
               type="button"
               aria-label="Show every bottle"
               className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={() => setSearch({ product: undefined })}
+              onClick={(): Promise<void> => setSearch({ product: undefined })}
             >
               <X className="size-3.5" aria-hidden />
             </button>
@@ -185,7 +196,7 @@ function TastingsView({ bar }: Readonly<{ bar: BarSummary }>) {
         <Button
           size="lg"
           className="fixed right-4 bottom-20 z-10 rounded-full shadow-lg md:right-8 md:bottom-8"
-          onClick={() =>
+          onClick={(): void =>
             setTarget({
               kind: "new",
               ...(bottle.data && {
@@ -213,7 +224,7 @@ function TastingsView({ bar }: Readonly<{ bar: BarSummary }>) {
           />
         </SheetContent>
       </Sheet>
-      <TastingSheet barId={bar.id} target={target} onClose={() => setTarget(null)} />
+      <TastingSheet barId={bar.id} target={target} onClose={(): void => setTarget(null)} />
     </section>
   );
 }
@@ -228,7 +239,7 @@ function TastingFilters({
   search: TastingsSearch;
   selectedBottleLabel: string;
   onChange: (patch: Partial<TastingsSearch>) => void;
-}>) {
+}>): JSX.Element {
   const tree = useQuery(categoryTreeQuery(barId));
   return (
     <div className="grid gap-5 px-4 pb-4">
@@ -237,7 +248,7 @@ function TastingFilters({
         value={search.product}
         fallbackLabel={selectedBottleLabel}
         clearLabel="All bottles"
-        onChange={(bottle) => onChange({ product: bottle?.id })}
+        onChange={(bottle: Product | null): void => onChange({ product: bottle?.id })}
       />
       <div className="grid gap-1.5">
         <Label htmlFor="tasting-category">Category</Label>
@@ -245,7 +256,7 @@ function TastingFilters({
           id="tasting-category"
           aria-label="Category"
           value={search.category}
-          onChange={(value) => onChange({ category: value || undefined })}
+          onChange={(value: string): void => onChange({ category: value || undefined })}
           options={bottleCategoryOptions(tree.data ?? [], search.category)}
           clearLabel="All categories"
           searchPlaceholder="Search categories"
@@ -256,7 +267,7 @@ function TastingFilters({
         <RatingStars
           label="Minimum score"
           value={search.score ?? null}
-          onChange={(score) => onChange({ score: score ?? undefined })}
+          onChange={(score: number | null): void => onChange({ score: score ?? undefined })}
         />
       </div>
       <label className={toggleChip({ className: "w-fit" })}>
@@ -264,18 +275,20 @@ function TastingFilters({
           type="checkbox"
           className="sr-only"
           checked={search.mine === true}
-          onChange={(event) => onChange({ mine: event.target.checked || undefined })}
+          onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+            onChange({ mine: event.target.checked || undefined })
+          }
         />
         <NotebookPen className="size-4" aria-hidden />
         Only mine
       </label>
       <FeedbackVisibilityFilter
         value={search.visibility}
-        onChange={(visibility) => onChange({ visibility })}
+        onChange={(visibility: Visibility | undefined): void => onChange({ visibility })}
       />
       <Button
         variant="outline"
-        onClick={() =>
+        onClick={(): void =>
           onChange({
             category: undefined,
             product: undefined,

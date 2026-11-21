@@ -1,20 +1,26 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { cn } from "cn"
-import { Tabs as TabsPrimitive } from "radix-ui"
+import { cn } from "cn";
+import { Tabs as TabsPrimitive } from "radix-ui";
+import type * as React from "react";
 
-function Tabs({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Root>) {
+function Tabs({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Root>): React.JSX.Element {
   return (
     <TabsPrimitive.Root
       data-slot="tabs"
       className={cn("flex flex-col gap-4", className)}
       {...props}
     />
-  )
+  );
 }
 
-function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.List>) {
+function TabsList({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.List>): React.JSX.Element {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
@@ -24,10 +30,13 @@ function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimi
       )}
       {...props}
     />
-  )
+  );
 }
 
-function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+function TabsTrigger({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Trigger>): React.JSX.Element {
   return (
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
@@ -37,17 +46,20 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
       )}
       {...props}
     />
-  )
+  );
 }
 
-function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Content>) {
+function TabsContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Content>): React.JSX.Element {
   return (
     <TabsPrimitive.Content
       data-slot="tabs-content"
       className={cn("flex flex-col gap-4 outline-none", className)}
       {...props}
     />
-  )
+  );
 }
 
-export { Tabs, TabsList, TabsTrigger, TabsContent }
+export { Tabs, TabsContent, TabsList, TabsTrigger };

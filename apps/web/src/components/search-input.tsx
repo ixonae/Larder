@@ -1,10 +1,13 @@
 import { cn } from "cn";
 import { Search } from "lucide-react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, JSX } from "react";
 import { Input } from "@/components/ui/input.tsx";
 
 /** A search box with a leading magnifier, for filtering a list page. */
-export function SearchInput({ className, ...props }: Omit<ComponentProps<typeof Input>, "type">) {
+export function SearchInput({
+  className,
+  ...props
+}: Omit<ComponentProps<typeof Input>, "type">): JSX.Element {
   return (
     <div className={cn("relative", className)}>
       <Search

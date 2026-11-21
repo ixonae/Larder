@@ -4,6 +4,7 @@ import {
   UTENSIL_KINDS,
   type Utensil,
 } from "@larder/shared";
+import type { JSX } from "react";
 import { useUtensilMutations } from "@/api/utensils.ts";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
 import { toast } from "@/components/toaster.tsx";
@@ -21,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea.tsx";
 import {
   applyServerErrors,
   ComboboxField,
+  type ControlProps,
   emptyToNullNumber,
   FormField,
   useZodForm,
@@ -38,10 +40,10 @@ export function UtensilSheet({
   barId: string;
   target: UtensilTarget;
   onClose: () => void;
-}>) {
+}>): JSX.Element {
   const editing = target === "new" ? null : target;
   return (
-    <Sheet open={target !== null} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={target !== null} onOpenChange={(open: boolean): void => void (!open && onClose())}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{editing ? `Edit ${editing.name}` : "New utensil"}</SheetTitle>
@@ -61,7 +63,7 @@ function UtensilForm({
   barId: string;
   editing: Utensil | null;
   onDone: () => void;
-}>) {
+}>): JSX.Element {
   const { create, update } = useUtensilMutations(barId);
   const picture = useImageField(barId, "utensils");
   const form = useZodForm(createUtensilSchema, {
@@ -95,7 +97,9 @@ function UtensilForm({
   return (
     <form onSubmit={submit} className="flex flex-1 flex-col gap-4 px-4" noValidate>
       <FormField form={form} name="name" label="Name">
-        {(control) => <Input autoComplete="off" {...control} {...form.register("name")} />}
+        {(control: ControlProps): JSX.Element => (
+          <Input autoComplete="off" {...control} {...form.register("name")} />
+        )}
       </FormField>
 
       <ComboboxField
@@ -110,7 +114,7 @@ function UtensilForm({
 
       {isGlass && (
         <FormField form={form} name="capacity_ml" label="Capacity (ml)">
-          {(control) => (
+          {(control: ControlProps): JSX.Element => (
             <Input
               type="number"
               inputMode="numeric"
@@ -127,7 +131,9 @@ function UtensilForm({
       )}
 
       <FormField form={form} name="description" label="Description">
-        {(control) => <Textarea rows={3} {...control} {...form.register("description")} />}
+        {(control: ControlProps): JSX.Element => (
+          <Textarea rows={3} {...control} {...form.register("description")} />
+        )}
       </FormField>
 
       <ImageUpload

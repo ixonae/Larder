@@ -24,7 +24,7 @@ describe("shouldRetry", () => {
 
 describe("unauthorized answers", () => {
   const unauthorized = new ApiError(401, "UNAUTHORIZED", "Sign in to continue");
-  const fail = (client: ReturnType<typeof createQueryClient>, error: unknown) =>
+  const fail = (client: ReturnType<typeof createQueryClient>, error: unknown): Promise<undefined> =>
     client
       .getMutationCache()
       .build(client, { mutationFn: () => Promise.reject(error) })
@@ -59,13 +59,16 @@ describe("mutation meta", () => {
     const client = createQueryClient();
     client.setQueryData(["derived"], 1);
     client.setQueryData(["other"], 1);
-    const run = (fn: () => Promise<unknown>, meta?: { invalidates: string[][] }) =>
+    const run = (
+      fn: () => Promise<unknown>,
+      meta?: { invalidates: string[][] },
+    ): Promise<unknown> =>
       client
         .getMutationCache()
         .build(client, { mutationFn: fn, meta })
         .execute(undefined)
         .catch(() => undefined);
-    const stale = (key: string) => client.getQueryState([key])?.isInvalidated;
+    const stale = (key: string): boolean | undefined => client.getQueryState([key])?.isInvalidated;
 
     await run(() => Promise.reject(new Error("failed")), { invalidates: [["derived"]] });
     await run(() => Promise.resolve());

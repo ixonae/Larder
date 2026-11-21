@@ -1,7 +1,7 @@
 import type { Tasting } from "@larder/shared";
 import { Link } from "@tanstack/react-router";
 import { MapPin, Pencil, Trash2, Wine } from "lucide-react";
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { useTastingMutations } from "@/api/tastings.ts";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
 import { PrivateFeedbackLabel } from "@/components/feedback-visibility.tsx";
@@ -29,7 +29,7 @@ export function TastingEntry({
   /** Off on the bottle's own page, where the bottle goes without saying. */
   showBottle?: boolean;
   onEdit: (tasting: Tasting) => void;
-}>) {
+}>): JSX.Element {
   const { remove } = useTastingMutations(barId);
   const [deleting, setDeleting] = useState(false);
   const day = formatDate(tasting.tasted_on);
@@ -69,7 +69,7 @@ export function TastingEntry({
               variant="ghost"
               className="text-muted-foreground"
               aria-label="Edit tasting"
-              onClick={() => onEdit(tasting)}
+              onClick={(): void => onEdit(tasting)}
             >
               <Pencil aria-hidden />
             </Button>
@@ -80,7 +80,7 @@ export function TastingEntry({
               variant="ghost"
               className="text-muted-foreground"
               aria-label="Delete tasting"
-              onClick={() => setDeleting(true)}
+              onClick={(): void => setDeleting(true)}
             >
               <Trash2 aria-hidden />
             </Button>
@@ -90,7 +90,7 @@ export function TastingEntry({
             onOpenChange={setDeleting}
             title="Delete this tasting?"
             description="This cannot be undone."
-            onConfirm={async () => {
+            onConfirm={async (): Promise<void> => {
               await remove.mutateAsync(tasting);
               toast("Tasting deleted");
             }}

@@ -39,7 +39,10 @@ export function categoryOptions(
     });
 }
 
-export const bottleCategoryOptions = (tree: readonly CategoryTreeNode[], currentId?: string) =>
+export const bottleCategoryOptions = (
+  tree: readonly CategoryTreeNode[],
+  currentId?: string,
+): CategoryOption[] =>
   categoryOptions(tree, (item, byId) => item.id === currentId || isBottleCategory(item, byId));
 
 /** A form's `category_id`: the picker's empty "Choose…" option is refused with a message. */
@@ -54,9 +57,15 @@ export function CategoryTreeLoader({
 }: Readonly<{
   barId: string;
   children: (tree: CategoryTreeNode[]) => ReactNode;
-}>) {
+}>): ReactNode {
   const tree = useQuery(categoryTreeQuery(barId));
   if (tree.isPending) return <LoadingState label="Loading categories…" />;
-  if (tree.isError) return <ErrorState error={tree.error} onRetry={() => tree.refetch()} />;
+  if (tree.isError)
+    return (
+      <ErrorState
+        error={tree.error}
+        onRetry={(): ReturnType<typeof tree.refetch> => tree.refetch()}
+      />
+    );
   return children(tree.data);
 }

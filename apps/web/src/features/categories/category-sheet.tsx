@@ -7,7 +7,7 @@ import {
   flattenTree,
   subtreeIds,
 } from "@larder/shared";
-import { useMemo } from "react";
+import { type JSX, useMemo } from "react";
 import { useCategoryMutations } from "@/api/categories.ts";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
 import { toast } from "@/components/toaster.tsx";
@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea.tsx";
 import {
   applyServerErrors,
   ComboboxField,
+  type ControlProps,
   emptyToNullNumber,
   FormField,
   useZodForm,
@@ -49,9 +50,9 @@ export function CategorySheet({
   tree: CategoryTreeNode[];
   target: SheetTarget | null;
   onClose: () => void;
-}>) {
+}>): JSX.Element {
   return (
-    <Sheet open={target !== null} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={target !== null} onOpenChange={(open: boolean): void => void (!open && onClose())}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>
@@ -75,7 +76,7 @@ function CategoryForm({
   tree: CategoryTreeNode[];
   target: SheetTarget;
   onDone: () => void;
-}>) {
+}>): JSX.Element {
   const { create, update } = useCategoryMutations(barId);
   const picture = useImageField(barId, "categories");
   const all = useMemo(() => flattenTree(tree), [tree]);
@@ -125,14 +126,16 @@ function CategoryForm({
   return (
     <form onSubmit={submit} className="flex flex-1 flex-col gap-4 px-4" noValidate>
       <FormField form={form} name="name" label="Name">
-        {(control) => <Input autoComplete="off" {...control} {...form.register("name")} />}
+        {(control: ControlProps): JSX.Element => (
+          <Input autoComplete="off" {...control} {...form.register("name")} />
+        )}
       </FormField>
 
       <ComboboxField
         form={form}
         name="parent_id"
         label="Parent"
-        toValue={(value) => value || null}
+        toValue={(value: string): string | null => value || null}
         options={parentOptions}
         clearLabel="None (top level)"
         searchPlaceholder="Search categories"
@@ -142,7 +145,7 @@ function CategoryForm({
         form={form}
         name="kind"
         label="Kind"
-        toValue={(value) => value || undefined}
+        toValue={(value: string): string | undefined => value || undefined}
         options={CATEGORY_KINDS.map((k) => ({ value: k, label: CATEGORY_KIND_LABEL[k] }))}
         clearLabel={
           editing || !parent ? undefined : `Same as parent (${CATEGORY_KIND_LABEL[parent.kind]})`
@@ -155,7 +158,7 @@ function CategoryForm({
         label="Default ABV (%)"
         hint="Used when a recipe names the category rather than a bottle."
       >
-        {(control) => (
+        {(control: ControlProps): JSX.Element => (
           <Input
             type="number"
             inputMode="decimal"
@@ -169,7 +172,9 @@ function CategoryForm({
       </FormField>
 
       <FormField form={form} name="description" label="Description">
-        {(control) => <Textarea rows={3} {...control} {...form.register("description")} />}
+        {(control: ControlProps): JSX.Element => (
+          <Textarea rows={3} {...control} {...form.register("description")} />
+        )}
       </FormField>
 
       <ImageUpload

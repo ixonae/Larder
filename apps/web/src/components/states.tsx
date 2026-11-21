@@ -1,8 +1,11 @@
 import { CircleAlert, LoaderCircle } from "lucide-react";
-import type { ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
-export function EmptyState({ title, children }: Readonly<{ title: string; children?: ReactNode }>) {
+export function EmptyState({
+  title,
+  children,
+}: Readonly<{ title: string; children?: ReactNode }>): JSX.Element {
   return (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed bg-card/50 p-10 text-center">
       <p className="font-medium">{title}</p>
@@ -11,7 +14,10 @@ export function EmptyState({ title, children }: Readonly<{ title: string; childr
   );
 }
 
-export function ErrorState({ error, onRetry }: Readonly<{ error: Error; onRetry: () => void }>) {
+export function ErrorState({
+  error,
+  onRetry,
+}: Readonly<{ error: Error; onRetry: () => void }>): JSX.Element {
   return (
     <div
       role="alert"
@@ -27,7 +33,7 @@ export function ErrorState({ error, onRetry }: Readonly<{ error: Error; onRetry:
   );
 }
 
-export function LoadingState({ label = "Loading…" }: Readonly<{ label?: string }>) {
+export function LoadingState({ label = "Loading…" }: Readonly<{ label?: string }>): JSX.Element {
   return (
     <output className="flex items-center justify-center gap-2 p-8 text-muted-foreground">
       <LoaderCircle className="size-5 animate-spin" aria-hidden />

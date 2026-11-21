@@ -1,9 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { JSX } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { ApiError } from "@/api/client.ts";
 import { Input } from "@/components/ui/input.tsx";
+import type { ControlProps } from "@/lib/form.tsx";
 import { applyServerErrors, emptyToNullNumber, FormField, useZodForm } from "./form.tsx";
 
 const schema = z.object({ name: z.string().trim().min(1, "Name is required") });
@@ -17,7 +19,7 @@ function TestForm({
   serverError?: unknown;
   /** Empty for a field without a hint. */
   hint?: string;
-}) {
+}): JSX.Element {
   const form = useZodForm(schema, { defaultValues: { name: "" } });
   return (
     <form
@@ -27,7 +29,7 @@ function TestForm({
       })}
     >
       <FormField form={form} name="name" label="Name" hint={hint}>
-        {(control) => <Input {...control} {...form.register("name")} />}
+        {(control: ControlProps): JSX.Element => <Input {...control} {...form.register("name")} />}
       </FormField>
       <button type="submit">Save</button>
     </form>
@@ -55,7 +57,7 @@ describe("useZodForm and FormField", () => {
   });
 
   it("leaves the control undescribed without a hint or an error", () => {
-    render(<TestForm onValid={() => {}} hint="" />);
+    render(<TestForm onValid={(): void => {}} hint="" />);
     expect(screen.getByLabelText("Name")).not.toHaveAttribute("aria-describedby");
   });
 
@@ -63,7 +65,7 @@ describe("useZodForm and FormField", () => {
     const error = new ApiError(400, "VALIDATION", "Invalid json", [
       { path: ["name"], message: "Too fancy" },
     ]);
-    render(<TestForm onValid={() => {}} serverError={error} />);
+    render(<TestForm onValid={(): void => {}} serverError={error} />);
     await userEvent.type(screen.getByLabelText("Name"), "Gin");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Too fancy")).toBeInTheDocument();
@@ -71,7 +73,7 @@ describe("useZodForm and FormField", () => {
 });
 
 describe("applyServerErrors", () => {
-  const form = () => ({ setError: vi.fn() }) as unknown as Parameters<typeof applyServerErrors>[0];
+  const form = (): Parameters<typeof applyServerErrors>[0] => ({ setError: vi.fn() });
 
   it.each([
     ["a plain error", new Error("x")],

@@ -1,5 +1,6 @@
 import { IMAGE_MIME_TYPES, type ImageEntity, imageUrl } from "@larder/shared";
 import { Camera, Trash2 } from "lucide-react";
+import type { ChangeEvent, Dispatch, JSX, SetStateAction } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { type ImageChange, KEEP_IMAGE, useSaveImage } from "@/api/images.ts";
 import { toast } from "@/components/toaster.tsx";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Label } from "@/components/ui/label.tsx";
 
 /** The local preview of a picked file, released when it is replaced or the field goes away. */
-function usePreview(file: File | null) {
+function usePreview(file: File | null): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!file) {
@@ -16,7 +17,7 @@ function usePreview(file: File | null) {
     }
     const next = URL.createObjectURL(file);
     setUrl(next);
-    return () => URL.revokeObjectURL(next);
+    return (): void => URL.revokeObjectURL(next);
   }, [file]);
   return url;
 }
@@ -35,7 +36,7 @@ export function ImageUpload({
   imageId: string | null;
   value: ImageChange;
   onChange: (change: ImageChange) => void;
-}>) {
+}>): JSX.Element {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const preview = usePreview(value.kind === "replace" ? value.file : null);
@@ -57,7 +58,7 @@ export function ImageUpload({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => (input.current as HTMLInputElement).click()}
+            onClick={(): void => (input.current as HTMLInputElement).click()}
           >
             <Camera aria-hidden />
             {shown ? "Replace" : "Add picture"}
@@ -67,7 +68,7 @@ export function ImageUpload({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => onChange(imageId ? { kind: "remove" } : { kind: "keep" })}
+              onClick={(): void => onChange(imageId ? { kind: "remove" } : { kind: "keep" })}
             >
               <Trash2 aria-hidden />
               Remove
@@ -86,7 +87,7 @@ export function ImageUpload({
         accept={IMAGE_MIME_TYPES.join(",")}
         className="sr-only"
         tabIndex={-1}
-        onChange={(e) => {
+        onChange={(e: ChangeEvent<HTMLInputElement>): void => {
           const file = (e.target.files as FileList)[0];
           if (file) onChange({ kind: "replace", file });
           // Picking the same file again should still count as a change.
@@ -102,10 +103,17 @@ export function ImageUpload({
  * `saved` when the picture change went through too. It never throws: a failed upload is reported in
  * a toast instead, and the item itself stays saved.
  */
-export function useImageField(barId: string, entity: ImageEntity) {
+export function useImageField(
+  barId: string,
+  entity: ImageEntity,
+): {
+  change: ImageChange;
+  setChange: Dispatch<SetStateAction<ImageChange>>;
+  apply: (id: string, saved: string) => Promise<void>;
+} {
   const [change, setChange] = useState<ImageChange>(KEEP_IMAGE);
   const save = useSaveImage(barId, entity);
-  const apply = async (id: string, saved: string) => {
+  const apply = async (id: string, saved: string): Promise<void> => {
     try {
       await save(id, change);
       toast(saved);

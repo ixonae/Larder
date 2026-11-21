@@ -9,7 +9,7 @@ export function BarGate({
 }: Readonly<{
   title: string;
   children: (bar: BarSummary) => ReactNode;
-}>) {
+}>): ReactNode {
   const bar = useActiveBar()?.bar;
   if (bar) return children(bar);
   return (

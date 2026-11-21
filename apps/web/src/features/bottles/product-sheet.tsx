@@ -1,5 +1,5 @@
 import { type CategoryTreeNode, createProductSchema, type Product } from "@larder/shared";
-import { useMemo } from "react";
+import { type JSX, useMemo } from "react";
 import { useProductMutations } from "@/api/products.ts";
 import { countryPicker } from "@/components/country-picker.tsx";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
@@ -23,6 +23,7 @@ import {
 import {
   applyServerErrors,
   ComboboxField,
+  type ControlProps,
   emptyToNullNumber,
   FormField,
   useZodForm,
@@ -41,10 +42,10 @@ export function ProductSheet({
   barId: string;
   target: ProductTarget;
   onClose: () => void;
-}>) {
+}>): JSX.Element {
   const editing = target === "new" ? null : target;
   return (
-    <Sheet open={target !== null} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={target !== null} onOpenChange={(open: boolean): void => void (!open && onClose())}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{editing ? `Edit ${editing.name}` : "New bottle"}</SheetTitle>
@@ -52,7 +53,9 @@ export function ProductSheet({
         </SheetHeader>
         {target && (
           <CategoryTreeLoader barId={barId}>
-            {(tree) => <ProductForm barId={barId} editing={editing} onDone={onClose} tree={tree} />}
+            {(tree: CategoryTreeNode[]): JSX.Element => (
+              <ProductForm barId={barId} editing={editing} onDone={onClose} tree={tree} />
+            )}
           </CategoryTreeLoader>
         )}
       </SheetContent>
@@ -69,7 +72,12 @@ interface FormProps {
   onDone: () => void;
 }
 
-function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: CategoryTreeNode[] }) {
+function ProductForm({
+  barId,
+  editing,
+  onDone,
+  tree,
+}: FormProps & { tree: CategoryTreeNode[] }): JSX.Element {
   const { create, update } = useProductMutations(barId);
   const picture = useImageField(barId, "products");
   const currentCategoryId = editing?.category_id;
@@ -107,14 +115,16 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
     }
   });
 
-  const text = (name: "name" | "producer" | "region", label: string) => (
+  const text = (name: "name" | "producer" | "region", label: string): JSX.Element => (
     <FormField form={form} name={name} label={label}>
-      {(control) => <Input autoComplete="off" {...control} {...form.register(name)} />}
+      {(control: ControlProps): JSX.Element => (
+        <Input autoComplete="off" {...control} {...form.register(name)} />
+      )}
     </FormField>
   );
-  const number = (name: "abv" | "vintage" | "age_years", label: string) => (
+  const number = (name: "abv" | "vintage" | "age_years", label: string): JSX.Element => (
     <FormField form={form} name={name} label={label}>
-      {(control) => (
+      {(control: ControlProps): JSX.Element => (
         <Input
           type="number"
           inputMode={name === "abv" ? "decimal" : "numeric"}
@@ -145,7 +155,7 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
         label="Country"
         {...countryPicker}
         clearLabel="No country"
-        toValue={(value) => value || null}
+        toValue={(value: string): string | null => value || null}
       />
       {text("region", "Region")}
 
@@ -156,7 +166,9 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
       </div>
 
       <FormField form={form} name="description" label="Description">
-        {(control) => <Textarea rows={3} {...control} {...form.register("description")} />}
+        {(control: ControlProps): JSX.Element => (
+          <Textarea rows={3} {...control} {...form.register("description")} />
+        )}
       </FormField>
 
       <ImageUpload
@@ -172,7 +184,7 @@ function ProductForm({ barId, editing, onDone, tree }: FormProps & { tree: Categ
         options={statusOptions}
         placeholder={NO_STATUS_LABEL}
         clearLabel={NO_STATUS_LABEL}
-        toValue={(value) => value || null}
+        toValue={(value: string): string | null => value || null}
         hint="Owned bottles are in the bar. Recording purchases keeps this up to date."
       />
 

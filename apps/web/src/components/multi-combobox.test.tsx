@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { JSX } from "react";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import type { ComboboxOption } from "./combobox.tsx";
@@ -16,7 +17,7 @@ const options: ComboboxOption[] = [
   { value: "creme", label: "Crème de cacao" },
 ];
 
-function Harness({ initial = [] }: { initial?: string[] }) {
+function Harness({ initial = [] }: { initial?: string[] }): JSX.Element {
   const [values, setValues] = useState(initial);
   return (
     <MultiCombobox

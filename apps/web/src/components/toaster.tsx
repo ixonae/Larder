@@ -1,6 +1,7 @@
 import { cn } from "cn";
 import { X } from "lucide-react";
 import { Toast } from "radix-ui";
+import type { JSX } from "react";
 import { useSyncExternalStore } from "react";
 
 export interface ToastItem {
@@ -20,7 +21,7 @@ export interface ToastAction {
 let items: ToastItem[] = [];
 let nextId = 1;
 const listeners = new Set<() => void>();
-const emit = () => {
+const emit = (): void => {
   for (const listener of listeners) listener();
 };
 
@@ -44,9 +45,9 @@ export function dismissToast(id: number): void {
   emit();
 }
 
-const subscribe = (listener: () => void) => {
+const subscribe = (listener: () => void): (() => void) => {
   listeners.add(listener);
-  return () => {
+  return (): void => {
     listeners.delete(listener);
     // Nobody shows toasts any more (the Toaster unmounted): drop the pending ones.
     if (listeners.size === 0) items = [];
@@ -54,7 +55,7 @@ const subscribe = (listener: () => void) => {
 };
 
 /** Renders the toasts; mount once near the root. Sits above the bottom navigation on phones. */
-export function Toaster() {
+export function Toaster(): JSX.Element {
   const toasts = useSyncExternalStore(subscribe, () => items);
   return (
     <Toast.Provider swipeDirection="right" duration={5000}>
@@ -63,7 +64,7 @@ export function Toaster() {
           key={t.id}
           type={t.variant === "error" ? "foreground" : "background"}
           // Toasts start open, so this only fires when one closes (timer, swipe or close button).
-          onOpenChange={() => dismissToast(t.id)}
+          onOpenChange={(): void => dismissToast(t.id)}
           className={cn(
             "flex items-start gap-3 rounded-lg border bg-background p-4 shadow-lg",
             t.variant === "error" && "border-destructive/50",

@@ -1,6 +1,7 @@
 import { searchKey } from "@larder/shared";
 import { cn } from "cn";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import type { JSX } from "react";
 import { type ReactNode, type Ref, useState } from "react";
 import {
   Command,
@@ -27,14 +28,14 @@ export interface ComboboxOption {
 export const SEARCH_THRESHOLD = 7;
 
 /** "Spirit › Whisky › Scotch": the option with its ancestors. */
-export const optionPath = ({ label, context }: ComboboxOption) =>
+export const optionPath = ({ label, context }: ComboboxOption): string =>
   context ? `${context} › ${label}` : label;
 
 // cmdk calls the filter once per item per keystroke: fold the search text once, not per item.
 let lastSearch = "";
 let lastKey = "";
 /** Items carry their already-folded path as their only keyword. */
-export const matches = (_value: string, search: string, keywords: string[] = []) => {
+export const matches = (_value: string, search: string, keywords: string[] = []): 0 | 1 => {
   if (search !== lastSearch) {
     lastSearch = search;
     lastKey = searchKey(search.trim());
@@ -86,7 +87,7 @@ export function Combobox({
   footer,
   className,
   ...trigger
-}: Readonly<ComboboxProps>) {
+}: Readonly<ComboboxProps>): JSX.Element {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const text = search?.text ?? query;
@@ -105,18 +106,18 @@ export function Combobox({
     else groups.set(heading, [option]);
   }
 
-  const close = () => {
+  const close = (): void => {
     setOpen(false);
     setQuery("");
     onBlur?.();
   };
-  const choose = (next: string, nextLabel: string) => {
+  const choose = (next: string, nextLabel: string): void => {
     onChange(next, nextLabel);
     close();
   };
 
   return (
-    <Popover open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
+    <Popover open={open} onOpenChange={(next: boolean): void => (next ? setOpen(true) : close())}>
       <PopoverTrigger
         type="button"
         role="combobox"
@@ -132,7 +133,7 @@ export function Combobox({
       <PopoverContent
         align="start"
         className="w-[max(var(--radix-popover-trigger-width),18rem)] max-w-[calc(100vw-2rem)] p-0"
-        onCloseAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event: Event): void => event.preventDefault()}
       >
         <Command filter={matches} shouldFilter={search === undefined}>
           {(search || options.length > SEARCH_THRESHOLD) && (
@@ -171,7 +172,7 @@ export function Combobox({
                 <CommandItem
                   forceMount
                   value={"\u0000create"}
-                  onSelect={() => {
+                  onSelect={(): void => {
                     create.onSelect(text.trim());
                     close();
                   }}
@@ -205,13 +206,13 @@ function Item({
   depth?: number;
   active: boolean;
   onSelect: (value: string, label: string) => void;
-}>) {
+}>): JSX.Element {
   return (
     <CommandItem
       // cmdk needs a unique id per item; matching uses the folded keyword, not this id.
       value={value || "\u0000clear"}
       keywords={[searchKey(keyword)]}
-      onSelect={() => onSelect(value, label)}
+      onSelect={(): void => onSelect(value, label)}
       style={{ paddingLeft: `${0.5 + depth}rem` }}
     >
       <span className="flex min-w-0 flex-1 items-baseline gap-1">

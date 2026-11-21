@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 export function DeleteBarButton({
   barName,
   onDelete,
-}: Readonly<{ barName: string; onDelete: (name: string) => Promise<unknown> }>) {
+}: Readonly<{ barName: string; onDelete: (name: string) => Promise<unknown> }>): JSX.Element {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="destructive" onClick={() => setOpen(true)} aria-label={`Delete ${barName}`}>
+      <Button
+        variant="destructive"
+        onClick={(): void => setOpen(true)}
+        aria-label={`Delete ${barName}`}
+      >
         Delete bar
       </Button>
       <ConfirmDialog

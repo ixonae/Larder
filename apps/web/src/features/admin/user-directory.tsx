@@ -2,7 +2,7 @@ import { type AdminUser, type ResetUserPassword, resetUserPasswordSchema } from 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ellipsis } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { api, unwrap } from "@/api/client.ts";
 import { badge } from "@/components/badge.ts";
 import { ConfirmDialog } from "@/components/confirm-dialog.tsx";
@@ -21,7 +21,7 @@ export const adminUsersKey = ["administration", "users"];
 
 const loginDate = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
-export function UserDirectory({ users }: Readonly<{ users: AdminUser[] }>) {
+export function UserDirectory({ users }: Readonly<{ users: AdminUser[] }>): JSX.Element {
   const client = useQueryClient();
   const change = useMutation({
     mutationFn: async ({ id, disabled }: Pick<AdminUser, "id" | "disabled">) =>
@@ -66,7 +66,7 @@ export function UserDirectory({ users }: Readonly<{ users: AdminUser[] }>) {
                 <UserActions
                   account={account}
                   changing={change.isPending}
-                  onChangeAccess={() => change.mutate(account)}
+                  onChangeAccess={(): void => change.mutate(account)}
                 />
               </div>
             )}
@@ -88,7 +88,7 @@ function UserActions({
   account: AdminUser;
   changing: boolean;
   onChangeAccess: () => void;
-}>) {
+}>): JSX.Element {
   const [action, setAction] = useState<"reset" | "delete" | null>(null);
   const client = useQueryClient();
   const id = account.id;
@@ -109,12 +109,12 @@ function UserActions({
             <DropdownMenu.Item className={menuItem} disabled={changing} onSelect={onChangeAccess}>
               {account.disabled ? "Enable account" : "Disable account"}
             </DropdownMenu.Item>
-            <DropdownMenu.Item className={menuItem} onSelect={() => setAction("reset")}>
+            <DropdownMenu.Item className={menuItem} onSelect={(): void => setAction("reset")}>
               Reset password
             </DropdownMenu.Item>
             <DropdownMenu.Item
               className={`${menuItem} text-destructive`}
-              onSelect={() => setAction("delete")}
+              onSelect={(): void => setAction("delete")}
             >
               Delete account
             </DropdownMenu.Item>
@@ -123,12 +123,12 @@ function UserActions({
       </DropdownMenu.Root>
       <ConfirmDialog
         open={action === "delete"}
-        onOpenChange={() => setAction(null)}
+        onOpenChange={(): void => setAction(null)}
         title={`Delete ${account.display_name}?`}
         description="This permanently removes the account, its sessions, and its bar memberships."
         confirmLabel="Delete account"
         confirmationText={account.email}
-        onConfirm={async (email) => {
+        onConfirm={async (email: string): Promise<void> => {
           await unwrap(
             await api.api.admin.users[":id"].$delete({ param: { id }, json: { email } }),
           );
@@ -136,7 +136,7 @@ function UserActions({
         }}
       />
       {action === "reset" && (
-        <ResetPasswordSheet account={account} onClose={() => setAction(null)} />
+        <ResetPasswordSheet account={account} onClose={(): void => setAction(null)} />
       )}
     </>
   );
@@ -145,7 +145,7 @@ function UserActions({
 function ResetPasswordSheet({
   account,
   onClose,
-}: Readonly<{ account: AdminUser; onClose: () => void }>) {
+}: Readonly<{ account: AdminUser; onClose: () => void }>): JSX.Element {
   const form = useZodForm(resetUserPasswordSchema);
   const reset = useMutation({
     mutationFn: async (json: ResetUserPassword) =>

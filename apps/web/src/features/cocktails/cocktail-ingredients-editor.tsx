@@ -1,13 +1,18 @@
 import { cn } from "cn";
 import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
-import type { ComponentProps } from "react";
-import { Controller, useFieldArray, useWatch } from "react-hook-form";
-import { AmountInput } from "@/components/amount-input.tsx";
+import type { ComponentProps, JSX } from "react";
+import { Controller, type ControllerRenderProps, useFieldArray, useWatch } from "react-hook-form";
+import { type Amount, AmountInput } from "@/components/amount-input.tsx";
 import { toggleChip } from "@/components/toggle-chip.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
-import { FormField } from "@/lib/form.tsx";
-import { type CocktailForm, emptySource, type SourceOption } from "./cocktail-editor-schema.ts";
+import { type ControlProps, FormField } from "@/lib/form.tsx";
+import {
+  type CocktailEditorInput,
+  type CocktailForm,
+  emptySource,
+  type SourceOption,
+} from "./cocktail-editor-schema.ts";
 import { IngredientSourcePicker } from "./ingredient-source-picker.tsx";
 
 interface IngredientCatalogue {
@@ -18,7 +23,7 @@ interface IngredientCatalogue {
 export function CocktailIngredientsEditor({
   form,
   ...catalogue
-}: { form: CocktailForm } & IngredientCatalogue) {
+}: { form: CocktailForm } & IngredientCatalogue): JSX.Element {
   const ingredients = useFieldArray({ control: form.control, name: "ingredients" });
   const last = ingredients.fields.length - 1;
   return (
@@ -37,18 +42,18 @@ export function CocktailIngredientsEditor({
               <IconButton
                 label="Move up"
                 disabled={index === 0}
-                onClick={() => ingredients.move(index, index - 1)}
+                onClick={(): void => ingredients.move(index, index - 1)}
               >
                 <ArrowUp />
               </IconButton>
               <IconButton
                 label="Move down"
                 disabled={index === last}
-                onClick={() => ingredients.move(index, index + 1)}
+                onClick={(): void => ingredients.move(index, index + 1)}
               >
                 <ArrowDown />
               </IconButton>
-              <IconButton label="Remove ingredient" onClick={() => ingredients.remove(index)}>
+              <IconButton label="Remove ingredient" onClick={(): void => ingredients.remove(index)}>
                 <Trash2 />
               </IconButton>
             </div>
@@ -61,7 +66,7 @@ export function CocktailIngredientsEditor({
         type="button"
         variant="outline"
         className="justify-self-start"
-        onClick={() =>
+        onClick={(): void =>
           ingredients.append({
             source: emptySource,
             note: "",
@@ -84,7 +89,7 @@ function IconButton({
   label,
   className,
   ...props
-}: { label: string } & Omit<ComponentProps<typeof Button>, "aria-label">) {
+}: { label: string } & Omit<ComponentProps<typeof Button>, "aria-label">): JSX.Element {
   return (
     <Button
       type="button"
@@ -109,7 +114,7 @@ function Ingredient({
   form: CocktailForm;
   catalogue: IngredientCatalogue;
   index: number;
-}>) {
+}>): JSX.Element {
   const path = `ingredients.${index}` as const;
   const alternatives = useFieldArray({ control: form.control, name: `${path}.alternatives` });
   const [amount, unit] = useWatch({
@@ -121,11 +126,11 @@ function Ingredient({
       <div className="grid gap-3 @md:grid-cols-[minmax(0,1fr)_minmax(10rem,40%)]">
         <SourceField form={form} catalogue={catalogue} path={path} label="Preferred source" />
         <FormField form={form} name={`${path}.amount`} label="Quantity">
-          {(control) => (
+          {(control: ControlProps): JSX.Element => (
             <AmountInput
               {...control}
               value={{ amount, unit }}
-              onChange={(value) => {
+              onChange={(value: Amount): void => {
                 form.setValue(`${path}.unit`, value.unit);
                 form.setValue(`${path}.amount`, value.amount, {
                   shouldValidate: form.formState.isSubmitted,
@@ -168,7 +173,7 @@ function Ingredient({
               </div>
               <IconButton
                 label="Remove alternative"
-                onClick={() => alternatives.remove(alternativeIndex)}
+                onClick={(): void => alternatives.remove(alternativeIndex)}
               >
                 <X />
               </IconButton>
@@ -182,7 +187,7 @@ function Ingredient({
         variant="ghost"
         size="sm"
         className="justify-self-start text-muted-foreground"
-        onClick={() => alternatives.append({ source: emptySource, note: "" })}
+        onClick={(): void => alternatives.append({ source: emptySource, note: "" })}
       >
         <Plus aria-hidden />
         Add alternative
@@ -201,26 +206,31 @@ function SourceField({
   catalogue: IngredientCatalogue;
   path: PreparationPath;
   label: string;
-}>) {
+}>): JSX.Element {
   return (
     <FormField form={form} name={`${path}.source`} label={label}>
-      {(control) => (
+      {(control: ControlProps): JSX.Element => (
         <Controller
           control={form.control}
           name={`${path}.source`}
-          render={({ field }) => (
-            <IngredientSourcePicker {...catalogue} {...control} field={field} />
-          )}
+          render={({
+            field,
+          }: {
+            field: ControllerRenderProps<CocktailEditorInput, `${PreparationPath}.source`>;
+          }): JSX.Element => <IngredientSourcePicker {...catalogue} {...control} field={field} />}
         />
       )}
     </FormField>
   );
 }
 
-function NoteField({ form, path }: Readonly<{ form: CocktailForm; path: PreparationPath }>) {
+function NoteField({
+  form,
+  path,
+}: Readonly<{ form: CocktailForm; path: PreparationPath }>): JSX.Element {
   return (
     <FormField form={form} name={`${path}.note`} label="Preparation note" srOnlyLabel>
-      {(control) => (
+      {(control: ControlProps): JSX.Element => (
         <Input
           placeholder="Note, e.g. freshly squeezed"
           {...control}

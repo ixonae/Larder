@@ -65,7 +65,7 @@ export function MultiCombobox({
       <PopoverContent
         align="start"
         className="w-72 max-w-[calc(100vw-2rem)] p-0"
-        onCloseAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event: Event) => event.preventDefault()}
       >
         <Command filter={matches}>
           {options.length > SEARCH_THRESHOLD && (

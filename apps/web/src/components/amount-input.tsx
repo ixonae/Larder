@@ -1,5 +1,6 @@
 import { UNIT_INFO, UNITS, type Unit, unitNeedsAmount } from "@larder/shared";
 import { cn } from "cn";
+import type { ChangeEvent, JSX } from "react";
 import { Combobox } from "@/components/combobox.tsx";
 import { Input } from "@/components/ui/input.tsx";
 
@@ -22,7 +23,7 @@ export function AmountInput({
   className?: string;
   "aria-invalid"?: boolean;
   "aria-describedby"?: string;
-}>) {
+}>): JSX.Element {
   const needsAmount = unitNeedsAmount(value.unit);
   return (
     <div className={cn("flex gap-2", className)}>
@@ -35,7 +36,7 @@ export function AmountInput({
         aria-label="Amount"
         disabled={!needsAmount}
         value={value.amount ?? ""}
-        onChange={(e) =>
+        onChange={(e: ChangeEvent<HTMLInputElement>): void =>
           onChange({ ...value, amount: e.target.value === "" ? null : e.target.valueAsNumber })
         }
         className="min-w-0 flex-1"
@@ -45,7 +46,7 @@ export function AmountInput({
         aria-label="Unit"
         className="w-28 shrink-0"
         value={value.unit}
-        onChange={(next) => {
+        onChange={(next: string): void => {
           const unit = next as Unit;
           onChange({ unit, amount: unitNeedsAmount(unit) ? value.amount : null });
         }}

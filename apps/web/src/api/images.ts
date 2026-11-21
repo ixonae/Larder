@@ -2,10 +2,11 @@ import type { ImageEntity } from "@larder/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "./client.ts";
 
-const bar = api.api.bars[":barId"];
+const bar: (typeof api.api.bars)[":barId"] = api.api.bars[":barId"];
 
 /** The `/:id/image` endpoints of one kind of item; they have the same shape for every kind. */
-const imageEndpoint = (entity: ImageEntity) => bar[entity][":id"].image;
+const imageEndpoint = (entity: ImageEntity): (typeof bar)[ImageEntity][":id"]["image"] =>
+  bar[entity][":id"].image;
 
 /** What a form asks for the item's picture once the item itself is saved. */
 export type ImageChange = { kind: "keep" } | { kind: "replace"; file: File } | { kind: "remove" };
@@ -15,9 +16,12 @@ export const KEEP_IMAGE: ImageChange = { kind: "keep" };
  * Applies an `ImageChange` to a saved item. Every query of the bar is refreshed afterwards: lists and
  * detail pages show the picture.
  */
-export function useSaveImage(barId: string, entity: ImageEntity) {
+export function useSaveImage(
+  barId: string,
+  entity: ImageEntity,
+): (id: string, change: ImageChange) => Promise<void> {
   const queryClient = useQueryClient();
-  const mutation = useMutation({
+  const mutation = useMutation<void, Error, { id: string; change: ImageChange }>({
     mutationFn: async ({ id, change }: { id: string; change: ImageChange }) => {
       if (change.kind === "replace") {
         await unwrap(
@@ -27,10 +31,10 @@ export function useSaveImage(barId: string, entity: ImageEntity) {
         await unwrap(await imageEndpoint(entity).$delete({ param: { barId, id } }));
       }
     },
-    onSettled: (_data, _error, { change }) =>
+    onSettled: (_data: unknown, _error: Error | null, { change }: { change: ImageChange }) =>
       change.kind === "keep"
         ? undefined
         : queryClient.invalidateQueries({ queryKey: ["bars", barId] }),
   });
-  return (id: string, change: ImageChange) => mutation.mutateAsync({ id, change });
+  return (id: string, change: ImageChange): Promise<void> => mutation.mutateAsync({ id, change });
 }

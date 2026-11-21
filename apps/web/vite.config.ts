@@ -3,7 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-const API_URL = process.env.LARDER_API_URL ?? "http://127.0.0.1:3000";
+const API_URL: string = process.env.LARDER_API_URL ?? "http://127.0.0.1:3000";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

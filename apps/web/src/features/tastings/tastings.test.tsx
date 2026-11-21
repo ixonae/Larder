@@ -1,4 +1,4 @@
-import { buildTree, type Category, type Product, type Tasting } from "@larder/shared";
+import { buildTree, type Category, type Product, type Tasting, type User } from "@larder/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -7,9 +7,9 @@ import { failure, fixtureId, page, timestamps } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
 import { choose, renderWithProviders } from "@/test/render.tsx";
 
-const id = (n: number) => fixtureId(n, "7a");
+const id = (n: number): string => fixtureId(n, "7a");
 const base = `/api/bars/${BAR_ID}`;
-const ME = meFixture.user;
+const ME: User = meFixture.user;
 const OTHER = { id: id(999), display_name: "Bob" };
 
 const category = (n: number, name: string, parent: Category | null = null): Category => ({
@@ -24,7 +24,7 @@ const category = (n: number, name: string, parent: Category | null = null): Cate
 });
 const spirit = category(1, "Spirit");
 const whisky = category(2, "Whisky", spirit);
-const categories = [spirit, whisky];
+const categories: Category[] = [spirit, whisky];
 
 const bottle = (n: number, name: string, extra: Partial<Product> = {}): Product => ({
   id: id(n),
@@ -75,14 +75,14 @@ let products: Product[] = [];
 let tastings: Tasting[] = [];
 let requests: { method: string; url: URL; body?: unknown }[] = [];
 
-const record = async (request: Request) => {
-  const body =
+const record = async (request: Request): Promise<void> => {
+  const body: unknown =
     request.method === "GET" || request.method === "DELETE"
       ? undefined
       : await request.clone().json();
   requests.push({ method: request.method, url: new URL(request.url), body });
 };
-const sent = (method: string, path: string) =>
+const sent = (method: string, path: string): { method: string; url: URL; body?: unknown }[] =>
   requests.filter((r) => r.method === method && r.url.pathname === `${base}${path}`);
 
 beforeEach(() => {
@@ -154,7 +154,7 @@ beforeEach(() => {
   );
 });
 
-const asViewer = () =>
+const asViewer = (): void =>
   server.use(
     http.get("/api/me", () =>
       HttpResponse.json({

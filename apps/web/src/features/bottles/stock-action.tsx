@@ -6,7 +6,7 @@ import {
 } from "@larder/shared";
 import { cn } from "cn";
 import { Check, ChevronDown, PackageMinus, PackagePlus } from "lucide-react";
-import { useId, useState } from "react";
+import { type ChangeEvent, type JSX, type SubmitEvent, useId, useState } from "react";
 import { useFinishBottle, useSetBottleStatus } from "@/api/products.ts";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -38,7 +38,12 @@ export function StockAction({
   currency,
   product,
   canEdit,
-}: Readonly<{ barId: string; currency: CurrencyCode; product: Product; canEdit: boolean }>) {
+}: Readonly<{
+  barId: string;
+  currency: CurrencyCode;
+  product: Product;
+  canEdit: boolean;
+}>): JSX.Element {
   const [open, setOpen] = useState(false);
   const [buying, setBuying] = useState<PurchaseTarget>(null);
   const [finishing, setFinishing] = useState(false);
@@ -46,13 +51,13 @@ export function StockAction({
   if (!canEdit) return <StatusBadge status={product.status} />;
   const owned = product.status === "owned";
   const current = statusLabel(product.status);
-  const choose = (status: ProductStatus | null) => {
+  const choose = (status: ProductStatus | null): void => {
     setOpen(false);
     if (status === product.status) return;
     setStatus.mutate(
       { id: product.id, status },
       {
-        onError: (err) =>
+        onError: (err: Error) =>
           toast("Could not update the bottle", { description: err.message, variant: "error" }),
       },
     );
@@ -77,7 +82,7 @@ export function StockAction({
             <button
               type="button"
               className={menuItem}
-              onClick={() => {
+              onClick={(): void => {
                 setOpen(false);
                 setBuying({ kind: "buy", productId: product.id, productName: product.name });
               }}
@@ -89,7 +94,7 @@ export function StockAction({
               <button
                 type="button"
                 className={menuItem}
-                onClick={() => {
+                onClick={(): void => {
                   setOpen(false);
                   setFinishing(true);
                 }}
@@ -112,7 +117,7 @@ export function StockAction({
                 aria-pressed={status === product.status}
                 className={cn(menuItem, "justify-between")}
                 disabled={setStatus.isPending}
-                onClick={() => choose(status)}
+                onClick={(): void => choose(status)}
               >
                 {statusLabel(status)}
                 <Check
@@ -128,13 +133,13 @@ export function StockAction({
         barId={barId}
         currency={currency}
         target={buying}
-        onClose={() => setBuying(null)}
+        onClose={(): void => setBuying(null)}
       />
       <RanOutSheet
         barId={barId}
         product={product}
         open={finishing}
-        onClose={() => setFinishing(false)}
+        onClose={(): void => setFinishing(false)}
       />
     </>
   );
@@ -146,9 +151,9 @@ function RanOutSheet({
   product,
   open,
   onClose,
-}: Readonly<{ barId: string; product: Product; open: boolean; onClose: () => void }>) {
+}: Readonly<{ barId: string; product: Product; open: boolean; onClose: () => void }>): JSX.Element {
   return (
-    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
+    <Sheet open={open} onOpenChange={(next: boolean): void => void (!next && onClose())}>
       <SheetContent className="w-full sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Ran out of {product.name}?</SheetTitle>
@@ -168,14 +173,14 @@ function RanOutForm({
   barId,
   product,
   onDone,
-}: Readonly<{ barId: string; product: Product; onDone: () => void }>) {
+}: Readonly<{ barId: string; product: Product; onDone: () => void }>): JSX.Element {
   const id = useId();
   const [date, setDate] = useState(localToday);
   const finish = useFinishBottle(barId);
   return (
     <form
       className="flex flex-col gap-4 px-4"
-      onSubmit={(event) => {
+      onSubmit={(event: SubmitEvent<HTMLFormElement>): void => {
         event.preventDefault();
         finish.mutate(
           { id: product.id, finished_on: date },
@@ -184,7 +189,7 @@ function RanOutForm({
               toast(`Ran out of ${product.name}`);
               onDone();
             },
-            onError: (err) =>
+            onError: (err: Error) =>
               toast("Could not update the bottle", { description: err.message, variant: "error" }),
           },
         );
@@ -197,7 +202,7 @@ function RanOutForm({
           type="date"
           required
           value={date}
-          onChange={(e) => setDate(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>): void => setDate(e.target.value)}
         />
       </div>
       <SheetFooter className="px-0">
