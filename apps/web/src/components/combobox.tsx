@@ -1,8 +1,7 @@
 import { searchKey } from "@larder/shared";
 import { cn } from "cn";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
-import type { JSX } from "react";
-import { type ReactNode, type Ref, useState } from "react";
+import { type JSX, type ReactNode, type Ref, useState } from "react";
 import {
   Command,
   CommandEmpty,

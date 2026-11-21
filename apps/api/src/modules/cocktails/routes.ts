@@ -15,12 +15,13 @@ import { validate } from "../../middleware/validate.ts";
 import type { AppEnv } from "../../types.ts";
 import {
   addComment,
+  addFavourite,
   editComment,
   listComments,
   putRating,
   removeComment,
+  removeFavourite,
   removeRating,
-  setFavourite,
 } from "./feedback.ts";
 import {
   createCocktail,
@@ -53,11 +54,11 @@ export const cocktailRoutes = new Hono<AppEnv>()
     return c.body(null, 204);
   })
   .put("/:id/favourite", (c) => {
-    setFavourite(c.var.ctx, c.req.param("id"), true);
+    addFavourite(c.var.ctx, c.req.param("id"));
     return c.body(null, 204);
   })
   .delete("/:id/favourite", (c) => {
-    setFavourite(c.var.ctx, c.req.param("id"), false);
+    removeFavourite(c.var.ctx, c.req.param("id"));
     return c.body(null, 204);
   })
   .get("/:id/comments", validate("query", paginationQuerySchema), (c) =>

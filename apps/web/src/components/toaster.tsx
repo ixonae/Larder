@@ -10,7 +10,7 @@ export interface ToastItem {
   description?: string;
   variant: "default" | "error";
   /** A button in the toast, such as "Undo"; the toast closes once it is used. */
-  action?: ToastAction | undefined;
+  action?: ToastAction;
 }
 
 export interface ToastAction {

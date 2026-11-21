@@ -1,10 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MIN_PASSWORD_LENGTH } from "@larder/shared";
-import type { JSX } from "react";
-import { type ReactNode, useId } from "react";
-import type { ControllerRenderProps } from "react-hook-form";
+import { type JSX, type ReactNode, useId } from "react";
 import {
   Controller,
+  type ControllerRenderProps,
   type FieldValues,
   type Path,
   type Resolver,

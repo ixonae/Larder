@@ -52,7 +52,7 @@ export function CategorySheet({
   onClose: () => void;
 }>): JSX.Element {
   return (
-    <Sheet open={target !== null} onOpenChange={(open: boolean): void => void (!open && onClose())}>
+    <Sheet open={target !== null} onOpenChange={onClose}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>

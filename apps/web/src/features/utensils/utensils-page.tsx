@@ -134,7 +134,7 @@ function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>): JSX.Element {
       {deleting && (
         <ConfirmDialog
           open
-          onOpenChange={(open: boolean): void => void (!open && setDeleting(null))}
+          onOpenChange={(): void => setDeleting(null)}
           title={`Delete ${deleting.name}?`}
           description="This cannot be undone."
           onConfirm={async (): Promise<void> => {

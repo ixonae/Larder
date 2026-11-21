@@ -226,11 +226,11 @@ function BottlesView({ bar }: Readonly<{ bar: BarSummary }>): JSX.Element {
                 type="checkbox"
                 className="sr-only"
                 checked={checked}
-                onChange={(): void => {
+                onChange={(): Promise<void> => {
                   const next = checked
                     ? selected.filter((s) => s !== status)
                     : STATUS_FILTERS.filter((s) => s === status || selected.includes(s));
-                  setSearch({ status: next.length > 0 ? next : undefined });
+                  return setSearch({ status: next.length > 0 ? next : undefined });
                 }}
               />
               {statusLabel(status === NO_STATUS ? null : status)}

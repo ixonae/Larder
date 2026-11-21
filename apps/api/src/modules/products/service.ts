@@ -22,7 +22,7 @@ import type { Ctx } from "../../types.ts";
 import { findCategory, listAllCategories } from "../categories/repo.ts";
 import { requireCategoryRef } from "../categories/service.ts";
 import { listIngredientUsage } from "../cocktails/ingredients-repo.ts";
-import { setFavourite as saveFavourite } from "../favourites/repo.ts";
+import { deleteFavourite, insertFavourite } from "../favourites/repo.ts";
 import { deleteWithImage } from "../images/service.ts";
 import {
   deleteHiddenOrphanedTastings,
@@ -157,10 +157,21 @@ export async function deleteProduct(ctx: Ctx, id: string | undefined): Promise<v
   });
 }
 
-/** `PUT`/`DELETE /products/:id/favourite`: personal, so any member may set it. */
-export function setFavourite(ctx: Ctx, id: string | undefined, favourite: boolean): void {
-  ctx.db.transaction((tx) => {
-    const product = requireProductRef(tx, ctx.barId, id);
-    saveFavourite(tx, ctx.barId, ctx.userId, "product_id", product.id, favourite);
+function changeFavourite(
+  { db, barId, userId }: Ctx,
+  id: string | undefined,
+  write: typeof insertFavourite,
+): void {
+  db.transaction((tx): void => {
+    const product = requireProductRef(tx, barId, id);
+    write(tx, barId, userId, "product_id", product.id);
   });
+}
+
+export function addFavourite(ctx: Ctx, id: string | undefined): void {
+  changeFavourite(ctx, id, insertFavourite);
+}
+
+export function removeFavourite(ctx: Ctx, id: string | undefined): void {
+  changeFavourite(ctx, id, deleteFavourite);
 }

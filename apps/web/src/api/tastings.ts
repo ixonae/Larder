@@ -16,11 +16,11 @@ const bar: (typeof api.api.bars)[":barId"] = api.api.bars[":barId"];
 export const tastingsKey = (barId: string) => ["bars", barId, "tastings"] as const;
 
 export interface TastingFilters {
-  category_id?: string | undefined;
-  product_id?: string | undefined;
-  score_min?: number | undefined;
-  mine?: true | undefined;
-  visibility?: Visibility | undefined;
+  category_id?: string;
+  product_id?: string;
+  score_min?: number;
+  mine?: true;
+  visibility?: Visibility;
 }
 
 /** The bar's tasting journal matching `filters`, newest first, one page at a time. */

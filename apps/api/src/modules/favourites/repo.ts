@@ -44,29 +44,34 @@ export function favouriteIds(
   );
 }
 
-/** Adds or removes a favourite; doing it twice changes nothing. */
-export function setFavourite(
+/** Adds a favourite if it does not already exist. */
+export function insertFavourite(
   db: Executor,
   barId: string,
   userId: string,
   target: FavouriteTarget,
   id: string,
-  favourite: boolean,
 ): void {
-  if (favourite) {
-    db.insert(favourites)
-      .values({ bar_id: barId, created_by: userId, [target]: id })
-      .onConflictDoNothing()
-      .run();
-  } else {
-    db.delete(favourites)
-      .where(
-        and(
-          eq(favourites.bar_id, barId),
-          eq(favourites.created_by, userId),
-          eq(favourites[target], id),
-        ),
-      )
-      .run();
-  }
+  db.insert(favourites)
+    .values({ bar_id: barId, created_by: userId, [target]: id })
+    .onConflictDoNothing()
+    .run();
+}
+
+export function deleteFavourite(
+  db: Executor,
+  barId: string,
+  userId: string,
+  target: FavouriteTarget,
+  id: string,
+): void {
+  db.delete(favourites)
+    .where(
+      and(
+        eq(favourites.bar_id, barId),
+        eq(favourites.created_by, userId),
+        eq(favourites[target], id),
+      ),
+    )
+    .run();
 }

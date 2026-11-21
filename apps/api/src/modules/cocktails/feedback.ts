@@ -12,7 +12,7 @@ import type { Executor } from "../../db/client.ts";
 import { decodeCursor, type NameCursor, toPage } from "../../db/cursor.ts";
 import { forbidden, notFound, parseId } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
-import { favouriteIds, setFavourite as saveFavourite } from "../favourites/repo.ts";
+import { deleteFavourite, favouriteIds, insertFavourite } from "../favourites/repo.ts";
 import * as feedback from "./feedback-repo.ts";
 import { requireCocktail } from "./require-cocktail.ts";
 
@@ -180,13 +180,21 @@ export function removeComment(
   });
 }
 
-export function setFavourite(
+function changeFavourite(
   { db, barId, userId }: Ctx,
   id: string | undefined,
-  favourite: boolean,
+  write: typeof insertFavourite,
 ): void {
   db.transaction((tx): void => {
     const cocktailId: string = requireCocktail(tx, barId, id).id;
-    saveFavourite(tx, barId, userId, "cocktail_id", cocktailId, favourite);
+    write(tx, barId, userId, "cocktail_id", cocktailId);
   });
+}
+
+export function addFavourite(ctx: Ctx, id: string | undefined): void {
+  changeFavourite(ctx, id, insertFavourite);
+}
+
+export function removeFavourite(ctx: Ctx, id: string | undefined): void {
+  changeFavourite(ctx, id, deleteFavourite);
 }

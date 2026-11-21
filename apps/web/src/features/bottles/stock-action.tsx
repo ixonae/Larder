@@ -153,7 +153,7 @@ function RanOutSheet({
   onClose,
 }: Readonly<{ barId: string; product: Product; open: boolean; onClose: () => void }>): JSX.Element {
   return (
-    <Sheet open={open} onOpenChange={(next: boolean): void => void (!next && onClose())}>
+    <Sheet open={open} onOpenChange={onClose}>
       <SheetContent className="w-full sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Ran out of {product.name}?</SheetTitle>

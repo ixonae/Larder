@@ -163,7 +163,7 @@ export function PurchaseHistory({
       />
       <ConfirmDialog
         open={deleting !== null}
-        onOpenChange={(open: boolean): void => void (!open && setDeleting(null))}
+        onOpenChange={(): void => setDeleting(null)}
         title="Delete this purchase?"
         description="This cannot be undone."
         onConfirm={async (): Promise<void> => {

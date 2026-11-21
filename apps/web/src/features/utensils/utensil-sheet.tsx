@@ -43,7 +43,7 @@ export function UtensilSheet({
 }>): JSX.Element {
   const editing = target === "new" ? null : target;
   return (
-    <Sheet open={target !== null} onOpenChange={(open: boolean): void => void (!open && onClose())}>
+    <Sheet open={target !== null} onOpenChange={onClose}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{editing ? `Edit ${editing.name}` : "New utensil"}</SheetTitle>
