@@ -11,7 +11,14 @@ import {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
+import {
+  type AppError,
+  conflict,
+  invalid,
+  notFound,
+  parseId,
+  refuseDeleteIfUsed,
+} from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { listIngredientUsage } from "../cocktails/ingredients-repo.ts";
 import { deleteWithImage } from "../images/service.ts";
@@ -65,7 +72,7 @@ function requireParent(db: Executor, barId: string, parentId: string): Category 
 }
 
 /** The duplicate is reported on the `name` field, so forms can show it there. */
-const duplicateName = (name: string) => () => {
+const duplicateName = (name: string) => (): AppError => {
   const message = `A category named "${name}" already exists at this level`;
   return conflict(message, [{ path: ["name"], message }]);
 };

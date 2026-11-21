@@ -1,12 +1,12 @@
 import { nameKey } from "@larder/shared";
 import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { type BetterSQLite3Database, drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema/index.ts";
 
-export type Db = ReturnType<typeof openDb>;
+export type Db = BetterSQLite3Database<typeof schema> & { $client: Database.Database };
 
 /** Opens the SQLite database (`:memory:` in tests) with the pragmas Larder relies on. */
-export function openDb(path: string) {
+export function openDb(path: string): Db {
   const sqlite = new Database(path);
   // Use the same accent-preserving key for list ordering and catalogue uniqueness indexes.
   sqlite.function("larder_name_key", { deterministic: true }, nameKey);

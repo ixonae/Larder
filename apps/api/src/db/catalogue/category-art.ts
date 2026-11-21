@@ -2,8 +2,8 @@ import { nameKey } from "@larder/shared";
 import type { ProcessedImage } from "../../storage/process.ts";
 import { categoryPictureKey } from "./import.ts";
 
-const pantry = (slug: string) => `pantry-icons/${slug}`;
-const art = (slug: string) => `category-child-icons/${slug}`;
+const pantry = (slug: string): string => `pantry-icons/${slug}`;
+const art = (slug: string): string => `category-child-icons/${slug}`;
 
 /** Categories inherit the closest illustrated ancestor unless they have a more specific picture. */
 const artwork = [

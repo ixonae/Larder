@@ -2,16 +2,27 @@ import type { Category, CategoryTree, Page } from "@larder/shared";
 import { and, count, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { barMembers, categories, pantryIngredients } from "../../db/schema/index.ts";
-import { createTestApp, errorOf, readJson as json, jsonRequest } from "../../test/app.ts";
+import {
+  createTestApp,
+  errorOf,
+  readJson as json,
+  jsonRequest,
+  type TestApp,
+} from "../../test/app.ts";
 import { STARTER_PANTRY } from "../pantry/starter.ts";
 import { STARTER_CATEGORIES } from "./starter.ts";
 
 const UNKNOWN = "01a1f326-d941-7d74-8a40-504a488cd388";
 
-function setup() {
+function setup(): TestApp & {
+  base: string;
+  idOf: (name: string, barId?: string) => string;
+  send: (method: string, path: string, body?: unknown) => Response | Promise<Response>;
+  count: () => number;
+} {
   const t = createTestApp();
   const base = `/api/bars/${t.alice.barId}/categories`;
-  const idOf = (name: string, barId = t.alice.barId) => {
+  const idOf = (name: string, barId: string = t.alice.barId): string => {
     const row = t.db
       .select({ id: categories.id })
       .from(categories)
@@ -20,9 +31,9 @@ function setup() {
     if (!row) throw new Error(`No category ${name}`);
     return row.id;
   };
-  const send = (method: string, path: string, body?: unknown) =>
+  const send = (method: string, path: string, body?: unknown): Response | Promise<Response> =>
     t.app.request(`${base}${path}`, jsonRequest(method, body));
-  const countRows = () =>
+  const countRows = (): number =>
     t.db.select({ n: count() }).from(categories).where(eq(categories.bar_id, t.alice.barId)).get()
       ?.n ?? 0;
   return { ...t, base, idOf, send, count: countRows };
@@ -59,7 +70,7 @@ describe("starter categories", () => {
 describe("starter pantry ingredients", () => {
   it("are filed under starter categories that exist", () => {
     const names = new Set<string>();
-    const visit = (nodes: typeof STARTER_CATEGORIES) => {
+    const visit = (nodes: typeof STARTER_CATEGORIES): void => {
       for (const node of nodes) {
         names.add(node.name);
         visit(node.children ?? []);
@@ -85,7 +96,11 @@ describe("starter pantry ingredients", () => {
       .all();
     const garnish = idOf("Garnish");
     const pantry = idOf("Pantry");
-    const staple = (name: string, category_id: string, always_available = false) => ({
+    const staple = (
+      name: string,
+      category_id: string,
+      always_available: boolean = false,
+    ): { name: string; category_id: string; in_stock: boolean; always_available: boolean } => ({
       name,
       category_id,
       in_stock: false,
@@ -138,7 +153,7 @@ describe("GET /categories", () => {
 
   it("filters by name, kind and parent", async () => {
     const { send, idOf } = setup();
-    const names = async (query: string) =>
+    const names = async (query: string): Promise<string[]> =>
       (await json<Page<Category>>(await send("GET", query))).items.map((c) => c.name);
     expect(await names("?q=JUICE")).toEqual(["Juice", "Lemon juice", "Lime juice", "Orange juice"]);
     expect(await names("?kind=bitters")).toEqual(["Aromatic bitters", "Bitters", "Orange bitters"]);

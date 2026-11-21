@@ -5,7 +5,7 @@ import { AppError, conflict, forbidden, notFound } from "./errors.ts";
 import { validate } from "./middleware/validate.ts";
 import { createTestApp, errorOf, jsonRequest } from "./test/app.ts";
 
-const setup = createTestApp;
+const setup: typeof createTestApp = createTestApp;
 
 describe("GET /api/health", () => {
   it("returns ok", async () => {
@@ -41,7 +41,7 @@ describe("security headers", () => {
 });
 
 describe("body limit", () => {
-  const post = (body: string) => ({
+  const post = (body: string): RequestInit => ({
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body,

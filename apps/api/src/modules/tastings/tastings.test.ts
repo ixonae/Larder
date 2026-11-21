@@ -1,5 +1,5 @@
-import type { Page, Product, Tasting } from "@larder/shared";
-import { newId } from "@larder/shared";
+import { newId, type Page, type Product, type Tasting } from "@larder/shared";
+import type Database from "better-sqlite3";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { barMembers, categories, products, tastings, users } from "../../db/schema/index.ts";
@@ -10,12 +10,29 @@ import {
   errorOf,
   readJson as json,
   jsonRequest,
+  type TestApp,
 } from "../../test/app.ts";
 
 const UNKNOWN = "01a1f326-d941-7d74-8a40-504a488cd388";
 
 /** Alice owns her bar and Bob is an editor in it; Bob's own bar is the second tenant. */
-function setup() {
+function setup(): TestApp & {
+  bobCookie: string;
+  bar: string;
+  cat: (name: string, barId?: string) => string;
+  send: (
+    method: string,
+    path: string,
+    body?: unknown,
+    cookie?: string,
+  ) => Response | Promise<Response>;
+  bottle: (name?: string, category?: string) => Promise<Product>;
+  taste: (productId: string, body?: object, cookie?: string) => Promise<Tasting>;
+  journal: (query?: string, cookie?: string) => Promise<Page<Tasting>>;
+  product: (id: string) => Promise<Product>;
+  rows: () => (typeof tastings.$inferSelect)[];
+  setRole: (role: "viewer" | "editor") => Database.RunResult;
+} {
   const t = createTestApp();
   t.db
     .insert(barMembers)
@@ -23,17 +40,22 @@ function setup() {
     .run();
   const bobCookie = cookieFor(t.db, t.bob.userId);
   const bar = `/api/bars/${t.alice.barId}`;
-  const cat = (name: string, barId = t.alice.barId) =>
+  const cat = (name: string, barId: string = t.alice.barId): string =>
     t.db
       .select({ id: categories.id })
       .from(categories)
       .where(and(eq(categories.bar_id, barId), eq(categories.name, name)))
       .get()?.id as string;
-  const send = (method: string, path: string, body?: unknown, cookie?: string) =>
+  const send = (
+    method: string,
+    path: string,
+    body?: unknown,
+    cookie?: string,
+  ): Response | Promise<Response> =>
     t.app.request(`${bar}/${path}`, jsonRequest(method, body, cookie));
-  const bottle = async (name = "Talisker", category = "Scotch") =>
+  const bottle = async (name: string = "Talisker", category: string = "Scotch"): Promise<Product> =>
     json<Product>(await send("POST", "products", { name, category_id: cat(category) }));
-  const taste = async (productId: string, body: object = {}, cookie?: string) => {
+  const taste = async (productId: string, body: object = {}, cookie?: string): Promise<Tasting> => {
     const res = await send(
       "POST",
       `products/${productId}/tastings`,
@@ -43,11 +65,12 @@ function setup() {
     expect(res.status).toBe(201);
     return json<Tasting>(res);
   };
-  const journal = async (query = "", cookie?: string) =>
+  const journal = async (query: string = "", cookie?: string): Promise<Page<Tasting>> =>
     json<Page<Tasting>>(await send("GET", `tastings?${query}`, undefined, cookie));
-  const product = async (id: string) => json<Product>(await send("GET", `products/${id}`));
-  const rows = () => t.db.select().from(tastings).all();
-  const setRole = (role: "viewer" | "editor") =>
+  const product = async (id: string): Promise<Product> =>
+    json<Product>(await send("GET", `products/${id}`));
+  const rows = (): (typeof tastings.$inferSelect)[] => t.db.select().from(tastings).all();
+  const setRole = (role: "viewer" | "editor"): Database.RunResult =>
     t.db
       .update(barMembers)
       .set({ role })
@@ -200,7 +223,7 @@ describe("GET /tastings", () => {
     const b = await t.taste(talisker.id, { score: 2, tasted_on: "2026-03-10" }, t.bobCookie);
     const c = await t.taste(gin.id, { score: 3, tasted_on: "2026-02-10" });
     const d = await t.taste(gin.id, { tasted_on: "2026-04-10" });
-    const ids = async (query: string, cookie?: string) =>
+    const ids = async (query: string, cookie?: string): Promise<string[]> =>
       (await t.journal(query, cookie)).items.map(({ id }) => id);
     expect(await ids("")).toEqual([d.id, b.id, c.id, a.id]);
     // Whisky is Scotch's parent: the filter includes sub-categories.
@@ -265,7 +288,7 @@ describe("PATCH and DELETE /tastings/:id", () => {
     const { id } = await t.bottle();
     const tasting = await t.taste(id, { notes: "Peat" }, t.bobCookie);
     const path = `tastings/${tasting.id}`;
-    const setPrivate = async (is_private: boolean) =>
+    const setPrivate = async (is_private: boolean): Promise<Tasting> =>
       json<Tasting>(await t.send("PATCH", path, { is_private }, t.bobCookie));
     expect(await setPrivate(true)).toMatchObject({ notes: "Peat", is_private: true });
     expect(await t.journal()).toEqual({ items: [], next_cursor: null });
@@ -304,7 +327,7 @@ describe("PATCH and DELETE /tastings/:id", () => {
     const talisker = await t.bottle();
     const mine = await t.taste(talisker.id);
     const bobs = await t.taste(talisker.id, {}, t.bobCookie);
-    const flags = async (cookie?: string) =>
+    const flags = async (cookie?: string): Promise<Record<string, boolean>> =>
       Object.fromEntries((await t.journal("", cookie)).items.map((x) => [x.id, x.can_delete]));
     expect(await flags()).toEqual({ [mine.id]: true, [bobs.id]: false });
     expect(await flags(t.bobCookie)).toEqual({ [mine.id]: false, [bobs.id]: true });

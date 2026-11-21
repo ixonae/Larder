@@ -1,4 +1,4 @@
-import { and, eq, exists, getTableColumns, or, sql } from "drizzle-orm";
+import { and, eq, exists, getTableColumns, or, type SQL, sql } from "drizzle-orm";
 import type { SQLiteSelect } from "drizzle-orm/sqlite-core";
 import type { Executor } from "../../db/client.ts";
 import { byName } from "../../db/cursor.ts";
@@ -26,40 +26,48 @@ const {
   updated_at: _altUpdated,
   ...alternativeColumns
 } = getTableColumns(alternatives);
-const inCocktail = (barId: string, id: string) =>
+const inCocktail = (barId: string, id: string): SQL | undefined =>
   and(eq(ingredients.bar_id, barId), eq(ingredients.cocktail_id, id));
 /** One JSON parameter, so a filtered list of every cocktail stays within SQLite's bind limit. */
-const inCocktails = (barId: string, ids: string[]) =>
+const inCocktails = (barId: string, ids: string[]): SQL | undefined =>
   and(
     eq(ingredients.bar_id, barId),
     sql`${ingredients.cocktail_id} IN (SELECT value FROM json_each(${JSON.stringify(ids)}))`,
   );
+type SourceFields = { source_category_id: string; name: string; product_abv: number | null };
+type UnselectedAudit = "bar_id" | "created_by" | "created_at" | "updated_at";
+type IngredientRow = Omit<typeof ingredients.$inferSelect, UnselectedAudit> & SourceFields;
+export type AlternativeRow = Omit<typeof alternatives.$inferSelect, UnselectedAudit> & SourceFields;
+
 export type NewLine = typeof ingredients.$inferInsert;
 export type NewAlternative = typeof alternatives.$inferInsert;
 
-export function deleteIngredients(db: Executor, barId: string, id: string) {
+export function deleteIngredients(db: Executor, barId: string, id: string): void {
   db.delete(ingredients).where(inCocktail(barId, id)).run();
 }
 
-export function insertIngredient(db: Executor, input: NewLine) {
+export function insertIngredient(db: Executor, input: NewLine): string {
   return db.insert(ingredients).values(input).returning({ id: ingredients.id }).get().id;
 }
 
-export function insertAlternative(db: Executor, input: NewAlternative) {
+export function insertAlternative(db: Executor, input: NewAlternative): void {
   db.insert(alternatives).values(input).run();
 }
 
 type SourceTable = typeof ingredients | typeof alternatives;
 
-const sourceCategoryId = (source: SourceTable) =>
+const sourceCategoryId = (source: SourceTable): SQL<string> =>
   sql<string>`coalesce(${source.category_id}, ${products.category_id}, ${pantryIngredients.category_id})`;
 
-const sourceFields = (source: SourceTable) => ({
+const sourceFields = (
+  source: SourceTable,
+): { source_category_id: SQL<string>; name: SQL<string>; product_abv: typeof products.abv } => ({
   source_category_id: sourceCategoryId(source),
   name: sql<string>`coalesce(${categories.name}, ${products.name}, ${pantryIngredients.name})`,
   product_abv: products.abv,
 });
 
+// biome-ignore lint/nursery/useExplicitType: Drizzle infers the result shape and nullability from the selected fields and joins.
 function joinSources<T extends SQLiteSelect>(query: T, source: SourceTable) {
   return query
     .leftJoin(
@@ -76,7 +84,11 @@ function joinSources<T extends SQLiteSelect>(query: T, source: SourceTable) {
     );
 }
 
-export function listIngredients(db: Executor, barId: string, cocktailIds: string[]) {
+export function listIngredients(
+  db: Executor,
+  barId: string,
+  cocktailIds: string[],
+): IngredientRow[] {
   const rows = db
     .select({ ...lineColumns, cocktail_id: ingredients.cocktail_id, ...sourceFields(ingredients) })
     .from(ingredients)
@@ -87,7 +99,7 @@ export function listIngredients(db: Executor, barId: string, cocktailIds: string
     .all();
 }
 
-export function usesCategories(db: Executor, barId: string, categoryIds: string[]) {
+export function usesCategories(db: Executor, barId: string, categoryIds: string[]): SQL {
   const lines = db.select({ id: ingredients.id }).from(ingredients).$dynamic();
   return exists(
     joinSources(lines, ingredients).where(
@@ -102,7 +114,11 @@ export function usesCategories(db: Executor, barId: string, categoryIds: string[
   );
 }
 
-export function listAlternatives(db: Executor, barId: string, cocktailIds: string[]) {
+export function listAlternatives(
+  db: Executor,
+  barId: string,
+  cocktailIds: string[],
+): AlternativeRow[] {
   const rows = db
     .select({ ...alternativeColumns, ...sourceFields(alternatives) })
     .from(alternatives)
@@ -125,7 +141,7 @@ export function listIngredientUsage(
   barId: string,
   field: "category_id" | "product_id" | "pantry_ingredient_id",
   id: string,
-) {
+): { id: string; name: string }[] {
   const substitutes = db
     .select({ id: alternatives.id })
     .from(alternatives)

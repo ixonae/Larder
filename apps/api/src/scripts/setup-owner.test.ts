@@ -1,25 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
 import { verifyPassword } from "../auth/password.ts";
 import { findCredentials } from "../auth/repo.ts";
-import { openDb } from "../db/client.ts";
+import { type Db, openDb } from "../db/client.ts";
 import { runMigrations } from "../db/migrate.ts";
 import { DEFAULT_USER } from "../db/seed.ts";
 import { cookieFor, createTestApp } from "../test/app.ts";
 import { type Io, main, muteableOutput } from "./setup-owner.ts";
 
-function fakeIo(interactive: boolean, ...answers: string[]) {
+function fakeIo(
+  interactive: boolean,
+  ...answers: string[]
+): { io: Io; out: string[]; err: string[] } {
   const out: string[] = [];
   const err: string[] = [];
   const io: Io = {
     interactive,
     readPassword: vi.fn(async () => answers.shift() ?? ""),
-    out: (l) => out.push(l),
-    err: (l) => err.push(l),
+    out: (l: string) => out.push(l),
+    err: (l: string) => err.push(l),
   };
   return { io, out, err };
 }
 
-function freshDb() {
+function freshDb(): Db {
   const db = openDb(":memory:");
   runMigrations(db);
   return db;
@@ -27,7 +30,7 @@ function freshDb() {
 
 const password = "a long enough secret";
 const replacement = "a different secret";
-const owner = DEFAULT_USER.email;
+const owner: string = DEFAULT_USER.email;
 
 describe("setup-owner", () => {
   it("sets up the owner account without printing a password or hash", async () => {
@@ -66,7 +69,8 @@ describe("setup-owner", () => {
     expect(before?.userId).toBe(alice.userId);
     expect(await verifyPassword(password, before?.hash as string)).toBe(true);
     const cookie = cookieFor(db, alice.userId);
-    const readMe = () => app.request("/api/me", { headers: { Cookie: cookie } });
+    const readMe = (): Response | Promise<Response> =>
+      app.request("/api/me", { headers: { Cookie: cookie } });
     expect((await readMe()).status).toBe(200);
     expect(await main(fakeIo(false, replacement).io, db, true)).toBe(0);
     const after = findCredentials(db, "email", owner);

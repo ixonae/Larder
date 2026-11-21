@@ -8,15 +8,27 @@ import {
 } from "@larder/shared";
 import sharp from "sharp";
 import { expect, test } from "vitest";
-import { createTestApp, errorOf, jsonRequest, readJson } from "../../test/app.ts";
+import type { Db } from "../../db/client.ts";
+import type { ImageStorage } from "../../storage/storage.ts";
+import { createTestApp, errorOf, jsonRequest, readJson, type TestApp } from "../../test/app.ts";
 
-function setup() {
+function setup(): {
+  app: TestApp["app"];
+  db: Db;
+  alice: { userId: string; barId: string };
+  bob: { userId: string; barId: string };
+  storage: ImageStorage;
+  bar: string;
+  path: string;
+  create: (name: string, patch?: object) => Response | Promise<Response>;
+  read: (name: string, patch?: object) => Promise<Cocktail>;
+} {
   const { app, db, alice, bob, storage } = createTestApp();
   const bar = `/api/bars/${alice.barId}`;
   const path = `${bar}/cocktails`;
-  const create = (name: string, patch: object = {}) =>
+  const create = (name: string, patch: object = {}): Response | Promise<Response> =>
     app.request(path, jsonRequest("POST", { name, method: "stirred", ...patch }));
-  const read = async (name: string, patch?: object) => {
+  const read = async (name: string, patch?: object): Promise<Cocktail> => {
     const res = await create(name, patch);
     expect(res.status).toBe(201);
     return cocktailSchema.parse(await res.json());
@@ -71,7 +83,7 @@ test("creates, filters, pages, edits and deletes cocktails with serving and vari
   expect(
     (await app.request(`${path}/${variant.id}`, jsonRequest("PATCH", { name: "négroni" }))).status,
   ).toBe(409);
-  const page = async (query: string) =>
+  const page = async (query: string): Promise<Page<Cocktail>> =>
     readJson<Page<Cocktail>>(await app.request(`${path}?${query}`));
   const first = await page("limit=1");
   expect(first.items).toEqual([base]);
@@ -174,7 +186,7 @@ test("uploads, serves, removes and cleans up cocktail images", async () => {
   const png = await sharp({ create: { width: 2, height: 2, channels: 3, background: "red" } })
     .png()
     .toBuffer();
-  const upload = async () => {
+  const upload = async (): Promise<string> => {
     const form = new FormData();
     form.set("file", new File([new Uint8Array(png)], "red.png", { type: "image/png" }));
     const res = await app.request(`${url}/image`, { method: "PUT", body: form });

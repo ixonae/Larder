@@ -1,12 +1,15 @@
 import { readdir, readFile } from "node:fs/promises";
 import {
   barSummarySchema,
+  type Category,
+  type CocktailDetail,
   categorySchema,
   cocktailDetailSchema,
   imageSchema,
   newId,
   pageSchema,
   pantryIngredientSchema,
+  type Utensil,
   utensilSchema,
 } from "@larder/shared";
 import { and, eq } from "drizzle-orm";
@@ -111,7 +114,7 @@ it("seeds and serves compact pictures throughout the starter category tree", asy
     });
   }
 
-  const categoryImage = (...path: string[]) => {
+  const categoryImage = (...path: string[]): string | null | undefined => {
     let parent: string | null = null;
     let category: (typeof rows)[number] | undefined;
     for (const name of path) {
@@ -258,7 +261,7 @@ it("seeds high-resolution cocktail illustrations with lightweight thumbnails", a
 
   expect(fullSize).toBeLessThanOrEqual(5_500_000);
   expect(imageIds.size).toBe(groups.length);
-  const imageFor = (name: string) => cocktailsByName.get(name)?.image_id;
+  const imageFor = (name: string): string | null | undefined => cocktailsByName.get(name)?.image_id;
   expect(imageFor("Daiquiri")).toBe(imageFor("White Lady"));
   expect(imageFor("Espresso Martini")).not.toBe(imageFor("Daiquiri"));
 });
@@ -293,7 +296,8 @@ it("offers bottled alternatives for every fresh juice line in the starter catalo
 it("backfills only matching roots in a previously seeded bar and preserves custom images", async () => {
   const { app, db, storage, alice } = createTestApp();
   const base = `/api/bars/${alice.barId}/categories`;
-  const rows = () => db.select().from(categories).where(eq(categories.bar_id, alice.barId)).all();
+  const rows = (): (typeof categories.$inferSelect)[] =>
+    db.select().from(categories).where(eq(categories.bar_id, alice.barId)).all();
   const beer = rows().find(({ name }) => name === "Beer");
   const spirit = rows().find(({ name }) => name === "Spirit");
   const custom = new FormData();
@@ -304,7 +308,7 @@ it("backfills only matching roots in a previously seeded bar and preserves custo
   const upload = await app.request(`${base}/${beer?.id}/image`, { method: "PUT", body: custom });
   expect(upload.status).toBe(200);
   const { id: customId } = imageSchema.parse(await upload.json());
-  const add = async (body: unknown) => {
+  const add = async (body: unknown): Promise<Category> => {
     const res = await app.request(base, jsonRequest("POST", body));
     expect(res.status).toBe(201);
     return categorySchema.parse(await res.json());
@@ -509,7 +513,7 @@ it("backfills the starter catalogue once, reuses existing entries and honors ano
   expect(categoryRows.filter(({ parent_id, image_id }) => parent_id !== null && !image_id)).toEqual(
     [],
   );
-  function hasPath(...names: string[]) {
+  function hasPath(...names: string[]): boolean {
     let parent: string | null = null;
     for (const name of names) {
       const next: (typeof categoryRows)[number] | undefined = categoryRows.find(
@@ -553,7 +557,7 @@ it("seeds transparent icons for standalone glassware and keeps an existing custo
   });
   expect(upload.status).toBe(200);
   const uploaded = imageSchema.parse(await upload.json());
-  const list = async () => {
+  const list = async (): Promise<Utensil[]> => {
     const res = await app.request(`${base}/utensils?kind=glass`);
     expect(res.status).toBe(200);
     return pageSchema(utensilSchema).parse(await res.json()).items;
@@ -694,7 +698,7 @@ it("uses seeded bottle ABVs and excludes rinses from the served drink", async ()
   const { app, db, storage, alice } = createTestApp();
   await seedStarterCatalogue(db, storage, alice.barId);
   const base = `/api/bars/${alice.barId}/cocktails`;
-  async function getRecipe(name: string) {
+  async function getRecipe(name: string): Promise<CocktailDetail> {
     const row = db.select().from(cocktails).where(eq(cocktails.name, name)).get();
     const response = await app.request(`${base}/${row?.id}`);
     expect(response.status).toBe(200);
@@ -828,7 +832,7 @@ it("can use a separate catalogue to import into a single bar and serve its bundl
     expect(full.headers.get("content-type")).toBe("image/webp");
     expect(thumb.status).toBe(200);
   }
-  const thumbWidth = async (imageId: string | null | undefined) =>
+  const thumbWidth = async (imageId: string | null | undefined): Promise<number> =>
     (
       await sharp(
         Buffer.from(await (await app.request(`/api/images/${imageId}/thumb`)).arrayBuffer()),

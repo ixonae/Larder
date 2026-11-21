@@ -31,7 +31,7 @@ export interface CommentRow {
   updated_at: string;
 }
 
-const ratingColumns = {
+const ratingColumns: Pick<typeof ratings, "score" | "updated_at"> = {
   score: ratings.score,
   updated_at: ratings.updated_at,
 };
@@ -158,7 +158,10 @@ export function deleteRating(
     .run();
 }
 
-const commentColumns = {
+const commentColumns: Pick<
+  typeof comments,
+  "id" | "cocktail_id" | "body" | "is_private" | "created_by" | "created_at" | "updated_at"
+> & { display_name: typeof users.display_name } = {
   id: comments.id,
   cocktail_id: comments.cocktail_id,
   body: comments.body,

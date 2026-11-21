@@ -17,11 +17,11 @@ import type { Db, Tx } from "../../db/client.ts";
 import { conflict, notFound, parseId } from "../../errors.ts";
 import * as repo from "./repo.ts";
 
-export const usersForAdmin = (db: Db) => ({ users: listUsers(db) });
-export const configureSignup = (db: Db, settings: SignupSettings) =>
+export const usersForAdmin = (db: Db): { users: AdminUser[] } => ({ users: listUsers(db) });
+export const configureSignup = (db: Db, settings: SignupSettings): SignupSettings =>
   updateSignupSettings(db, settings);
 
-export async function adminCreateUser(db: Db, data: NewAccount) {
+export async function adminCreateUser(db: Db, data: NewAccount): Promise<AdminUser> {
   const hash = await hashPassword(data.password);
   return db.transaction((tx) => createAccount(tx, data, hash));
 }
@@ -36,13 +36,17 @@ export function changeUserAccess(db: Db, id: string, disabled: boolean): AdminUs
   });
 }
 
-function requireManageableUser(db: Tx, userId: string) {
+function requireManageableUser(db: Tx, userId: string): { email: string } {
   const user = repo.findManageableUser(db, userId);
   if (!user) throw notFound("Manageable user");
   return user;
 }
 
-export async function resetUserPassword(db: Db, id: string, { new_password }: ResetUserPassword) {
+export async function resetUserPassword(
+  db: Db,
+  id: string,
+  { new_password }: ResetUserPassword,
+): Promise<void> {
   const userId = parseId(id, "User");
   const hash = await hashPassword(new_password);
   db.transaction(

@@ -1,6 +1,6 @@
 import { type CountryCode, NO_STATUS, type Product, type ProductStatus } from "@larder/shared";
 import { and, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
-import type { SelectedFields } from "drizzle-orm/sqlite-core";
+import type { SelectedFields, SubqueryWithSelection } from "drizzle-orm/sqlite-core";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import {
@@ -13,7 +13,23 @@ import {
 import { visibleFeedback } from "../../db/visibility.ts";
 import { isFavourite } from "../favourites/repo.ts";
 
-const columns = {
+const columns: Pick<
+  typeof products,
+  | "id"
+  | "name"
+  | "category_id"
+  | "producer"
+  | "country"
+  | "region"
+  | "abv"
+  | "vintage"
+  | "age_years"
+  | "description"
+  | "image_id"
+  | "status"
+  | "created_at"
+  | "updated_at"
+> & { category_name: typeof categories.name } = {
   id: products.id,
   name: products.name,
   category_id: products.category_id,
@@ -31,7 +47,7 @@ const columns = {
   updated_at: products.updated_at,
 };
 
-const nameKey = sql<string>`larder_name_key(${products.name})`;
+const nameKey: SQL<string> = sql<string>`larder_name_key(${products.name})`;
 
 export type NewProduct = typeof products.$inferInsert;
 
@@ -70,7 +86,7 @@ export interface ProductFilter {
 }
 
 /** `status IN (...)`, with `none` standing for NULL (which `IN` never matches). */
-function statusFilter(statuses: (ProductStatus | typeof NO_STATUS)[] | undefined) {
+function statusFilter(statuses: (ProductStatus | typeof NO_STATUS)[] | undefined): SQL | undefined {
   if (statuses === undefined) return undefined;
   const named = statuses.filter((status): status is ProductStatus => status !== NO_STATUS);
   return or(
@@ -80,7 +96,7 @@ function statusFilter(statuses: (ProductStatus | typeof NO_STATUS)[] | undefined
 }
 
 /** A per-bottle aggregate over its purchases: one index seek for each row returned. */
-const ofPurchases = <T>(aggregate: SQL, filter?: SQL) =>
+const ofPurchases = <T>(aggregate: SQL, filter?: SQL): SQL<T> =>
   sql<T>`(SELECT ${aggregate} FROM ${productPurchases} WHERE ${and(
     eq(productPurchases.bar_id, products.bar_id),
     eq(productPurchases.product_id, products.id),
@@ -91,7 +107,19 @@ const ofPurchases = <T>(aggregate: SQL, filter?: SQL) =>
  * Each bottle's tasting count, average score and last day, in one grouped query: over the bar for
  * lists, over the one bottle for a single lookup.
  */
-const tastingStats = (db: Executor, { barId, userId }: Viewer, productId: string | undefined) =>
+const tastingStats = (
+  db: Executor,
+  { barId, userId }: Viewer,
+  productId: string | undefined,
+): SubqueryWithSelection<
+  {
+    product_id: typeof tastings.product_id;
+    count: SQL.Aliased<number>;
+    avg_score: SQL.Aliased<number | null>;
+    last_tasted_on: SQL.Aliased<string | null>;
+  },
+  "tasting_stats"
+> =>
   db
     .select({
       product_id: tastings.product_id,
@@ -115,6 +143,7 @@ const tastingStats = (db: Executor, { barId, userId }: Viewer, productId: string
  * Products joined with their category (same bar, enforced by the foreign key), their stock and
  * their tasting summary.
  */
+// biome-ignore lint/nursery/useExplicitType: Drizzle infers the result shape and nullability from the selected fields and joins.
 const selectProducts = <E extends SelectedFields>(
   db: Executor,
   { barId, userId }: Viewer,
@@ -190,7 +219,11 @@ export function findProduct(db: Executor, viewer: Viewer, id: string): Product |
 }
 
 /** The bottle's id and name, when it is in the bar. */
-export function findProductRef(db: Executor, barId: string, id: string) {
+export function findProductRef(
+  db: Executor,
+  barId: string,
+  id: string,
+): { id: string; name: string } | undefined {
   return db
     .select({ id: products.id, name: products.name })
     .from(products)

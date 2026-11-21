@@ -18,7 +18,7 @@ import { users } from "./tenancy.ts";
  * Audit columns for personal data: unlike shared bar data, it belongs to its author and goes with
  * their account when it is deleted.
  */
-const personalColumns = () => ({
+const personalColumns = (): ReturnType<typeof auditColumns> => ({
   ...auditColumns(),
   created_by: text("created_by")
     .notNull()

@@ -2,15 +2,29 @@ import type { Page, PantryIngredient } from "@larder/shared";
 import { and, count, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { barMembers, categories, pantryIngredients, products } from "../../db/schema/index.ts";
-import { createTestApp, errorOf, readJson as json, jsonRequest } from "../../test/app.ts";
+import {
+  createTestApp,
+  errorOf,
+  readJson as json,
+  jsonRequest,
+  type TestApp,
+} from "../../test/app.ts";
 
 const UNKNOWN = "01a1f326-d941-7d74-8a40-504a488cd388";
 
-function setup() {
+function setup(): TestApp & {
+  bar: (barId: string) => string;
+  base: string;
+  cat: (name: string, barId?: string) => string;
+  ing: (name: string, barId?: string) => string;
+  send: (method: string, path: string, body?: unknown) => Response | Promise<Response>;
+  names: (query: string) => Promise<string[]>;
+  count: () => number;
+} {
   const t = createTestApp();
-  const bar = (barId: string) => `/api/bars/${barId}`;
+  const bar = (barId: string): string => `/api/bars/${barId}`;
   const base = `${bar(t.alice.barId)}/pantry-ingredients`;
-  const cat = (name: string, barId = t.alice.barId) => {
+  const cat = (name: string, barId: string = t.alice.barId): string => {
     const row = t.db
       .select({ id: categories.id })
       .from(categories)
@@ -19,7 +33,7 @@ function setup() {
     if (!row) throw new Error(`No category ${name}`);
     return row.id;
   };
-  const ing = (name: string, barId = t.alice.barId) => {
+  const ing = (name: string, barId: string = t.alice.barId): string => {
     const row = t.db
       .select({ id: pantryIngredients.id })
       .from(pantryIngredients)
@@ -28,11 +42,11 @@ function setup() {
     if (!row) throw new Error(`No ingredient ${name}`);
     return row.id;
   };
-  const send = (method: string, path: string, body?: unknown) =>
+  const send = (method: string, path: string, body?: unknown): Response | Promise<Response> =>
     t.app.request(`${base}${path}`, jsonRequest(method, body));
-  const names = async (query: string) =>
+  const names = async (query: string): Promise<string[]> =>
     (await json<Page<PantryIngredient>>(await send("GET", query))).items.map((i) => i.name);
-  const countRows = () =>
+  const countRows = (): number =>
     t.db
       .select({ n: count() })
       .from(pantryIngredients)
@@ -158,8 +172,11 @@ describe("POST /pantry-ingredients", () => {
   });
 
   it.each([
-    ["an unknown category", () => UNKNOWN],
-    ["another bar's category", (t: ReturnType<typeof setup>) => t.cat("Pantry", t.bob.barId)],
+    ["an unknown category", (): string => UNKNOWN],
+    [
+      "another bar's category",
+      (t: ReturnType<typeof setup>): string => t.cat("Pantry", t.bob.barId),
+    ],
   ])("refuses %s and creates nothing", async (_, category) => {
     const t = setup();
     const before = t.count();

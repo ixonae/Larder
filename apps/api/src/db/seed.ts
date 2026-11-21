@@ -13,7 +13,7 @@ export const DEFAULT_BAR_NAME = "My bar";
 export function seedUser(
   db: Db,
   user: { email: string; display_name: string } = DEFAULT_USER,
-  barName = DEFAULT_BAR_NAME,
+  barName: string = DEFAULT_BAR_NAME,
 ): { userId: string; barId: string } {
   return db.transaction((tx) => {
     tx.insert(users).values(user).onConflictDoNothing({ target: users.email }).run();
@@ -36,4 +36,4 @@ export function seedUser(
 }
 
 /** Startup seed: the single default user and their bar. */
-export const seed = (db: Db) => seedUser(db);
+export const seed = (db: Db): { userId: string; barId: string } => seedUser(db);

@@ -1,9 +1,10 @@
+import type { Sharp } from "sharp";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { AppError } from "../errors.ts";
 import { processImage } from "./process.ts";
 
-const create = (width: number, height: number) =>
+const create = (width: number, height: number): Sharp =>
   sharp({ create: { width, height, channels: 3, background: "#c33" } });
 
 describe("processImage", () => {
@@ -54,9 +55,16 @@ describe("processImage", () => {
   });
 
   it.each([
-    ["not a picture", async () => Buffer.from("hello")],
-    ["a format that is not allowed", async () => create(10, 10).gif().toBuffer()],
-    ["a truncated file", async () => (await create(500, 500).png().toBuffer()).subarray(0, 200)],
+    ["not a picture", async (): Promise<Buffer<ArrayBuffer>> => Buffer.from("hello")],
+    [
+      "a format that is not allowed",
+      async (): Promise<Buffer<ArrayBuffer>> => create(10, 10).gif().toBuffer(),
+    ],
+    [
+      "a truncated file",
+      async (): Promise<Buffer<ArrayBuffer>> =>
+        (await create(500, 500).png().toBuffer()).subarray(0, 200),
+    ],
   ])("refuses %s", async (_, input) => {
     const err = await processImage(await input()).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AppError);

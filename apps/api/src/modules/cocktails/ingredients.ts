@@ -14,7 +14,11 @@ import { findPantryIngredient } from "../pantry/repo.ts";
 import { findProductRef } from "../products/repo.ts";
 import * as repo from "./ingredients-repo.ts";
 
-function findSource(db: Executor, barId: string, source: IngredientSource) {
+function findSource(
+  db: Executor,
+  barId: string,
+  source: IngredientSource,
+): { id: string; name: string } | undefined {
   if (source.category_id != null) return findCategory(db, barId, source.category_id);
   if (source.product_id != null) return findProductRef(db, barId, source.product_id);
   return findPantryIngredient(db, barId, source.pantry_ingredient_id);
@@ -25,7 +29,7 @@ function requireSource(
   barId: string,
   source: IngredientSource,
   path: (string | number)[],
-) {
+): void {
   if (!findSource(db, barId, source)) {
     const message = "Choose an ingredient source from this bar";
     throw invalid(message, [{ path, message }]);
@@ -38,7 +42,7 @@ export function replaceIngredients(
   userId: string,
   cocktailId: string,
   input: CocktailIngredientInput[],
-) {
+): void {
   repo.deleteIngredients(db, barId, cocktailId);
   insertIngredients(db, barId, userId, cocktailId, input);
 }
@@ -49,7 +53,7 @@ export function insertIngredients(
   userId: string,
   cocktailId: string,
   input: CocktailIngredientInput[],
-) {
+): void {
   const audit = { bar_id: barId, created_by: userId };
   for (const [position, { alternatives, ...line }] of input.entries()) {
     const path = ["ingredients", position];
@@ -72,10 +76,12 @@ type ResolvedCategory = {
   abv: number;
 };
 
-export function ingredientResolver(categories: Category[]) {
+export function ingredientResolver(
+  categories: Category[],
+): (categoryId: string) => ResolvedCategory {
   const byId = new Map(categories.map((category) => [category.id, category]));
   const resolved = new Map<string, ResolvedCategory>();
-  return (categoryId: string) => {
+  return (categoryId: string): ResolvedCategory => {
     const cached = resolved.get(categoryId);
     if (cached) return cached;
 
@@ -99,7 +105,7 @@ export type PreferredIngredient = Omit<
 function resolveSource<T extends { source_category_id: string; product_abv: number | null }>(
   { source_category_id, product_abv, ...row }: T,
   resolve: ResolveCategory,
-) {
+): Omit<T, "product_abv" | "source_category_id"> & ResolvedCategory {
   const { category_path, abv } = resolve(source_category_id);
   return { ...row, category_path, abv: product_abv ?? abv };
 }
@@ -119,13 +125,17 @@ export function getPreferredIngredients(
   );
 }
 
-const categoryPath = (path: PreferredIngredient["category_path"]) =>
+const categoryPath = (path: PreferredIngredient["category_path"]): { id: string; name: string }[] =>
   path.map(({ id, name }) => ({ id, name }));
 
 type AlternativesByLine = ReturnType<typeof getAlternatives>;
 
 /** The substitutes of every line of these cocktails, grouped by line in their saved order. */
-export function getAlternatives(db: Executor, barId: string, cocktailIds: string[]) {
+export function getAlternatives(
+  db: Executor,
+  barId: string,
+  cocktailIds: string[],
+): Map<string, repo.AlternativeRow[]> {
   return Map.groupBy(repo.listAlternatives(db, barId, cocktailIds), (alt) => alt.ingredient_id);
 }
 
@@ -137,7 +147,10 @@ export function addAlternatives(
 ): CocktailIngredient[] {
   const finish = <T extends StockSource & Pick<PreferredIngredient, "category_path">>(
     source: T,
-  ) => ({
+  ): T & {
+    category_path: { id: string; name: string }[];
+    matching_bottles: { id: string; name: string }[];
+  } => ({
     ...source,
     category_path: categoryPath(source.category_path),
     matching_bottles: bottles(source),

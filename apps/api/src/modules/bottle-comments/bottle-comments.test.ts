@@ -1,4 +1,5 @@
 import type { BottleComment, Page, Product } from "@larder/shared";
+import type Database from "better-sqlite3";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { barMembers, bottleComments, categories, products } from "../../db/schema/index.ts";
@@ -9,13 +10,29 @@ import {
   errorOf,
   readJson as json,
   jsonRequest,
+  type TestApp,
 } from "../../test/app.ts";
 
 const UNKNOWN = "01a1f326-d941-7d74-8a40-504a488cd388";
-const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 5));
+const tick = (): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, 5));
 
 /** Alice owns her bar and Bob is an editor in it; Bob's own bar is the second tenant. */
-function setup() {
+function setup(): TestApp & {
+  bobCookie: string;
+  bar: string;
+  cat: (barId?: string) => string;
+  send: (
+    method: string,
+    path: string,
+    body?: unknown,
+    cookie?: string,
+  ) => Response | Promise<Response>;
+  bottle: (name?: string) => Promise<Product>;
+  post: (productId: string, body: string, cookie?: string) => Promise<BottleComment>;
+  thread: (productId: string, query?: string, cookie?: string) => Promise<Page<BottleComment>>;
+  rows: () => (typeof bottleComments.$inferSelect)[];
+  setRole: (role: "viewer" | "editor") => Database.RunResult;
+} {
   const t = createTestApp();
   t.db
     .insert(barMembers)
@@ -23,27 +40,37 @@ function setup() {
     .run();
   const bobCookie = cookieFor(t.db, t.bob.userId);
   const bar = `/api/bars/${t.alice.barId}`;
-  const cat = (barId = t.alice.barId) =>
+  const cat = (barId: string = t.alice.barId): string =>
     t.db
       .select({ id: categories.id })
       .from(categories)
       .where(and(eq(categories.bar_id, barId), eq(categories.name, "Gin")))
       .get()?.id as string;
-  const send = (method: string, path: string, body?: unknown, cookie?: string) =>
+  const send = (
+    method: string,
+    path: string,
+    body?: unknown,
+    cookie?: string,
+  ): Response | Promise<Response> =>
     t.app.request(`${bar}/${path}`, jsonRequest(method, body, cookie));
-  const bottle = async (name = "Hendrick's") =>
+  const bottle = async (name: string = "Hendrick's"): Promise<Product> =>
     json<Product>(await send("POST", "products", { name, category_id: cat() }));
-  const post = async (productId: string, body: string, cookie?: string) => {
+  const post = async (productId: string, body: string, cookie?: string): Promise<BottleComment> => {
     const res = await send("POST", `products/${productId}/comments`, { body }, cookie);
     expect(res.status).toBe(201);
     return json<BottleComment>(res);
   };
-  const thread = async (productId: string, query = "", cookie?: string) =>
+  const thread = async (
+    productId: string,
+    query: string = "",
+    cookie?: string,
+  ): Promise<Page<BottleComment>> =>
     json<Page<BottleComment>>(
       await send("GET", `products/${productId}/comments?${query}`, undefined, cookie),
     );
-  const rows = () => t.db.select().from(bottleComments).all();
-  const setRole = (role: "viewer" | "editor") =>
+  const rows = (): (typeof bottleComments.$inferSelect)[] =>
+    t.db.select().from(bottleComments).all();
+  const setRole = (role: "viewer" | "editor"): Database.RunResult =>
     t.db
       .update(barMembers)
       .set({ role })

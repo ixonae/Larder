@@ -4,6 +4,7 @@ import {
   adminUsersSchema,
   barSummarySchema,
   meSchema,
+  type NewAccount,
   newId,
   pageSchema,
   usedBySchema,
@@ -36,26 +37,49 @@ import {
   tastings,
   users,
 } from "../../db/schema/index.ts";
-import { ALICE, BOB, cookieFor, createTestApp, errorOf, jsonRequest } from "../../test/app.ts";
+import {
+  ALICE,
+  BOB,
+  cookieFor,
+  createTestApp,
+  errorOf,
+  jsonRequest,
+  type TestApp,
+} from "../../test/app.ts";
 
 const password = "a long admin password";
 const changed = "a long replacement password";
-const account = { email: "visitor@example.com", display_name: "Visitor", password };
+const account: NewAccount = { email: "visitor@example.com", display_name: "Visitor", password };
 let hash: string;
 let replacement: string;
 beforeAll(async () => {
   [hash, replacement] = await Promise.all([hashPassword(password), hashPassword(changed)]);
 });
 
-function setup() {
+function setup(): Omit<TestApp, "cookie"> & {
+  cookie: (id: string) => string;
+  admin: string;
+  member: string;
+  request: (
+    path: string,
+    method?: string,
+    body?: unknown,
+    session?: string,
+  ) => Response | Promise<Response>;
+  login: (email: string, password: string) => Response | Promise<Response>;
+} {
   const t = createTestApp();
   setOwnerPassword(t.db, t.alice.userId, hash, false);
-  const cookie = (id: string) => cookieFor(t.db, id);
+  const cookie = (id: string): string => cookieFor(t.db, id);
   const admin = cookie(t.alice.userId);
   const member = cookie(t.bob.userId);
-  const request = (path: string, method = "GET", body?: unknown, session = admin) =>
-    t.app.request(path, jsonRequest(method, body, session));
-  const login = (email: string, password: string) =>
+  const request = (
+    path: string,
+    method: string = "GET",
+    body?: unknown,
+    session: string = admin,
+  ): Response | Promise<Response> => t.app.request(path, jsonRequest(method, body, session));
+  const login = (email: string, password: string): Response | Promise<Response> =>
     request("/api/auth/sign-in", "POST", { email, password }, "");
   return { ...t, cookie, admin, member, request, login };
 }
@@ -104,7 +128,8 @@ describe("installation administration", () => {
     const t = setup();
     const publicSettings = "/api/auth/signup-settings";
     const policy = "/api/admin/signup-settings";
-    const publicSignup = () => t.request("/api/auth/sign-up", "POST", account, "");
+    const publicSignup = (): Response | Promise<Response> =>
+      t.request("/api/auth/sign-up", "POST", account, "");
     expect(await (await t.request(publicSettings, "GET", undefined, "")).json()).toEqual({
       signup_mode: "invite_only",
     });
@@ -157,7 +182,8 @@ describe("bar management", () => {
     const res = await t.request("/api/bars", "POST", { name: "Seeded", seed_data: true });
     expect(res.status).toBe(201);
     const bar = barSummarySchema.parse(await res.json());
-    const rows = () => t.db.select().from(cocktails).where(eq(cocktails.bar_id, bar.id)).all();
+    const rows = (): (typeof cocktails.$inferSelect)[] =>
+      t.db.select().from(cocktails).where(eq(cocktails.bar_id, bar.id)).all();
     expect(rows().length).toBeGreaterThan(100);
     const glassware = await t.request(`/api/bars/${bar.id}/utensils?kind=glass`);
     expect(glassware.status).toBe(200);
@@ -229,7 +255,11 @@ describe("bar management", () => {
 describe("account settings", () => {
   it("validates email changes, preserves identity, and rotates the session", async () => {
     const t = setup();
-    const patch = (email: string, current_password: string, session = t.admin) =>
+    const patch = (
+      email: string,
+      current_password: string,
+      session: string = t.admin,
+    ): Response | Promise<Response> =>
       t.request("/api/me/email", "PATCH", { email, current_password }, session);
     expect((await patch("new@example.com", password, "")).status).toBe(401);
     expect((await patch("invalid", password)).status).toBe(400);
@@ -250,7 +280,7 @@ describe("account settings", () => {
   it("requires matching replacement passwords and signs out old sessions on change", async () => {
     const t = setup();
     const additional = t.cookie(t.alice.userId);
-    const patch = (confirm_password: string) =>
+    const patch = (confirm_password: string): Response | Promise<Response> =>
       t.request("/api/me/password", "PATCH", {
         current_password: password,
         new_password: changed,
@@ -292,7 +322,7 @@ describe("user administration", () => {
     const t = setup();
     const accountResponse = await t.request("/api/admin/users", "POST", account);
     const user = adminUserSchema.parse(await accountResponse.json());
-    const readLastLogin = async () => {
+    const readLastLogin = async (): Promise<string | null | undefined> => {
       const data = adminUsersSchema.parse(await (await t.request("/api/admin/users")).json());
       return data.users.find(({ id }) => id === user.id)?.last_login_at;
     };

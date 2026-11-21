@@ -58,17 +58,24 @@ export async function deleteWithImage(
   await removeImageFiles(ctx.storage, files);
 }
 
-function requireOwner(db: Executor, entity: ImageEntity, barId: string, id: string) {
+function requireOwner(
+  db: Executor,
+  entity: ImageEntity,
+  barId: string,
+  id: string,
+): { image_id: string | null } {
   const owner = repo.findOwnerImage(db, entity, barId, id);
   if (!owner) throw notFound(LABEL[entity]);
   return owner;
 }
 
+type StagedImage = Omit<repo.StoredImage, "created_at">;
+
 /** Write a prepared full image and thumbnail before inserting their metadata in a transaction. */
 export async function stagePreparedImage(
   { barId, userId, storage }: Pick<Ctx, "barId" | "userId" | "storage">,
   processed: ProcessedImage,
-) {
+): Promise<StagedImage> {
   const id = newId();
   const files = {
     storage_key: `${barId}/${id}.webp`,
@@ -101,7 +108,7 @@ export async function stageImage(
   ctx: Pick<Ctx, "barId" | "userId" | "storage">,
   data: Uint8Array,
   options?: ImageOptions,
-) {
+): Promise<StagedImage> {
   return stagePreparedImage(ctx, await processImage(data, options));
 }
 

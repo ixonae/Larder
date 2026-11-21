@@ -1,9 +1,21 @@
 import type { Purchase } from "@larder/shared";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, type SQL } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { productPurchases } from "../../db/schema/index.ts";
 
-const columns = {
+const columns: Pick<
+  typeof productPurchases,
+  | "id"
+  | "product_id"
+  | "bought_on"
+  | "price_minor"
+  | "currency"
+  | "store"
+  | "notes"
+  | "finished_on"
+  | "created_at"
+  | "updated_at"
+> = {
   id: productPurchases.id,
   product_id: productPurchases.product_id,
   bought_on: productPurchases.bought_on,
@@ -21,10 +33,10 @@ export type PurchaseChanges = Partial<
   Pick<NewPurchase, "bought_on" | "price_minor" | "currency" | "store" | "notes" | "finished_on">
 >;
 
-const byId = (barId: string, id: string) =>
+const byId = (barId: string, id: string): SQL | undefined =>
   and(eq(productPurchases.bar_id, barId), eq(productPurchases.id, id));
 
-const ofProduct = (barId: string, productId: string) =>
+const ofProduct = (barId: string, productId: string): SQL | undefined =>
   and(eq(productPurchases.bar_id, barId), eq(productPurchases.product_id, productId));
 
 /** The bottle's purchases, newest first. */
@@ -73,7 +85,11 @@ export function findOldestOpenPurchase(
 }
 
 /** The purchases that stop the bottle from being deleted, labelled by date. */
-export function listPurchaseUsage(db: Executor, barId: string, productId: string) {
+export function listPurchaseUsage(
+  db: Executor,
+  barId: string,
+  productId: string,
+): { id: string; name: string }[] {
   return listPurchases(db, barId, productId).map(({ id, bought_on }) => ({
     id,
     name: `Bought on ${bought_on}`,

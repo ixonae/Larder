@@ -10,24 +10,24 @@ export interface ImageStorage {
   delete(key: string): Promise<void>;
 }
 
-const isMissing = (err: unknown) => (err as { code?: unknown }).code === "ENOENT";
+const isMissing = (err: unknown): boolean => (err as { code?: unknown }).code === "ENOENT";
 
 /** Files under `root` (in production `DATA_DIR/uploads`, so backups archive them with the database). */
 export function createDiskStorage(root: string): ImageStorage {
   const base = resolve(root);
-  const pathOf = (key: string) => {
+  const pathOf = (key: string): string => {
     const path = resolve(base, key);
     // Keys come from the server, but a key escaping the root would be a bug worth stopping.
     if (!path.startsWith(base + sep)) throw new Error(`Invalid storage key: ${key}`);
     return path;
   };
   return {
-    async put(key, data) {
+    async put(key: string, data: Uint8Array): Promise<void> {
       const path = pathOf(key);
       await mkdir(dirname(path), { recursive: true });
       await writeFile(path, data);
     },
-    async get(key) {
+    async get(key: string): Promise<Buffer | null> {
       try {
         return await readFile(pathOf(key));
       } catch (err) {
@@ -35,7 +35,7 @@ export function createDiskStorage(root: string): ImageStorage {
         throw err;
       }
     },
-    async delete(key) {
+    async delete(key: string): Promise<void> {
       await rm(pathOf(key), { force: true });
     },
   };

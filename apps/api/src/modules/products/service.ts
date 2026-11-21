@@ -10,7 +10,14 @@ import {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
+import {
+  type AppError,
+  conflict,
+  invalid,
+  notFound,
+  parseId,
+  refuseDeleteIfUsed,
+} from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { findCategory, listAllCategories } from "../categories/repo.ts";
 import { requireCategoryRef } from "../categories/service.ts";
@@ -52,14 +59,18 @@ export function requireProduct(db: Executor, viewer: Viewer, id: string | undefi
 }
 
 /** The bottle's id and name, when it is in the bar: a cheap check for writes about the bottle. */
-export function requireProductRef(db: Executor, barId: string, id: string | undefined) {
+export function requireProductRef(
+  db: Executor,
+  barId: string,
+  id: string | undefined,
+): { id: string; name: string } {
   const product = repo.findProductRef(db, barId, parseId(id, "Product"));
   if (!product) throw notFound("Product");
   return product;
 }
 
 /** The duplicate is reported on the `name` field, so forms can show it there. */
-const duplicateName = (name: string, vintage: number | null) => () => {
+const duplicateName = (name: string, vintage: number | null) => (): AppError => {
   const message =
     vintage === null
       ? `A bottle named "${name}" already exists`
@@ -71,11 +82,11 @@ export function getProduct(ctx: Ctx, id: string | undefined): Product {
   return requireProduct(ctx.db, ctx, id);
 }
 
-function requireBottleCategory(db: Executor, barId: string, categoryId: string) {
+function requireBottleCategory(db: Executor, barId: string, categoryId: string): void {
   const category = requireCategoryRef(db, barId, categoryId);
   if (
     !isBottleCategory(category, {
-      get: (id) => (id === category.id ? category : findCategory(db, barId, id)),
+      get: (id: string) => (id === category.id ? category : findCategory(db, barId, id)),
     })
   ) {
     const message = "Choose a bottle category. Track syrups and garnishes in Pantry.";

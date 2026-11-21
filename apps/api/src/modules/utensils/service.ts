@@ -9,7 +9,14 @@ import type {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
+import {
+  type AppError,
+  conflict,
+  invalid,
+  notFound,
+  parseId,
+  refuseDeleteIfUsed,
+} from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { listToolUsage } from "../cocktails/recipe-repo.ts";
 import { listCocktailReferences } from "../cocktails/repo.ts";
@@ -52,7 +59,7 @@ function resolveCapacity(
 }
 
 /** The duplicate is reported on the `name` field, so forms can show it there. */
-const duplicateName = (name: string) => () => {
+const duplicateName = (name: string) => (): AppError => {
   const message = `A utensil named "${name}" already exists`;
   return conflict(message, [{ path: ["name"], message }]);
 };
@@ -97,7 +104,7 @@ export function updateUtensil(ctx: Ctx, id: string | undefined, patch: UpdateUte
   });
 }
 
-function requireUnusedUtensil(db: Executor, barId: string, utensil: Utensil) {
+function requireUnusedUtensil(db: Executor, barId: string, utensil: Utensil): void {
   refuseDeleteIfUsed(utensil.name, [
     {
       type: "cocktail",

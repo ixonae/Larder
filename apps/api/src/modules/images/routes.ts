@@ -1,5 +1,5 @@
 import { type ImageEntity, uploadImageSchema } from "@larder/shared";
-import { type Context, Hono } from "hono";
+import { type Context, Hono, type TypedResponse } from "hono";
 import { createMiddleware } from "hono/factory";
 import { requireRole } from "../../middleware/context.ts";
 import { validate } from "../../middleware/validate.ts";
@@ -15,6 +15,7 @@ const limitUpload = createMiddleware<AppEnv>(async (c, next) => {
  * `PUT` and `DELETE /:id/image` for one kind of item, mounted next to that item's own routes under
  * `/api/bars/:barId/<entity>`. Editors and owners only.
  */
+// biome-ignore lint/nursery/useExplicitType: Hono infers the RPC schema from the chained image handlers.
 export const entityImageRoutes = (entity: ImageEntity) =>
   new Hono<AppEnv>()
     .put(
@@ -30,7 +31,10 @@ export const entityImageRoutes = (entity: ImageEntity) =>
       return c.body(null, 204);
     });
 
-async function serve(c: Context<AppEnv>, size: "full" | "thumb") {
+async function serve(
+  c: Context<AppEnv>,
+  size: "full" | "thumb",
+): Promise<Response & TypedResponse<Uint8Array<ArrayBuffer>, 200, "body">> {
   const { data, mime } = await readImage(
     c.var.db,
     c.var.storage,

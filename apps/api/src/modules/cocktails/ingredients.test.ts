@@ -5,14 +5,27 @@ import {
   type Product,
 } from "@larder/shared";
 import { expect, test } from "vitest";
+import type { Db } from "../../db/client.ts";
 import { categories, pantryIngredients, products } from "../../db/schema/index.ts";
-import { createTestApp, errorOf, jsonRequest, readJson } from "../../test/app.ts";
+import { createTestApp, errorOf, jsonRequest, readJson, type TestApp } from "../../test/app.ts";
 
-async function setup() {
+async function setup(): Promise<{
+  app: TestApp["app"];
+  bar: string;
+  db: Db;
+  bob: { userId: string; barId: string };
+  path: string;
+  root: Category;
+  category: Category;
+  product: string;
+  fallback: string;
+  pantry: string;
+  save: (ingredients: unknown) => Response | Promise<Response>;
+}> {
   const { app, alice, bob, db } = createTestApp();
   const bar = `/api/bars/${alice.barId}`;
   const path = `${bar}/cocktails`;
-  async function create<T>(entity: string, input: object) {
+  async function create<T>(entity: string, input: object): Promise<T> {
     const response = await app.request(`${bar}/${entity}`, jsonRequest("POST", input));
     expect(response.status).toBe(201);
     return readJson<T>(response);
@@ -37,7 +50,7 @@ async function setup() {
     name: "Mint sprig",
     category_id: pantryCategory.id,
   });
-  const save = (ingredients: unknown) =>
+  const save = (ingredients: unknown): Response | Promise<Response> =>
     app.request(path, jsonRequest("POST", { name: "Mint Cooler", method: "built", ingredients }));
   return { app, bar, db, bob, path, root, category, product, fallback, pantry, save };
 }

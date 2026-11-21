@@ -51,6 +51,7 @@ const CONTENT_SECURITY_POLICY = {
 };
 
 /** Builds the Hono app without listening, so tests can call `app.request()`. */
+// biome-ignore lint/nursery/useExplicitType: Hono infers the complete RPC schema from the mounted routes.
 export function createApp({
   logger,
   db,
@@ -59,12 +60,12 @@ export function createApp({
   webDir,
   maxBodyBytes = DEFAULT_MAX_BODY_BYTES,
 }: AppDeps) {
-  const app = new Hono<AppEnv>();
+  const app: Hono<AppEnv> = new Hono<AppEnv>();
 
-  const limitUploads = rateLimit(20);
-  const limitAttempts = rateLimit(10);
-  const queue = concurrencyLimit(2, 4);
-  const credentialCheck = <T>(key: string, task: () => Promise<T>) => {
+  const limitUploads: AppEnv["Variables"]["limitUploads"] = rateLimit(20);
+  const limitAttempts: ReturnType<typeof rateLimit> = rateLimit(10);
+  const queue: ReturnType<typeof concurrencyLimit> = concurrencyLimit(2, 4);
+  const credentialCheck = <T>(key: string, task: () => Promise<T>): Promise<T> => {
     limitAttempts(key);
     return queue(task);
   };

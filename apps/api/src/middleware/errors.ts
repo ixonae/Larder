@@ -1,5 +1,5 @@
-import { ERROR_STATUS, type ErrorCode, errorBody } from "@larder/shared";
-import type { Context } from "hono";
+import { ERROR_STATUS, type ErrorBody, type ErrorCode, errorBody } from "@larder/shared";
+import type { Context, TypedResponse } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { ZodError } from "zod";
 import { AppError } from "../errors.ts";
@@ -14,18 +14,20 @@ const CODE_BY_STATUS: Partial<Record<number, ErrorCode>> = {
   413: "PAYLOAD_TOO_LARGE",
 };
 
+type ErrorResponse = Response & TypedResponse<ErrorBody, (typeof ERROR_STATUS)[ErrorCode], "json">;
+
 function respond(
   c: Context<AppEnv>,
   code: ErrorCode,
   message: string,
   details?: unknown,
   headers?: Record<string, string>,
-) {
+): ErrorResponse {
   return c.json(errorBody(code, message, details), ERROR_STATUS[code], headers);
 }
 
 /** Central error handler: every failure leaves the API as `{ error: { code, message, details? } }`. */
-export function handleError(err: Error, c: Context<AppEnv>) {
+export function handleError(err: Error, c: Context<AppEnv>): ErrorResponse {
   if (err instanceof AppError) return respond(c, err.code, err.message, err.details, err.headers);
   if (err instanceof ZodError) return respond(c, "VALIDATION", "Invalid request", err.issues);
   if (err instanceof HTTPException) {
@@ -47,6 +49,6 @@ export function handleError(err: Error, c: Context<AppEnv>) {
   return respond(c, "INTERNAL", "Internal server error");
 }
 
-export function handleNotFound(c: Context<AppEnv>) {
+export function handleNotFound(c: Context<AppEnv>): ErrorResponse {
   return respond(c, "NOT_FOUND", `No route for ${c.req.method} ${c.req.path}`);
 }

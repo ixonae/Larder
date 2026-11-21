@@ -1,10 +1,13 @@
 import type { Utensil, UtensilKind } from "@larder/shared";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, type SQL, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { utensils } from "../../db/schema/index.ts";
 
-const columns = {
+const columns: Pick<
+  typeof utensils,
+  "id" | "name" | "kind" | "capacity_ml" | "description" | "image_id" | "created_at" | "updated_at"
+> = {
   id: utensils.id,
   name: utensils.name,
   kind: utensils.kind,
@@ -15,7 +18,7 @@ const columns = {
   updated_at: utensils.updated_at,
 };
 
-const nameKey = sql<string>`larder_name_key(${utensils.name})`;
+const nameKey: SQL<string> = sql<string>`larder_name_key(${utensils.name})`;
 
 export type NewUtensil = typeof utensils.$inferInsert;
 export type UtensilChanges = Partial<

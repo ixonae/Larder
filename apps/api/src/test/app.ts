@@ -2,22 +2,33 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ErrorBody, SESSION_REQUEST_HEADER } from "@larder/shared";
-import { createApp } from "../app.ts";
+import { type AppType, createApp } from "../app.ts";
 import { SESSION_COOKIE } from "../auth/middleware.ts";
 import { createSession } from "../auth/service.ts";
-import type { Db } from "../db/client.ts";
-import { openDb } from "../db/client.ts";
+import { type Db, openDb } from "../db/client.ts";
 import { runMigrations } from "../db/migrate.ts";
 import { DEFAULT_USER, seedUser } from "../db/seed.ts";
 import { createLogger } from "../logger.ts";
-import { createDiskStorage } from "../storage/storage.ts";
+import { createDiskStorage, type ImageStorage } from "../storage/storage.ts";
 
-export const ALICE = DEFAULT_USER;
+export const ALICE: typeof DEFAULT_USER = DEFAULT_USER;
 
 /** A `Cookie` header value for a new session of `userId`. */
-export const cookieFor = (db: Db, userId: string) =>
+export const cookieFor = (db: Db, userId: string): string =>
   `${SESSION_COOKIE}=${createSession(db, userId)}`;
 export const BOB = { email: "bob@larder.local", display_name: "Bob" } as const;
+
+export interface TestApp {
+  app: AppType;
+  rawRequest: AppType["request"];
+  cookie: string | undefined;
+  db: Db;
+  storage: ImageStorage;
+  uploads: string;
+  alice: ReturnType<typeof seedUser>;
+  bob: ReturnType<typeof seedUser>;
+  logs: () => Record<string, unknown>[];
+}
 
 /**
  * Fresh in-memory database, migrated and seeded with two users who each own one bar:
@@ -33,7 +44,7 @@ export function createTestApp({
   publicUrl?: string;
   webDir?: string;
   maxBodyBytes?: number;
-} = {}) {
+} = {}): TestApp {
   const db = openDb(":memory:");
   runMigrations(db);
   const alice = seedUser(db, ALICE, "Alice's bar");
@@ -57,7 +68,12 @@ export function createTestApp({
     [BOB.email, bob],
   ]).get(as);
   const cookie = actor && cookieFor(db, actor.userId);
-  app.request = (input, init, env, executionCtx) => {
+  app.request = (
+    input: Request | string | URL,
+    init?: RequestInit,
+    env?: Parameters<AppType["request"]>[2],
+    executionCtx?: Parameters<AppType["request"]>[3],
+  ): Response | Promise<Response> => {
     const headers = new Headers(input instanceof Request ? input.headers : undefined);
     new Headers(init?.headers).forEach((value, name) => {
       headers.set(name, value);
@@ -66,12 +82,14 @@ export function createTestApp({
     headers.set(SESSION_REQUEST_HEADER, "1");
     return rawRequest(input, { ...init, headers }, env, executionCtx);
   };
-  const logs = () => lines.map((l) => JSON.parse(l) as Record<string, unknown>);
+  const logs = (): Record<string, unknown>[] =>
+    lines.map((l) => JSON.parse(l) as Record<string, unknown>);
   return { app, rawRequest, cookie, db, storage, uploads, alice, bob, logs };
 }
 
-export const readJson = async <T>(res: Response) => (await res.json()) as T;
-export const errorOf = async (res: Response) => (await readJson<ErrorBody>(res)).error;
+export const readJson = async <T>(res: Response): Promise<T> => (await res.json()) as T;
+export const errorOf = async (res: Response): Promise<ErrorBody["error"]> =>
+  (await readJson<ErrorBody>(res)).error;
 
 /**
  * `RequestInit` for `app.request()`: the method, plus a JSON body when one is given, and a `Cookie`

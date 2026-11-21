@@ -2,9 +2,9 @@ import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createDiskStorage } from "./storage.ts";
+import { createDiskStorage, type ImageStorage } from "./storage.ts";
 
-const fresh = () => {
+const fresh = (): { root: string; storage: ImageStorage } => {
   const root = mkdtempSync(join(tmpdir(), "larder-storage-"));
   return { root, storage: createDiskStorage(root) };
 };

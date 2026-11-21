@@ -11,6 +11,7 @@ import {
   type CreateCocktail,
   computeAbv,
   computeVolume,
+  type Inventory,
   type ListCocktailsQuery,
   type ListTagsQuery,
   MIXER_KINDS,
@@ -27,7 +28,7 @@ import {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, invalid, refuseDeleteIfUsed } from "../../errors.ts";
+import { type AppError, conflict, invalid, refuseDeleteIfUsed } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { listAllCategories } from "../categories/repo.ts";
 import { favouriteIds } from "../favourites/repo.ts";
@@ -52,7 +53,7 @@ import { type CocktailRow, requireCocktail } from "./require-cocktail.ts";
 function summarize(
   lines: PreferredIngredient[],
   method: CocktailMethod,
-  measuredLines = lines,
+  measuredLines: PreferredIngredient[] = lines,
 ): ComputedCocktail {
   return {
     volume_ml: computeVolume(measuredLines),
@@ -63,7 +64,7 @@ function summarize(
 }
 
 /** What the bar's owned bottles and available Pantry ingredients can pour. */
-const loadInventory = (db: Executor, barId: string, categories: Category[]) =>
+const loadInventory = (db: Executor, barId: string, categories: Category[]): Inventory =>
   buildInventory(
     categories,
     listOwnedProducts(db, barId),
@@ -153,14 +154,14 @@ function requireUtensilKind(
   id: string,
   kind: UtensilKind,
   path: (string | number)[],
-) {
+): void {
   if (findUtensil(db, barId, id)?.kind !== kind) {
     const message = `Choose a ${kind} from this bar`;
     throw invalid(message, [{ path, message }]);
   }
 }
 
-function validateReferences(db: Executor, barId: string, input: UpdateCocktail, id?: string) {
+function validateReferences(db: Executor, barId: string, input: UpdateCocktail, id?: string): void {
   if (input.glass_id) requireUtensilKind(db, barId, input.glass_id, "glass", ["glass_id"]);
   let parentId = input.variant_of_id;
   while (parentId) {
@@ -173,7 +174,7 @@ function validateReferences(db: Executor, barId: string, input: UpdateCocktail, 
   }
 }
 
-const duplicateName = (name: string) => () => {
+const duplicateName = (name: string) => (): AppError => {
   const message = `A cocktail named "${name}" already exists`;
   return conflict(message, [{ path: ["name"], message }]);
 };
@@ -203,7 +204,7 @@ function detail(
   barId: string,
   userId: string,
   cocktail: CocktailRow,
-  servings = cocktail.servings,
+  servings: number = cocktail.servings,
 ): CocktailDetail {
   const categories = listAllCategories(db, barId);
   const resolve = ingredientResolver(categories);
@@ -253,7 +254,7 @@ function replaceRecipeLists(
   userId: string,
   id: string,
   { ingredients, steps, tool_ids, tags }: CocktailRecipeLists,
-) {
+): void {
   const owner = { bar_id: barId, created_by: userId, cocktail_id: id };
   if (ingredients !== undefined) replaceIngredients(db, barId, userId, id, ingredients);
   if (steps !== undefined) recipeRepo.replaceSteps(db, owner, steps);

@@ -1,10 +1,21 @@
 import type { Category, CategoryKind } from "@larder/shared";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, type SQL, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { categories } from "../../db/schema/index.ts";
 
-const columns = {
+const columns: Pick<
+  typeof categories,
+  | "id"
+  | "name"
+  | "parent_id"
+  | "kind"
+  | "default_abv"
+  | "description"
+  | "image_id"
+  | "created_at"
+  | "updated_at"
+> = {
   id: categories.id,
   name: categories.name,
   parent_id: categories.parent_id,
@@ -16,7 +27,7 @@ const columns = {
   updated_at: categories.updated_at,
 };
 
-const nameKey = sql<string>`larder_name_key(${categories.name})`;
+const nameKey: SQL<string> = sql<string>`larder_name_key(${categories.name})`;
 
 export type NewCategory = typeof categories.$inferInsert;
 export type CategoryChanges = Partial<

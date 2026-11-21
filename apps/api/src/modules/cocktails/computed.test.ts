@@ -1,25 +1,45 @@
 import {
   type Category,
+  type Cocktail,
+  type CocktailDetail,
   cocktailDetailSchema,
   cocktailPageSchema,
   newId,
+  type Page,
   type PantryIngredient,
   type Product,
 } from "@larder/shared";
 import { expect, test } from "vitest";
+import type { Db } from "../../db/client.ts";
 import { categories, tags } from "../../db/schema/index.ts";
-import { createTestApp, jsonRequest, readJson } from "../../test/app.ts";
+import { createTestApp, jsonRequest, readJson, type TestApp } from "../../test/app.ts";
 
-async function setup() {
+async function setup(): Promise<{
+  app: TestApp["app"];
+  db: Db;
+  bob: { userId: string; barId: string };
+  path: string;
+  post: (entity: string, input: object) => Promise<Response>;
+  create: (name: string, patch: object) => Promise<CocktailDetail>;
+  list: (query?: string) => Promise<Page<Cocktail>>;
+  spirit: Category;
+  family: Category;
+  leaf: Category;
+  other: Category;
+  mixer: Category;
+  bottle: string;
+  zero: string;
+  garnish: string;
+}> {
   const { app, alice, bob, db } = createTestApp();
   const bar = `/api/bars/${alice.barId}`;
   const path = `${bar}/cocktails`;
-  async function post(entity: string, input: object) {
+  async function post(entity: string, input: object): Promise<Response> {
     const response = await app.request(`${bar}/${entity}`, jsonRequest("POST", input));
     expect(response.status).toBe(201);
     return response;
   }
-  const addCategory = (input: object) =>
+  const addCategory = (input: object): Promise<Category> =>
     post("categories", input).then((response) => readJson<Category>(response));
   const spirit = await addCategory({ name: "Distilled", kind: "spirit", default_abv: 45 });
   const family = await addCategory({ name: "Agave", parent_id: spirit.id });
@@ -36,11 +56,11 @@ async function setup() {
   const { id: garnish } = await readJson<PantryIngredient>(
     await post("pantry-ingredients", { name: "Peel", category_id: citrus.id }),
   );
-  const create = async (name: string, patch: object) =>
+  const create = async (name: string, patch: object): Promise<CocktailDetail> =>
     cocktailDetailSchema.parse(
       await (await post("cocktails", { name, method: "shaken", ...patch })).json(),
     );
-  const list = async (query = "") =>
+  const list = async (query: string = ""): Promise<Page<Cocktail>> =>
     cocktailPageSchema.parse(await (await app.request(`${path}?${query}`)).json());
   return {
     app,
@@ -217,7 +237,11 @@ test("filters by several alcohols, mixers, tags and methods", async () => {
   const juice = await readJson<Category>(
     await post("categories", { name: "Citrus juice", kind: "juice" }),
   );
-  const line = (category_id: string) => ({ category_id, amount: 10, unit: "ml" });
+  const line = (category_id: string): { category_id: string; amount: number; unit: string } => ({
+    category_id,
+    amount: 10,
+    unit: "ml",
+  });
   const both = await create("Both", {
     tags: ["Classic", "Sour"],
     ingredients: [line(family.id), line(other.id), line(juice.id)],
@@ -228,7 +252,8 @@ test("filters by several alcohols, mixers, tags and methods", async () => {
     ingredients: [line(family.id), line(mixer.id)],
   });
   await create("Neither", { ingredients: [line(juice.id)] });
-  const ids = async (query: string) => (await list(query)).items.map(({ id }) => id);
+  const ids = async (query: string): Promise<string[]> =>
+    (await list(query)).items.map(({ id }) => id);
 
   expect(await ids(`alcohol=${family.id},${other.id}`)).toEqual([both.id]);
   expect(await ids(`alcohol=${family.id}`)).toEqual([agave.id, both.id]);

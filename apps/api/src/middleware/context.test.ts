@@ -2,7 +2,7 @@ import type { BarSummary, Me } from "@larder/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { barMembers, bars } from "../db/schema/index.ts";
-import { BOB, createTestApp } from "../test/app.ts";
+import { BOB, createTestApp, type TestApp } from "../test/app.ts";
 import { requireRole } from "./context.ts";
 
 describe("GET /api/me", () => {
@@ -88,7 +88,7 @@ describe("barAccess", () => {
 });
 
 describe("requireRole", () => {
-  function setup(role: "viewer" | "editor" | "owner") {
+  function setup(role: "viewer" | "editor" | "owner"): TestApp & { url: string } {
     const t = createTestApp();
     t.db.insert(barMembers).values({ bar_id: t.bob.barId, user_id: t.alice.userId, role }).run();
     t.app.post("/api/bars/:barId/edit", requireRole("editor"), (c) => c.json({ ok: true }));

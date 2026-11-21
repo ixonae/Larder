@@ -1,5 +1,6 @@
 import { nowIso, type Visibility } from "@larder/shared";
-import { and, desc, eq, gte, inArray, lte, ne, not, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, ne, not, type SQL, sql } from "drizzle-orm";
+import type { SelectResultFields } from "drizzle-orm/query-builders/select.types";
 import type { SelectedFields } from "drizzle-orm/sqlite-core";
 import type { Executor } from "../../db/client.ts";
 import { beforeKey, type NameCursor, newestFirst } from "../../db/cursor.ts";
@@ -15,7 +16,27 @@ const authorCanWrite =
     Boolean,
   );
 
-const columns = {
+const columns: Pick<
+  typeof tastings,
+  | "id"
+  | "product_id"
+  | "tasted_on"
+  | "score"
+  | "notes"
+  | "location"
+  | "is_private"
+  | "created_by"
+  | "created_at"
+  | "updated_at"
+> & {
+  display_name: typeof users.display_name;
+  product_name: typeof products.name;
+  product_image_id: typeof products.image_id;
+  product_status: typeof products.status;
+  category_id: typeof products.category_id;
+  category_name: typeof categories.name;
+  author_can_write: SQL<boolean>;
+} = {
   id: tastings.id,
   product_id: tastings.product_id,
   tasted_on: tastings.tasted_on,
@@ -35,7 +56,7 @@ const columns = {
   author_can_write: authorCanWrite,
 };
 
-export type TastingRow = NonNullable<ReturnType<typeof findTasting>>;
+export type TastingRow = SelectResultFields<typeof columns>;
 
 export type NewTasting = typeof tastings.$inferInsert;
 export type TastingChanges = Partial<
@@ -57,6 +78,7 @@ export interface TastingFilter {
 }
 
 /** Tastings with their author, bottle and category, all in the same bar. */
+// biome-ignore lint/nursery/useExplicitType: Drizzle infers the result shape and nullability from the selected fields and joins.
 const selectTastings = <E extends SelectedFields>(db: Executor, extra: E) =>
   db
     .select({ ...columns, ...extra })
@@ -110,14 +132,24 @@ export function listTastings(
     .all();
 }
 
-export function findTasting(db: Executor, barId: string, userId: string, id: string) {
+export function findTasting(
+  db: Executor,
+  barId: string,
+  userId: string,
+  id: string,
+): TastingRow | undefined {
   return selectTastings(db, {})
     .where(and(eq(tastings.bar_id, barId), eq(tastings.id, id), visibleFeedback(tastings, userId)))
     .get();
 }
 
 /** The visible tastings that stop a bottle from being deleted, labelled by day. */
-export function listTastingUsage(db: Executor, barId: string, userId: string, productId: string) {
+export function listTastingUsage(
+  db: Executor,
+  barId: string,
+  userId: string,
+  productId: string,
+): { id: string; name: string }[] {
   return db
     .select({ id: tastings.id, tasted_on: tastings.tasted_on })
     .from(tastings)

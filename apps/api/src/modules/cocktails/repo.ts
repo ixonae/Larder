@@ -10,10 +10,13 @@ import { usesCategories } from "./ingredients-repo.ts";
 
 const { bar_id: _barId, created_by: _createdBy, ...columns } = getTableColumns(cocktails);
 /** The cocktail sort key, shared by every list of cocktails. */
-export const nameKey = sql<string>`larder_name_key(${cocktails.name})`;
+export const nameKey: SQL<string> = sql<string>`larder_name_key(${cocktails.name})`;
+type CocktailRow = Omit<typeof cocktails.$inferSelect, "bar_id" | "created_by">;
+
 export type NewCocktail = typeof cocktails.$inferInsert;
 
-const byId = (barId: string, id: string) => and(eq(cocktails.bar_id, barId), eq(cocktails.id, id));
+const byId = (barId: string, id: string): SQL | undefined =>
+  and(eq(cocktails.bar_id, barId), eq(cocktails.id, id));
 
 /** Separates the rating from the name key in a `sort=rating` cursor. */
 const RATING_SEP = "\u0001";
@@ -52,7 +55,7 @@ export function listCocktails(
   /** One list of category IDs per chosen ingredient: a cocktail needs a line in each. */
   ingredientCategories: string[][],
   userId: string,
-) {
+): (CocktailRow & { key: string })[] {
   const byRating: boolean = sort === "rating";
   const rows = db
     .select({
@@ -101,11 +104,11 @@ export function listCocktails(
     }));
 }
 
-export function findCocktail(db: Executor, barId: string, id: string) {
+export function findCocktail(db: Executor, barId: string, id: string): CocktailRow | undefined {
   return db.select(columns).from(cocktails).where(byId(barId, id)).get();
 }
 
-export function insertCocktail(db: Executor, input: NewCocktail) {
+export function insertCocktail(db: Executor, input: NewCocktail): CocktailRow {
   return db.insert(cocktails).values(input).returning(columns).get();
 }
 
@@ -114,7 +117,7 @@ export function updateCocktail(
   barId: string,
   id: string,
   patch: Partial<NewCocktail>,
-) {
+): CocktailRow {
   return db
     .update(cocktails)
     .set({ ...patch, updated_at: nowIso() })
@@ -123,7 +126,7 @@ export function updateCocktail(
     .get();
 }
 
-export function deleteCocktail(db: Executor, barId: string, id: string) {
+export function deleteCocktail(db: Executor, barId: string, id: string): void {
   db.delete(cocktails).where(byId(barId, id)).run();
 }
 
@@ -132,7 +135,7 @@ export function listCocktailReferences(
   barId: string,
   field: "glass_id" | "variant_of_id",
   id: string,
-) {
+): { id: string; name: string }[] {
   return db
     .select({ id: cocktails.id, name: cocktails.name })
     .from(cocktails)

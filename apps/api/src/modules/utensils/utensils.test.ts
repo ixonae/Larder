@@ -2,28 +2,42 @@ import type { Page, Utensil } from "@larder/shared";
 import { count, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { barMembers, utensils } from "../../db/schema/index.ts";
-import { createTestApp, errorOf, readJson as json, jsonRequest } from "../../test/app.ts";
+import {
+  createTestApp,
+  errorOf,
+  readJson as json,
+  jsonRequest,
+  type TestApp,
+} from "../../test/app.ts";
 
 const UNKNOWN = "01a1f326-d941-7d74-8a40-504a488cd388";
 
-function setup() {
+function setup(): TestApp & {
+  bar: (barId: string) => string;
+  send: (method: string, path: string, body?: unknown) => Response | Promise<Response>;
+  create: (body: Record<string, unknown>) => Promise<Utensil>;
+  names: (query: string) => Promise<string[]>;
+  count: (barId?: string) => number;
+} {
   const t = createTestApp();
-  const bar = (barId: string) => `/api/bars/${barId}`;
-  const send = (method: string, path: string, body?: unknown) =>
+  const bar = (barId: string): string => `/api/bars/${barId}`;
+  const send = (method: string, path: string, body?: unknown): Response | Promise<Response> =>
     t.app.request(`${bar(t.alice.barId)}/utensils${path}`, jsonRequest(method, body));
-  const create = async (body: Record<string, unknown>) => {
+  const create = async (body: Record<string, unknown>): Promise<Utensil> => {
     const res = await send("POST", "", body);
     expect(res.status).toBe(201);
     return json<Utensil>(res);
   };
-  const names = async (query: string) =>
+  const names = async (query: string): Promise<string[]> =>
     (await json<Page<Utensil>>(await send("GET", query))).items.map((u) => u.name);
-  const countRows = (barId = t.alice.barId) =>
+  const countRows = (barId: string = t.alice.barId): number =>
     t.db.select({ n: count() }).from(utensils).where(eq(utensils.bar_id, barId)).get()?.n ?? 0;
   return { ...t, bar, send, create, names, count: countRows };
 }
 
-async function stock(t: ReturnType<typeof setup>) {
+async function stock(
+  t: ReturnType<typeof setup>,
+): Promise<{ coupe: Utensil; shaker: Utensil; rocks: Utensil; jigger: Utensil }> {
   const coupe = await t.create({ name: "Coupe", kind: "glass", capacity_ml: 180 });
   const shaker = await t.create({ name: "Boston shaker", kind: "tool" });
   const rocks = await t.create({ name: "Rocks", kind: "glass" });

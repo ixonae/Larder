@@ -1,5 +1,6 @@
 import type { AdminUser } from "@larder/shared";
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, type SQL, sql } from "drizzle-orm";
+import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { adminUserColumns } from "../../auth/repo.ts";
 import type { Tx } from "../../db/client.ts";
 import {
@@ -24,7 +25,9 @@ import {
 } from "../../db/schema/index.ts";
 
 /** Shared bar data a user is credited on. Their personal feedback is deleted with them instead. */
-const attributedTables = [
+const attributedTables: ReadonlyArray<
+  SQLiteTable & { created_by: SQLiteColumn; bar_id: SQLiteColumn }
+> = [
   barInvitations,
   bottleComments,
   categories,
@@ -44,9 +47,10 @@ const attributedTables = [
 ];
 
 /** Admins manage every account except the installation admin's. */
-const manageable = (id: string) => and(eq(users.id, id), eq(users.is_admin, false));
+const manageable = (id: string): SQL | undefined =>
+  and(eq(users.id, id), eq(users.is_admin, false));
 
-export function findManageableUser(db: Tx, id: string) {
+export function findManageableUser(db: Tx, id: string): { email: string } | undefined {
   return db.select({ email: users.email }).from(users).where(manageable(id)).get();
 }
 
@@ -55,7 +59,7 @@ export function setUserAccess(db: Tx, id: string, disabled: boolean): AdminUser 
 }
 
 /** Finds the bars that would lose their owner or a record's author if the user were deleted. */
-export function listUserBarReferences(db: Tx, userId: string) {
+export function listUserBarReferences(db: Tx, userId: string): { id: string; name: string }[] {
   return db
     .select({ id: bars.id, name: bars.name })
     .from(bars)

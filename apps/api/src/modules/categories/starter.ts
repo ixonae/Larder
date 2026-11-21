@@ -92,7 +92,11 @@ export function seedStarterCategories(
   userId: string,
 ): Map<string, string> {
   const rows: NewCategory[] = [];
-  const visit = (nodes: StarterCategory[], parentId: string | null, parentKind: CategoryKind) => {
+  const visit = (
+    nodes: StarterCategory[],
+    parentId: string | null,
+    parentKind: CategoryKind,
+  ): void => {
     for (const node of nodes) {
       const id = newId();
       const kind = node.kind ?? parentKind;

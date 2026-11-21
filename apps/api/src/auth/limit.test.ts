@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { concurrencyLimit } from "./limit.ts";
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+const tick = (): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 describe("concurrencyLimit", () => {
   it("never runs more than `max` tasks at once and runs the rest in order", async () => {

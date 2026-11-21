@@ -21,7 +21,7 @@ export const barAccess = createMiddleware<AppEnv>(async (c, next) => {
 });
 
 /** Refuses the request unless the member's role is at least `required`. Use after `barAccess`. */
-export const requireRole = (required: Role) =>
+export const requireRole = (required: Role): ReturnType<typeof createMiddleware<AppEnv>> =>
   createMiddleware<AppEnv>(async (c, next) => {
     if (!hasRole(c.var.ctx.role, required)) {
       throw forbidden(`This action needs the ${required} role`);

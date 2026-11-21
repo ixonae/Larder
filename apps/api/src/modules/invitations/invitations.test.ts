@@ -3,8 +3,10 @@ import {
   barSummarySchema,
   invitationLinkSchema,
   invitationPreviewSchema,
+  type Me,
   meSchema,
   newId,
+  type PendingInvitation,
   pendingInvitationsSchema,
   SESSION_REQUEST_HEADER,
 } from "@larder/shared";
@@ -13,27 +15,39 @@ import { describe, expect, it } from "vitest";
 import { hashToken } from "../../auth/token.ts";
 import { migrateStarterCatalogues } from "../../db/catalogue/starter.ts";
 import { barInvitations, barMembers, cocktails, users } from "../../db/schema/index.ts";
-import { ALICE, BOB, cookieFor, createTestApp, jsonRequest } from "../../test/app.ts";
+import { ALICE, BOB, cookieFor, createTestApp, jsonRequest, type TestApp } from "../../test/app.ts";
 
 const origin = "https://bar.example.test";
 const password = "a long new account password";
 
-function setup(publicUrl?: string) {
+function setup(publicUrl?: string): TestApp & {
+  bars: (id: string) => string;
+  invitations: string;
+  bobCookie: string;
+  auth: (cookie: string, method: string, data?: unknown) => RequestInit;
+  post: (action: string, data: unknown, cookie?: string) => Response | Promise<Response>;
+  createInvite: (
+    role: "viewer" | "editor",
+  ) => Promise<PendingInvitation & { url: string; token: string }>;
+  getMe: (cookie: string) => Promise<Me>;
+} {
   const t = createTestApp({ publicUrl });
-  const bars = (id: string) => `/api/bars/${id}`;
+  const bars = (id: string): string => `/api/bars/${id}`;
   const invitations = `${bars(t.alice.barId)}/invitations`;
   const bobCookie = cookieFor(t.db, t.bob.userId);
-  const auth = (cookie: string, method: string, data?: unknown) =>
+  const auth = (cookie: string, method: string, data?: unknown): RequestInit =>
     jsonRequest(method, data, cookie);
-  const post = (action: string, data: unknown, cookie = "") =>
+  const post = (action: string, data: unknown, cookie: string = ""): Response | Promise<Response> =>
     t.app.request(`/api/invitations/${action}`, auth(cookie, "POST", data));
-  const createInvite = async (role: "viewer" | "editor") => {
+  const createInvite = async (
+    role: "viewer" | "editor",
+  ): Promise<PendingInvitation & { url: string; token: string }> => {
     const res = await t.app.request(invitations, jsonRequest("POST", { role }));
     expect(res.status).toBe(201);
     const invitation = invitationLinkSchema.parse(await res.json());
     return { ...invitation, token: new URL(invitation.url).hash.slice(1) };
   };
-  const getMe = async (cookie: string) => {
+  const getMe = async (cookie: string): Promise<Me> => {
     const res = await t.app.request("/api/me", auth(cookie, "GET"));
     return meSchema.parse(await res.json());
   };

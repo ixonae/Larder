@@ -1,6 +1,7 @@
 import { IMAGE_MAX_SIDE, THUMB_MAX_SIDE } from "@larder/shared";
+import type { OutputInfo } from "sharp";
 import sharp from "sharp";
-import { invalid } from "../errors.ts";
+import { type AppError, invalid } from "../errors.ts";
 
 /** Formats sharp may decode: the ones `IMAGE_MIME_TYPES` names, whatever the browser claimed. */
 const READABLE = new Set<string | undefined>(["jpeg", "png", "webp", "heif"]);
@@ -24,7 +25,7 @@ export async function processImage(
 ): Promise<ProcessedImage> {
   let format: string | undefined;
   // The declared type covers a HEIC whose header cannot be read; the detected one covers a mislabelled file.
-  const unreadable = () => {
+  const unreadable = (): AppError => {
     const message =
       mime === "image/heic" || mime === "image/heif" || format === "heif"
         ? "Could not read this HEIC photo. Try a JPEG copy."
@@ -39,7 +40,10 @@ export async function processImage(
     throw unreadable();
   }
   if (!READABLE.has(format)) throw unreadable();
-  const encode = (side: number, quality: number) =>
+  const encode = (
+    side: number,
+    quality: number,
+  ): Promise<{ data: Buffer<ArrayBuffer>; info: OutputInfo }> =>
     source
       .clone()
       .rotate()

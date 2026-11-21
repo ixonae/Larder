@@ -1,5 +1,5 @@
 import { COCKTAIL_ICE, COCKTAIL_METHODS } from "@larder/shared";
-import { sql } from "drizzle-orm";
+import { type NotNull, sql } from "drizzle-orm";
 import {
   check,
   foreignKey,
@@ -10,11 +10,14 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { images, utensils } from "./catalogue.ts";
-import { id, nocaseText, sqlList, timestamps } from "./columns.ts";
+import { id, nocaseText, sqlList, type TextColumn, timestamps } from "./columns.ts";
 import { bars, users } from "./tenancy.ts";
 
 /** The tenancy and audit columns every cocktail table carries. */
-export const auditColumns = () => ({
+export const auditColumns = (): ReturnType<typeof timestamps> & {
+  bar_id: NotNull<TextColumn<"bar_id">>;
+  created_by: NotNull<TextColumn<"created_by">>;
+} => ({
   bar_id: text("bar_id")
     .notNull()
     .references(() => bars.id, { onDelete: "cascade" }),

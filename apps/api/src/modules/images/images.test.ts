@@ -5,26 +5,44 @@ import { and, count, eq } from "drizzle-orm";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { barMembers, categories, images, products } from "../../db/schema/index.ts";
-import { createTestApp, errorOf, readJson as json, jsonRequest } from "../../test/app.ts";
+import {
+  createTestApp,
+  errorOf,
+  readJson as json,
+  jsonRequest,
+  type TestApp,
+} from "../../test/app.ts";
 
 const UNKNOWN = "01a1f326-d941-7d74-8a40-504a488cd388";
-const png = (width = 2000, height = 1000) =>
+const png = (width: number = 2000, height: number = 1000): Promise<Buffer<ArrayBuffer>> =>
   sharp({ create: { width, height, channels: 3, background: "#36c" } })
     .png()
     .toBuffer();
 
-function setup(options: Parameters<typeof createTestApp>[0] = {}) {
+function setup(options: Parameters<typeof createTestApp>[0] = {}): TestApp & {
+  bar: string;
+  cat: (name: string, barId?: string) => { id: string };
+  post: <T>(path: string, body: unknown) => Promise<T>;
+  upload: (path: string, data: Uint8Array | string, type?: string) => Promise<Response>;
+  files: () => string[];
+  imageCount: () => number;
+  product: () => Promise<Product>;
+} {
   const t = createTestApp(options);
   const bar = `/api/bars/${t.alice.barId}`;
-  const cat = (name: string, barId = t.alice.barId) =>
+  const cat = (name: string, barId: string = t.alice.barId): { id: string } =>
     t.db
       .select()
       .from(categories)
       .where(and(eq(categories.bar_id, barId), eq(categories.name, name)))
       .get() as { id: string };
-  const post = async <T>(path: string, body: unknown) =>
+  const post = async <T>(path: string, body: unknown): Promise<T> =>
     json<T>(await t.app.request(`${bar}${path}`, jsonRequest("POST", body)));
-  const upload = async (path: string, data: Uint8Array | string, type = "image/png") => {
+  const upload = async (
+    path: string,
+    data: Uint8Array | string,
+    type: string = "image/png",
+  ): Promise<Response> => {
     const form = new FormData();
     form.append(
       "file",
@@ -32,9 +50,9 @@ function setup(options: Parameters<typeof createTestApp>[0] = {}) {
     );
     return t.app.request(`${bar}${path}/image`, { method: "PUT", body: form });
   };
-  const files = () => readdirSync(join(t.uploads, t.alice.barId)).sort();
-  const imageCount = () => t.db.select({ n: count() }).from(images).get()?.n ?? 0;
-  const product = () =>
+  const files = (): string[] => readdirSync(join(t.uploads, t.alice.barId)).sort();
+  const imageCount = (): number => t.db.select({ n: count() }).from(images).get()?.n ?? 0;
+  const product = (): Promise<Product> =>
     post<Product>("/products", { name: "Talisker", category_id: cat("Scotch").id });
   return { ...t, bar, cat, post, upload, files, imageCount, product };
 }
@@ -188,7 +206,7 @@ describe("PUT /:entity/:id/image", () => {
     const t = setup();
     const bottle = await t.product();
     const put = t.storage.put;
-    t.storage.put = async (key, data) => {
+    t.storage.put = async (key: string, data: Uint8Array): Promise<void> => {
       t.db.delete(products).where(eq(products.id, bottle.id)).run();
       return put(key, data);
     };
@@ -202,7 +220,7 @@ describe("PUT /:entity/:id/image", () => {
     const t = setup();
     const bottle = await t.product();
     const put = t.storage.put;
-    t.storage.put = async (key, data) => {
+    t.storage.put = async (key: string, data: Uint8Array): Promise<void> => {
       if (key.endsWith("-thumb.webp")) throw new Error("ENOSPC");
       return put(key, data);
     };

@@ -2,6 +2,7 @@ import {
   type BarSummary,
   type invitationPreviewSchema,
   nowIso,
+  type PendingInvitation,
   type RegisterByInvitation,
 } from "@larder/shared";
 import type { z } from "zod";
@@ -21,7 +22,10 @@ import * as repo from "./repo.ts";
 
 const INVITATION_TTL = 7 * 24 * 60 * 60 * 1000;
 
-export function invite({ db, barId, userId }: Ctx, role: repo.InvitationRow["role"]) {
+export function invite(
+  { db, barId, userId }: Ctx,
+  role: repo.InvitationRow["role"],
+): PendingInvitation & { token: string } {
   const token = newToken();
   const expires_at = nowIso(new Date(Date.now() + INVITATION_TTL));
   const id = db.transaction((tx) =>
@@ -36,7 +40,7 @@ export function invite({ db, barId, userId }: Ctx, role: repo.InvitationRow["rol
   return { id, token, role, expires_at };
 }
 
-function requireInvitation(db: Executor, token: string) {
+function requireInvitation(db: Executor, token: string): repo.FoundInvitation {
   const invitation = repo.findInvitation(db, hashToken(token));
   if (!invitation) throw notFound("Invitation");
   return invitation;
@@ -69,7 +73,7 @@ export async function registerByInvitation(
   db: Db,
   { token, email, display_name, password }: RegisterByInvitation,
   previous: string,
-) {
+): Promise<{ bar: BarSummary; session: string }> {
   requireRegistration(db, "invitation");
   requireInvitation(db, token);
   const passwordHash = await hashPassword(password);
@@ -85,10 +89,10 @@ export async function registerByInvitation(
   );
 }
 
-export const pendingInvitations = ({ db, barId }: Ctx) => ({
+export const pendingInvitations = ({ db, barId }: Ctx): { invitations: PendingInvitation[] } => ({
   invitations: repo.listPendingInvitations(db, barId),
 });
 
-export function revokeInvitation({ db, barId }: Ctx, id: string) {
+export function revokeInvitation({ db, barId }: Ctx, id: string): void {
   repo.deleteInvitation(db, barId, parseId(id, "Invitation"));
 }

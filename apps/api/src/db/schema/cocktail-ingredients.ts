@@ -1,24 +1,35 @@
 import { UNITS, unitNeedsAmount } from "@larder/shared";
-import { sql } from "drizzle-orm";
+import { type NotNull, sql } from "drizzle-orm";
 import {
   type AnySQLiteColumn,
+  type CheckBuilder,
   check,
+  type ForeignKeyBuilder,
   foreignKey,
+  type IndexBuilder,
   index,
   integer,
   real,
+  type SQLiteIntegerBuilderInitial,
   sqliteTable,
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { categories, pantryIngredients, products } from "./catalogue.ts";
 import { auditColumns, cocktails } from "./cocktails.ts";
-import { id, sqlList } from "./columns.ts";
+import { id, sqlList, type TextColumn } from "./columns.ts";
 
 /** Units a line may leave without an amount, kept in sync with the shared schema. */
 const NO_AMOUNT_UNITS = UNITS.filter((unit) => !unitNeedsAmount(unit));
 
-const orderedSource = () => ({
+const orderedSource = (): ReturnType<typeof auditColumns> & {
+  id: ReturnType<typeof id>;
+  position: NotNull<SQLiteIntegerBuilderInitial<"position">>;
+  category_id: TextColumn<"category_id">;
+  product_id: TextColumn<"product_id">;
+  pantry_ingredient_id: TextColumn<"pantry_ingredient_id">;
+  note: TextColumn<"note">;
+} => ({
   id: id(),
   ...auditColumns(),
   position: integer("position").notNull(),
@@ -33,7 +44,10 @@ type SourceColumns = Record<
   AnySQLiteColumn
 >;
 
-function sourceConstraints(table: string, t: SourceColumns) {
+function sourceConstraints(
+  table: string,
+  t: SourceColumns,
+): (CheckBuilder | ForeignKeyBuilder | IndexBuilder)[] {
   return [
     index(`${table}_bar_id_category_id_idx`).on(t.bar_id, t.category_id),
     index(`${table}_bar_id_product_id_idx`).on(t.bar_id, t.product_id),

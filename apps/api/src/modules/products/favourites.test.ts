@@ -2,12 +2,25 @@ import type { Page, Product } from "@larder/shared";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { barMembers, categories, favourites, products } from "../../db/schema/index.ts";
-import { cookieFor, createTestApp, readJson as json, jsonRequest } from "../../test/app.ts";
+import {
+  cookieFor,
+  createTestApp,
+  readJson as json,
+  jsonRequest,
+  type TestApp,
+} from "../../test/app.ts";
 
 const UNKNOWN = "01a1f326-d941-7d74-8a40-504a488cd388";
 
 /** Alice owns her bar; Bob is a viewer in it and owns the second bar. */
-function setup() {
+function setup(): TestApp & {
+  bobCookie: string;
+  bar: string;
+  cat: (barId?: string) => string;
+  send: (method: string, path: string, cookie?: string) => Response | Promise<Response>;
+  bottle: (name: string) => Promise<Product>;
+  names: (query?: string, cookie?: string) => Promise<string[]>;
+} {
   const t = createTestApp();
   t.db
     .insert(barMembers)
@@ -15,19 +28,19 @@ function setup() {
     .run();
   const bobCookie = cookieFor(t.db, t.bob.userId);
   const bar = `/api/bars/${t.alice.barId}`;
-  const cat = (barId = t.alice.barId) =>
+  const cat = (barId: string = t.alice.barId): string =>
     t.db
       .select({ id: categories.id })
       .from(categories)
       .where(and(eq(categories.bar_id, barId), eq(categories.name, "Gin")))
       .get()?.id as string;
-  const send = (method: string, path: string, cookie?: string) =>
+  const send = (method: string, path: string, cookie?: string): Response | Promise<Response> =>
     t.app.request(`${bar}/${path}`, jsonRequest(method, undefined, cookie));
-  const bottle = async (name: string) =>
+  const bottle = async (name: string): Promise<Product> =>
     json<Product>(
       await t.app.request(`${bar}/products`, jsonRequest("POST", { name, category_id: cat() })),
     );
-  const names = async (query = "", cookie?: string) =>
+  const names = async (query: string = "", cookie?: string): Promise<string[]> =>
     (await json<Page<Product>>(await send("GET", `products?${query}`, cookie))).items.map(
       (p) => `${p.name}${p.is_favourite ? " ♥" : ""}`,
     );

@@ -10,7 +10,14 @@ import {
 import type { Executor } from "../../db/client.ts";
 import { decodeCursor, toPage } from "../../db/cursor.ts";
 import { onUniqueViolation } from "../../db/errors.ts";
-import { conflict, invalid, notFound, parseId, refuseDeleteIfUsed } from "../../errors.ts";
+import {
+  type AppError,
+  conflict,
+  invalid,
+  notFound,
+  parseId,
+  refuseDeleteIfUsed,
+} from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { listAllCategories } from "../categories/repo.ts";
 import { requireCategoryRef } from "../categories/service.ts";
@@ -44,7 +51,7 @@ function requireIngredient(db: Executor, barId: string, id: string | undefined):
 }
 
 /** The duplicate is reported on the `name` field, so forms can show it there. */
-const duplicateName = (name: string) => () => {
+const duplicateName = (name: string) => (): AppError => {
   const message = `An ingredient named "${name}" already exists in this category`;
   return conflict(message, [{ path: ["name"], message }]);
 };
@@ -53,7 +60,7 @@ export function getPantryIngredient(ctx: Ctx, id: string | undefined): PantryIng
   return requireIngredient(ctx.db, ctx.barId, id);
 }
 
-function requirePantryCategory(db: Executor, barId: string, categoryId: string) {
+function requirePantryCategory(db: Executor, barId: string, categoryId: string): void {
   const category = requireCategoryRef(db, barId, categoryId);
   if (!isPantryCategoryKind(category.kind)) {
     const message = "Choose a category for pantry ingredients";

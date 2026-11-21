@@ -5,7 +5,17 @@ import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { categories, pantryIngredients } from "../../db/schema/index.ts";
 
-const columns = {
+const columns: Pick<
+  typeof pantryIngredients,
+  | "id"
+  | "name"
+  | "category_id"
+  | "in_stock"
+  | "always_available"
+  | "image_id"
+  | "created_at"
+  | "updated_at"
+> & { category_name: typeof categories.name } = {
   id: pantryIngredients.id,
   name: pantryIngredients.name,
   category_id: pantryIngredients.category_id,
@@ -17,7 +27,7 @@ const columns = {
   updated_at: pantryIngredients.updated_at,
 };
 
-const nameKey = sql<string>`larder_name_key(${pantryIngredients.name})`;
+const nameKey: SQL<string> = sql<string>`larder_name_key(${pantryIngredients.name})`;
 
 export type NewPantryIngredient = typeof pantryIngredients.$inferInsert;
 export type PantryIngredientChanges = Partial<
@@ -34,6 +44,7 @@ export interface PantryIngredientFilter {
 }
 
 /** Ingredients joined with their category (same bar, enforced by the foreign key). */
+// biome-ignore lint/nursery/useExplicitType: Drizzle infers the result shape and nullability from the selected fields and joins.
 const selectIngredients = <E extends SelectedFields>(db: Executor, extra: E) =>
   db
     .select({ ...columns, ...extra })

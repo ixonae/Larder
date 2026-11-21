@@ -2,7 +2,14 @@ import { SESSION_REQUEST_HEADER } from "@larder/shared";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { sessions } from "../db/schema/index.ts";
-import { ALICE, cookieFor, createTestApp, errorOf, jsonRequest } from "../test/app.ts";
+import {
+  ALICE,
+  cookieFor,
+  createTestApp,
+  errorOf,
+  jsonRequest,
+  type TestApp,
+} from "../test/app.ts";
 import { SESSION_COOKIE } from "./middleware.ts";
 import { hashPassword } from "./password.ts";
 import { requireOwnerAccount, setOwnerPassword } from "./service.ts";
@@ -14,15 +21,23 @@ beforeAll(async () => {
   passwordHash = await hashPassword(PASSWORD);
 });
 
-function setup(publicUrl?: string) {
+function setup(publicUrl?: string): Omit<TestApp, "cookie"> & {
+  cookie: string;
+  signIn: (
+    email?: string,
+    password?: string,
+    cookie?: string,
+    remoteAddress?: string,
+  ) => Response | Promise<Response>;
+} {
   const t = createTestApp({ publicUrl });
   setOwnerPassword(t.db, t.alice.userId, passwordHash, false);
   const signIn = (
-    email = ALICE.email as string,
-    password = PASSWORD,
-    cookie = "",
-    remoteAddress = "192.0.2.1",
-  ) =>
+    email: string = ALICE.email as string,
+    password: string = PASSWORD,
+    cookie: string = "",
+    remoteAddress: string = "192.0.2.1",
+  ): Response | Promise<Response> =>
     t.rawRequest(
       "/api/auth/sign-in",
       {

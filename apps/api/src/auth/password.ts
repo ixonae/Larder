@@ -16,7 +16,9 @@ const scryptAsync = promisify(scrypt) as (
   options: typeof COST,
 ) => Promise<Buffer>;
 
-function parseHash(stored: string) {
+function parseHash(
+  stored: string,
+): { salt: Buffer<ArrayBuffer>; key: Buffer<ArrayBuffer> } | undefined {
   const match = PASSWORD_HASH_PATTERN.exec(stored);
   if (!match) return undefined;
   // Both capture groups are mandatory.

@@ -1,5 +1,5 @@
 import type { ListTagsQuery } from "@larder/shared";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, type SQL, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import {
@@ -12,16 +12,16 @@ import {
 } from "../../db/schema/index.ts";
 import { nameKey } from "./repo.ts";
 
-const steps = cocktailSteps;
-const tools = cocktailUtensils;
-const tagColumns = { id: tags.id, name: tags.name };
-const tagKey = sql<string>`larder_name_key(${tags.name})`;
+const steps: typeof cocktailSteps = cocktailSteps;
+const tools: typeof cocktailUtensils = cocktailUtensils;
+const tagColumns: Pick<typeof tags, "id" | "name"> = { id: tags.id, name: tags.name };
+const tagKey: SQL<string> = sql<string>`larder_name_key(${tags.name})`;
 type RecipeOwner = { bar_id: string; created_by: string; cocktail_id: string };
 
 /** Keep each insert below SQLite's parameter limit even for a large recipe. */
 const STEP_BATCH_SIZE = 250;
 
-export function insertSteps(db: Executor, owner: RecipeOwner, input: { text: string }[]) {
+export function insertSteps(db: Executor, owner: RecipeOwner, input: { text: string }[]): void {
   for (let offset = 0; offset < input.length; offset += STEP_BATCH_SIZE) {
     const batch = input.slice(offset, offset + STEP_BATCH_SIZE).map(({ text }, index) => ({
       ...owner,
@@ -32,28 +32,28 @@ export function insertSteps(db: Executor, owner: RecipeOwner, input: { text: str
   }
 }
 
-export function replaceSteps(db: Executor, owner: RecipeOwner, input: { text: string }[]) {
+export function replaceSteps(db: Executor, owner: RecipeOwner, input: { text: string }[]): void {
   db.delete(steps)
     .where(and(eq(steps.bar_id, owner.bar_id), eq(steps.cocktail_id, owner.cocktail_id)))
     .run();
   insertSteps(db, owner, input);
 }
 
-export function insertTools(db: Executor, owner: RecipeOwner, toolIds: string[]) {
+export function insertTools(db: Executor, owner: RecipeOwner, toolIds: string[]): void {
   for (const utensil_id of new Set(toolIds))
     db.insert(tools)
       .values({ ...owner, utensil_id })
       .run();
 }
 
-export function replaceTools(db: Executor, owner: RecipeOwner, toolIds: string[]) {
+export function replaceTools(db: Executor, owner: RecipeOwner, toolIds: string[]): void {
   db.delete(tools)
     .where(and(eq(tools.bar_id, owner.bar_id), eq(tools.cocktail_id, owner.cocktail_id)))
     .run();
   insertTools(db, owner, toolIds);
 }
 
-export function replaceTags(db: Executor, owner: RecipeOwner, names: string[]) {
+export function replaceTags(db: Executor, owner: RecipeOwner, names: string[]): void {
   db.delete(cocktailTags)
     .where(
       and(eq(cocktailTags.bar_id, owner.bar_id), eq(cocktailTags.cocktail_id, owner.cocktail_id)),
@@ -81,7 +81,11 @@ export function replaceTags(db: Executor, owner: RecipeOwner, names: string[]) {
       .run();
 }
 
-export function listSteps(db: Executor, barId: string, cocktailId: string) {
+export function listSteps(
+  db: Executor,
+  barId: string,
+  cocktailId: string,
+): { id: string; text: string; position: number }[] {
   return db
     .select({ id: steps.id, text: steps.text, position: steps.position })
     .from(steps)
@@ -90,7 +94,11 @@ export function listSteps(db: Executor, barId: string, cocktailId: string) {
     .all();
 }
 
-export function listTools(db: Executor, barId: string, cocktailId: string) {
+export function listTools(
+  db: Executor,
+  barId: string,
+  cocktailId: string,
+): { id: string; name: string }[] {
   return db
     .select({ id: utensils.id, name: utensils.name })
     .from(tools)
@@ -100,7 +108,11 @@ export function listTools(db: Executor, barId: string, cocktailId: string) {
     .all();
 }
 
-export function listCocktailTags(db: Executor, barId: string, cocktailId: string) {
+export function listCocktailTags(
+  db: Executor,
+  barId: string,
+  cocktailId: string,
+): { id: string; name: string }[] {
   return db
     .select(tagColumns)
     .from(cocktailTags)
@@ -110,7 +122,11 @@ export function listCocktailTags(db: Executor, barId: string, cocktailId: string
     .all();
 }
 
-export function listToolUsage(db: Executor, barId: string, toolId: string) {
+export function listToolUsage(
+  db: Executor,
+  barId: string,
+  toolId: string,
+): { id: string; name: string }[] {
   return db
     .select({ id: cocktails.id, name: cocktails.name })
     .from(tools)
@@ -128,7 +144,7 @@ export function listTags(
   barId: string,
   { q, limit }: ListTagsQuery,
   after: NameCursor | undefined,
-) {
+): { id: string; name: string; key: string }[] {
   return db
     .select({ ...tagColumns, key: tagKey })
     .from(tags)

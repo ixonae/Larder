@@ -1,5 +1,5 @@
 import { serveStatic } from "@hono/node-server/serve-static";
-import type { MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler, Next } from "hono";
 import type { AppEnv } from "./types.ts";
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
@@ -14,9 +14,9 @@ const ASSETS = "/assets/";
 export function webApp(root: string): MiddlewareHandler<AppEnv> {
   const files = serveStatic<AppEnv>({ root });
   const index = serveStatic<AppEnv>({ root, path: "index.html" });
-  const noop = async () => {};
+  const noop = async (): Promise<void> => {};
 
-  return async (c, next) => {
+  return async (c: Context<AppEnv>, next: Next) => {
     const path = c.req.path;
     if (path === "/api" || path.startsWith("/api/")) return next();
     const isAsset = path.startsWith(ASSETS);

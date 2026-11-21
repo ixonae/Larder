@@ -19,7 +19,7 @@ import {
   withCataloguePictures,
 } from "./import.ts";
 
-function lines(file: string) {
+function lines(file: string): string[] {
   return readFileSync(new URL(file, import.meta.url), "utf8")
     .trim()
     .split(/\r?\n/);
@@ -37,7 +37,7 @@ const glassware = lines("./glassware.txt").map((name) =>
 const glassNames = new Set([...recipes.map(({ glass }) => glass), ...glassware]);
 const tools = lines("./tools.txt").map((name) => createUtensilSchema.shape.name.parse(name));
 
-const rootCategories = [
+const rootCategories: ReadonlyArray<readonly [string, CategoryKind]> = [
   ["Beer", "beer"],
   ["Bitters", "bitters"],
   ["Garnish", "garnish"],
@@ -48,9 +48,9 @@ const rootCategories = [
   ["Spirit", "spirit"],
   ["Syrup", "syrup"],
   ["Wine", "wine"],
-] as const satisfies readonly (readonly [string, CategoryKind])[];
+];
 
-function readIcon(directory: string, slug: string, side = 512) {
+function readIcon(directory: string, slug: string, side: number = 512): ProcessedImage {
   return {
     full: readFileSync(new URL(`./${directory}/${slug}.webp`, import.meta.url)),
     thumb: readFileSync(new URL(`./${directory}/thumbnails/${slug}.webp`, import.meta.url)),
@@ -76,7 +76,7 @@ const rootCategoryCatalogue: Catalogue = {
   ),
 };
 
-function pantryIconSlug(name: string) {
+function pantryIconSlug(name: string): string {
   return nameKey(name)
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
@@ -107,7 +107,10 @@ const cataloguePantryPictures = new Map(
     ),
 );
 
-function utensilPicture(kind: UtensilKind, name: string) {
+function utensilPicture(
+  kind: UtensilKind,
+  name: string,
+): readonly [`${UtensilKind}:${string}`, ProcessedImage] {
   const directory = { glass: "glassware-icons", tool: "tool-icons" }[kind];
   const slug = name
     .normalize("NFD")
@@ -169,7 +172,7 @@ const newBarPictures = new Map([...cataloguePictures, ...rootCategoryPictures]);
 export async function addStarterCatalogue(
   ctx: Pick<Ctx, "db" | "storage" | "barId" | "userId">,
   initializeBar: (tx: Tx) => void,
-) {
+): Promise<void> {
   const { db, barId, userId } = ctx;
   await withCataloguePictures(ctx, newBarPictures, (staged) =>
     db.transaction((tx) => {
@@ -191,14 +194,18 @@ export function skipStarterCatalogue(db: Executor, barId: string): void {
 }
 
 /** Imports the starter pack unless the bar opted out. */
-export async function seedStarterCatalogue(db: Db, storage: ImageStorage, barId: string) {
+export async function seedStarterCatalogue(
+  db: Db,
+  storage: ImageStorage,
+  barId: string,
+): Promise<void> {
   if (db.select().from(barDataMigrations).where(catalogueRecord(barId, optedOut)).get()) return;
   await importCatalogue(db, storage, barId, catalogue);
   await importCatalogue(db, storage, barId, rootCategoryCatalogue);
 }
 
 /** Backfill existing bars and seed the default bar once it has been created. */
-export async function migrateStarterCatalogues(db: Db, storage: ImageStorage) {
+export async function migrateStarterCatalogues(db: Db, storage: ImageStorage): Promise<void> {
   const allBars = db.select({ id: bars.id }).from(bars).all();
   // Backfill one bar at a time to keep catalogue staging bounded during startup.
   for (const { id } of allBars) {

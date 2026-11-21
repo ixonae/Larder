@@ -3,14 +3,15 @@ import { and, asc, eq, gt, lte, sql } from "drizzle-orm";
 import type { Db, Executor, Tx } from "../db/client.ts";
 import { installationSettings, passwordCredentials, sessions, users } from "../db/schema/index.ts";
 
-const userColumns = {
+const userColumns: Pick<typeof users, "id" | "email" | "display_name" | "is_admin"> = {
   id: users.id,
   email: users.email,
   display_name: users.display_name,
   is_admin: users.is_admin,
 };
 
-export const adminUserColumns = {
+export const adminUserColumns: typeof userColumns &
+  Pick<typeof users, "disabled" | "last_login_at"> = {
   ...userColumns,
   disabled: users.disabled,
   last_login_at: users.last_login_at,
@@ -36,7 +37,11 @@ export function insertPassword(db: Executor, userId: string, passwordHash: strin
   db.insert(passwordCredentials).values({ user_id: userId, password_hash: passwordHash }).run();
 }
 
-export function findCredentials(db: Executor, column: "email" | "id", value: string) {
+export function findCredentials(
+  db: Executor,
+  column: "email" | "id",
+  value: string,
+): { userId: string; hash: string } | undefined {
   return db
     .select({ userId: users.id, hash: passwordCredentials.password_hash })
     .from(users)
@@ -88,7 +93,7 @@ export function replacePassword(db: Executor, userId: string, passwordHash: stri
   deleteUserSessions(db, userId);
 }
 
-export function findUserByEmail(db: Executor, email: string) {
+export function findUserByEmail(db: Executor, email: string): { id: string } | undefined {
   return db.select({ id: users.id }).from(users).where(eq(users.email, email)).get();
 }
 

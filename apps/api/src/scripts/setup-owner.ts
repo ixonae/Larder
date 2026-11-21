@@ -19,7 +19,7 @@ export interface Io {
 }
 
 /** Initializes the owner credential, or replaces it on an explicit reset. */
-export async function main(io: Io, db: Db, reset = false): Promise<number> {
+export async function main(io: Io, db: Db, reset: boolean = false): Promise<number> {
   const password = await io.readPassword("Password: ");
   if (!newAccountSchema.shape.password.safeParse(password).success) {
     io.err(`Use ${MIN_PASSWORD_LENGTH} to ${MAX_PASSWORD_LENGTH} characters.`);
@@ -43,17 +43,24 @@ export async function main(io: Io, db: Db, reset = false): Promise<number> {
  * A stream that forwards to `target` until `mute()` is called. readline echoes what is typed to its
  * output, so muting it right after the prompt is written hides the password (public API only).
  */
-export function muteableOutput(target: NodeJS.WritableStream) {
+export function muteableOutput(target: NodeJS.WritableStream): {
+  stream: Writable;
+  mute: () => void;
+} {
   let muted = false;
   const stream = new Writable({
-    write(chunk: Buffer, _encoding, callback) {
+    write(
+      chunk: Buffer,
+      _encoding: BufferEncoding,
+      callback: (error?: Error | null) => void,
+    ): void {
       if (!muted) target.write(chunk);
       callback();
     },
   });
   return {
     stream,
-    mute: () => {
+    mute: (): void => {
       muted = true;
     },
   };
@@ -62,7 +69,7 @@ export function muteableOutput(target: NodeJS.WritableStream) {
 /* v8 ignore start -- terminal I/O wiring for the CLI entry point; `main` above is what is tested. */
 const terminalIo: Io = {
   interactive: Boolean(process.stdin.isTTY),
-  async readPassword(prompt) {
+  async readPassword(prompt: string): Promise<string> {
     if (!process.stdin.isTTY) {
       const rl = createInterface({ input: process.stdin, terminal: false });
       const line = await rl.question("");
@@ -78,8 +85,8 @@ const terminalIo: Io = {
     process.stderr.write("\n");
     return line;
   },
-  out: (line) => process.stdout.write(`${line}\n`),
-  err: (line) => process.stderr.write(`${line}\n`),
+  out: (line: string): boolean => process.stdout.write(`${line}\n`),
+  err: (line: string): boolean => process.stderr.write(`${line}\n`),
 };
 
 if (import.meta.main) {

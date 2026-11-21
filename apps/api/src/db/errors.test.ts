@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { onUniqueViolation } from "./errors.ts";
 
-const fail = (err: unknown) => () => {
+const fail = (err: unknown) => (): never => {
   throw err;
 };
-const duplicate = () => new Error("duplicate");
+const duplicate = (): Error => new Error("duplicate");
 
 describe("onUniqueViolation", () => {
   it("returns the result", () => {

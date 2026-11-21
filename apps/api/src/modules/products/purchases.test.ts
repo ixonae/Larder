@@ -2,25 +2,43 @@ import type { CocktailDetail, Product, Purchase, PurchaseList } from "@larder/sh
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 import { barMembers, bars, categories, productPurchases, products } from "../../db/schema/index.ts";
-import { createTestApp, errorOf, readJson as json, jsonRequest } from "../../test/app.ts";
+import {
+  createTestApp,
+  errorOf,
+  readJson as json,
+  jsonRequest,
+  type TestApp,
+} from "../../test/app.ts";
 
 const UNKNOWN = "01a1f326-d941-7d74-8a40-504a488cd388";
 
-function setup() {
+function setup(): TestApp & {
+  bar: string;
+  cat: (name: string, barId?: string) => string;
+  send: (method: string, path: string, body?: unknown) => Response | Promise<Response>;
+  bottle: (status?: string, name?: string) => Promise<Product>;
+  product: (id: string) => Promise<Product>;
+  buy: (id: string, body?: object) => Promise<Purchase[]>;
+  finish: (id: string, body?: object) => Response | Promise<Response>;
+  history: (id: string) => Promise<Purchase[]>;
+  patch: (id: string, purchaseId: string, body: object) => Response | Promise<Response>;
+  rows: () => (typeof productPurchases.$inferSelect)[];
+} {
   const t = createTestApp();
   const bar = `/api/bars/${t.alice.barId}`;
-  const cat = (name: string, barId = t.alice.barId) =>
+  const cat = (name: string, barId: string = t.alice.barId): string =>
     t.db
       .select({ id: categories.id })
       .from(categories)
       .where(and(eq(categories.bar_id, barId), eq(categories.name, name)))
       .get()?.id as string;
-  const send = (method: string, path: string, body?: unknown) =>
+  const send = (method: string, path: string, body?: unknown): Response | Promise<Response> =>
     t.app.request(`${bar}/${path}`, jsonRequest(method, body));
-  const bottle = async (status = "tasted", name = "Hendrick's") =>
+  const bottle = async (status: string = "tasted", name: string = "Hendrick's"): Promise<Product> =>
     json<Product>(await send("POST", "products", { name, category_id: cat("Gin"), status }));
-  const product = async (id: string) => json<Product>(await send("GET", `products/${id}`));
-  const buy = async (id: string, body: object = {}) => {
+  const product = async (id: string): Promise<Product> =>
+    json<Product>(await send("GET", `products/${id}`));
+  const buy = async (id: string, body: object = {}): Promise<Purchase[]> => {
     const res = await send("POST", `products/${id}/purchases`, {
       bought_on: "2026-11-01",
       ...body,
@@ -28,12 +46,14 @@ function setup() {
     expect(res.status).toBe(201);
     return (await json<PurchaseList>(res)).items;
   };
-  const finish = (id: string, body: object = {}) => send("POST", `products/${id}/finish`, body);
-  const history = async (id: string) =>
+  const finish = (id: string, body: object = {}): Response | Promise<Response> =>
+    send("POST", `products/${id}/finish`, body);
+  const history = async (id: string): Promise<Purchase[]> =>
     (await json<PurchaseList>(await send("GET", `products/${id}/purchases`))).items;
-  const patch = (id: string, purchaseId: string, body: object) =>
+  const patch = (id: string, purchaseId: string, body: object): Response | Promise<Response> =>
     send("PATCH", `products/${id}/purchases/${purchaseId}`, body);
-  const rows = () => t.db.select().from(productPurchases).all();
+  const rows = (): (typeof productPurchases.$inferSelect)[] =>
+    t.db.select().from(productPurchases).all();
   return { ...t, bar, cat, send, bottle, product, buy, finish, history, patch, rows };
 }
 
@@ -212,7 +232,8 @@ describe("PATCH /products/:id/purchases/:purchaseId", () => {
     const t = setup();
     const gin = await t.bottle();
     const [purchase] = (await t.buy(gin.id)) as [Purchase];
-    const edit = async (body: object) => json<Purchase>(await t.patch(gin.id, purchase.id, body));
+    const edit = async (body: object): Promise<Purchase> =>
+      json<Purchase>(await t.patch(gin.id, purchase.id, body));
     expect(await edit({ notes: "Gift" })).toMatchObject({ price_minor: null, currency: null });
     expect(await edit({ price_minor: 1000 })).toMatchObject({ price_minor: 1000, currency: "JPY" });
     expect(await edit({ currency: "USD" })).toMatchObject({ price_minor: 1000, currency: "USD" });

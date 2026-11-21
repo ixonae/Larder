@@ -1,4 +1,10 @@
-import { type BarSummary, barMembersSchema, CURRENCY_CODES, type Me } from "@larder/shared";
+import {
+  type BarSummary,
+  barMembersSchema,
+  CURRENCY_CODES,
+  type CurrencyCode,
+  type Me,
+} from "@larder/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { barMembers, bars } from "../../db/schema/index.ts";
@@ -10,7 +16,7 @@ import {
   jsonRequest,
 } from "../../test/app.ts";
 
-const currencyOf = (t: ReturnType<typeof createTestApp>, barId: string) =>
+const currencyOf = (t: ReturnType<typeof createTestApp>, barId: string): CurrencyCode | undefined =>
   t.db.select({ currency: bars.currency }).from(bars).where(eq(bars.id, barId)).get()?.currency;
 
 describe("bar currency", () => {
@@ -54,7 +60,8 @@ describe("bar currency", () => {
   it("is changed by the owner, alone or with the name, without touching anything else", async () => {
     const t = createTestApp();
     const path = `/api/bars/${t.alice.barId}`;
-    const patch = (body: unknown) => t.app.request(path, jsonRequest("PATCH", body));
+    const patch = (body: unknown): Response | Promise<Response> =>
+      t.app.request(path, jsonRequest("PATCH", body));
 
     const first = await patch({ currency: "USD" });
     expect(first.status).toBe(200);
@@ -123,9 +130,13 @@ describe("bar member management", () => {
     const bar = `/api/bars/${t.alice.barId}`;
     const member = `${bar}/members/${t.bob.userId}`;
     const session = cookieFor(t.db, t.bob.userId);
-    const asBob = (path: string, method = "GET", body?: unknown) =>
-      t.app.request(path, jsonRequest(method, body, session));
-    const changeRole = (role: string) => t.app.request(member, jsonRequest("PATCH", { role }));
+    const asBob = (
+      path: string,
+      method: string = "GET",
+      body?: unknown,
+    ): Response | Promise<Response> => t.app.request(path, jsonRequest(method, body, session));
+    const changeRole = (role: string): Response | Promise<Response> =>
+      t.app.request(member, jsonRequest("PATCH", { role }));
     t.db
       .insert(barMembers)
       .values({ bar_id: t.alice.barId, user_id: t.bob.userId, role: "viewer" })

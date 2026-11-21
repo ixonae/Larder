@@ -15,7 +15,7 @@ import {
   type UtensilKind,
   unitSchema,
 } from "@larder/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { insertCategory, listAllCategories } from "../../modules/categories/repo.ts";
 import { insertIngredients } from "../../modules/cocktails/ingredients.ts";
@@ -117,7 +117,7 @@ export function pantryPictureKey(
   return `pantry:${JSON.stringify([kind, path.map((name) => nameKey(name)), nameKey(name)])}`;
 }
 
-const scopedCategoryKey = (parentId: string | null, name: string) =>
+const scopedCategoryKey = (parentId: string | null, name: string): string =>
   JSON.stringify([parentId, nameKey(name)]);
 
 const importedCocktailSchema = createCocktailSchema.omit({ tags: true }).required({
@@ -126,7 +126,7 @@ const importedCocktailSchema = createCocktailSchema.omit({ tags: true }).require
   tool_ids: true,
 });
 
-export const catalogueRecord = (barId: string, id: string) =>
+export const catalogueRecord = (barId: string, id: string): SQL | undefined =>
   and(eq(barDataMigrations.bar_id, barId), eq(barDataMigrations.migration, id));
 
 function required<K, V>(map: ReadonlyMap<K, V>, key: K): V {
@@ -141,7 +141,7 @@ function availableName<T, K>(
   kind: K,
   find: (name: string) => T | undefined,
   kindOf: (row: T) => K,
-) {
+): { name: string; existing: T | undefined } {
   const existing = find(name);
   if (!existing || kindOf(existing) === kind) return { name, existing };
   for (let index = 1; ; index++) {
@@ -162,7 +162,10 @@ function catalogueCategoryLookup(
   audit: ImportAudit,
   existingRootPictureKinds: Catalogue["existingRootPictureKinds"],
   trackImage: TrackImage,
-) {
+): {
+  ensureCategory: (category: CatalogueCategory) => Category;
+  categoriesById: Map<string, Category>;
+} {
   const catalogueCategories = listAllCategories(tx, audit.bar_id);
   if (existingRootPictureKinds) {
     for (const { id, name, kind, parent_id } of catalogueCategories) {
@@ -211,7 +214,7 @@ function importSources(
   catalogue: Catalogue,
   { ensureCategory, categoriesById }: ReturnType<typeof catalogueCategoryLookup>,
   trackImage: TrackImage,
-) {
+): Map<string, IngredientSource> {
   const sources = new Map<string, IngredientSource>();
   // Materialize explicit ABV defaults before any source creates a category by reference.
   for (const source of catalogue.sources) {
@@ -280,7 +283,7 @@ function attachCatalogueImages(
   barId: string,
   staged: ReadonlyMap<string, StagedImage>,
   targets: ReadonlyMap<string, ImageTarget>,
-) {
+): Set<string> {
   const used = new Set<string>();
   for (const [key, image] of staged) {
     const target = targets.get(key);
@@ -299,9 +302,9 @@ function insertCatalogue(
   userId: string,
   catalogue: Catalogue,
   staged: ReadonlyMap<string, StagedImage>,
-) {
+): Set<string> {
   const targets = new Map<string, ImageTarget>();
-  const trackImage = (key: string, entity: ImageEntity, id: string) => {
+  const trackImage = (key: string, entity: ImageEntity, id: string): void => {
     if (staged.has(key)) targets.set(key, { entity, id });
   };
   const audit = { bar_id: barId, created_by: userId };
@@ -320,7 +323,7 @@ function insertCatalogue(
       .all()
       .map(({ id, name, kind }) => [nameKey(name), { id, kind }]),
   );
-  function ensureUtensil(name: string, kind: UtensilKind) {
+  function ensureUtensil(name: string, kind: UtensilKind): string {
     const slot = availableName(
       name,
       kind,
@@ -387,7 +390,7 @@ export function applyCatalogue(
   userId: string,
   catalogue: Catalogue,
   staged: ReadonlyMap<string, StagedImage>,
-) {
+): Set<string> {
   const attached = insertCatalogue(tx, barId, userId, catalogue, staged);
   tx.insert(barDataMigrations).values({ bar_id: barId, migration: catalogue.id }).run();
   return attached;
@@ -398,7 +401,7 @@ export async function withCataloguePictures(
   ctx: Pick<Ctx, "barId" | "userId" | "storage">,
   pictures: Catalogue["pictures"],
   apply: (staged: ReadonlyMap<string, StagedImage>) => ReadonlySet<string>,
-) {
+): Promise<void> {
   const staged = new Map<string, StagedImage>();
   const preparedPictures = new Map<ProcessedImage, StagedImage>();
   let used: ReadonlySet<string> = new Set();
@@ -431,9 +434,10 @@ export async function importCatalogue(
   storage: ImageStorage,
   barId: string,
   catalogue: Catalogue,
-) {
+): Promise<void> {
   const record = catalogueRecord(barId, catalogue.id);
-  const alreadyImported = () => db.select().from(barDataMigrations).where(record).get();
+  const alreadyImported = (): typeof barDataMigrations.$inferSelect | undefined =>
+    db.select().from(barDataMigrations).where(record).get();
   if (alreadyImported()) return;
   const bar = db.select().from(bars).where(eq(bars.id, barId)).get();
   if (!bar) throw new Error(`Unknown bar: ${barId}`);

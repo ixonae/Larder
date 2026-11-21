@@ -16,7 +16,11 @@ export function insertBar(
 }
 
 /** The fields of a `BarSummary` that come from the bar itself (the role comes from the membership). */
-export const barSummaryColumns = { id: bars.id, name: bars.name, currency: bars.currency };
+export const barSummaryColumns: Pick<typeof bars, "id" | "name" | "currency"> = {
+  id: bars.id,
+  name: bars.name,
+  currency: bars.currency,
+};
 
 /** The bar with the user's role in it (`null` when they are not a member), or undefined if it does not exist. */
 export function findBarForMember(
@@ -42,14 +46,19 @@ export function listMembers(db: Db, barId: string): BarMember[] {
     .all();
 }
 
-export function updateMember(db: Tx, barId: string, userId: string, changes: UpdateBarMember) {
+export function updateMember(
+  db: Tx,
+  barId: string,
+  userId: string,
+  changes: UpdateBarMember,
+): void {
   db.update(barMembers)
     .set(changes)
     .where(and(eq(barMembers.bar_id, barId), eq(barMembers.user_id, userId)))
     .run();
 }
 
-export function deleteMember(db: Tx, barId: string, userId: string) {
+export function deleteMember(db: Tx, barId: string, userId: string): void {
   db.delete(barMembers)
     .where(and(eq(barMembers.bar_id, barId), eq(barMembers.user_id, userId)))
     .run();
@@ -68,7 +77,10 @@ export function listAllBars(db: Db): AdminBar[] {
     .all();
 }
 
-export function listBarImageFiles(tx: Tx, barId: string) {
+export function listBarImageFiles(
+  tx: Tx,
+  barId: string,
+): { storage_key: string; thumb_key: string }[] {
   return tx
     .select({ storage_key: images.storage_key, thumb_key: images.thumb_key })
     .from(images)

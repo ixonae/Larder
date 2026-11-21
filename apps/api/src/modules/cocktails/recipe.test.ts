@@ -1,15 +1,24 @@
 import { cocktailDetailSchema, tagPageSchema, type Utensil } from "@larder/shared";
 import { expect, test } from "vitest";
+import type { Db } from "../../db/client.ts";
 import { tags, utensils } from "../../db/schema/index.ts";
-import { createTestApp, errorOf, jsonRequest, readJson } from "../../test/app.ts";
+import { createTestApp, errorOf, jsonRequest, readJson, type TestApp } from "../../test/app.ts";
 
-function setup() {
+function setup(): {
+  app: TestApp["app"];
+  db: Db;
+  bob: { userId: string; barId: string };
+  bar: string;
+  cocktails: string;
+  create: (name: string, recipe: object) => Response | Promise<Response>;
+  utensil: (name: string, kind: "tool" | "glass") => Promise<Utensil>;
+} {
   const { app, db, alice, bob } = createTestApp();
   const bar = `/api/bars/${alice.barId}`;
   const cocktails = `${bar}/cocktails`;
-  const create = (name: string, recipe: object) =>
+  const create = (name: string, recipe: object): Response | Promise<Response> =>
     app.request(cocktails, jsonRequest("POST", { name, method: "stirred", ...recipe }));
-  const utensil = async (name: string, kind: "tool" | "glass") => {
+  const utensil = async (name: string, kind: "tool" | "glass"): Promise<Utensil> => {
     const res = await app.request(`${bar}/utensils`, jsonRequest("POST", { name, kind }));
     expect(res.status).toBe(201);
     return readJson<Utensil>(res);
@@ -44,7 +53,9 @@ test("replaces recipe lists independently, keeps step order and reuses normalize
     recipe.tags.filter((tag) => tag.name === "Crème"),
   );
 
-  const listed = async (query: string) =>
+  const listed = async (
+    query: string,
+  ): Promise<{ items: { id: string; name: string }[]; next_cursor: string | null }> =>
     tagPageSchema.parse(await (await app.request(`${bar}/tags?${query}`)).json());
   const first = await listed("limit=1");
   expect(first.items).toEqual(recipe.tags.slice(0, 1));

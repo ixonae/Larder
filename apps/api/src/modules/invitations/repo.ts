@@ -15,7 +15,12 @@ export function insertInvitation(tx: Tx, invite: InvitationRow): string {
   return tx.insert(barInvitations).values(invite).returning({ id: barInvitations.id }).get().id;
 }
 
-export function findInvitation(db: Executor, digest: string) {
+export type FoundInvitation = PendingInvitation & {
+  bar_id: string;
+  bar_name: string;
+};
+
+export function findInvitation(db: Executor, digest: string): FoundInvitation | undefined {
   return db
     .select({
       id: barInvitations.id,
@@ -30,11 +35,7 @@ export function findInvitation(db: Executor, digest: string) {
     .get();
 }
 
-export function insertInvitedMember(
-  tx: Tx,
-  invitation: NonNullable<ReturnType<typeof findInvitation>>,
-  userId: string,
-): boolean {
+export function insertInvitedMember(tx: Tx, invitation: FoundInvitation, userId: string): boolean {
   const result = tx
     .insert(barMembers)
     .values({ bar_id: invitation.bar_id, user_id: userId, role: invitation.role })

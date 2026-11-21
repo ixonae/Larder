@@ -1,4 +1,6 @@
 import {
+  type AdminBar,
+  type BarMember,
   type BarSummary,
   type CreateBar,
   type CurrencyCode,
@@ -68,8 +70,10 @@ export async function createOwnedBar(
   return { id: barId, name, currency, role: "owner" };
 }
 
-export const barMembers = (db: Db, barId: string) => ({ members: repo.listMembers(db, barId) });
-export const barDirectory = (db: Db) => ({ bars: repo.listAllBars(db) });
+export const barMembers = (db: Db, barId: string): { members: BarMember[] } => ({
+  members: repo.listMembers(db, barId),
+});
+export const barDirectory = (db: Db): { bars: AdminBar[] } => ({ bars: repo.listAllBars(db) });
 
 function requireEditableMember(db: Tx, barId: string, id: string): string {
   const userId = parseId(id, "Bar member");
@@ -79,14 +83,14 @@ function requireEditableMember(db: Tx, barId: string, id: string): string {
   return userId;
 }
 
-export function updateBarMember({ db, barId }: Ctx, id: string, changes: UpdateBarMember) {
+export function updateBarMember({ db, barId }: Ctx, id: string, changes: UpdateBarMember): void {
   db.transaction(
     (tx) => repo.updateMember(tx, barId, requireEditableMember(tx, barId, id), changes),
     { behavior: "immediate" },
   );
 }
 
-export function removeBarMember({ db, barId }: Ctx, id: string) {
+export function removeBarMember({ db, barId }: Ctx, id: string): void {
   db.transaction((tx) => repo.deleteMember(tx, barId, requireEditableMember(tx, barId, id)), {
     behavior: "immediate",
   });
@@ -98,7 +102,12 @@ export function updateBar({ db, barId }: Ctx, bar: BarSummary, patch: UpdateBar)
   return { ...bar, ...patch };
 }
 
-export async function removeBar(db: Db, storage: ImageStorage, id: string, confirmedName: string) {
+export async function removeBar(
+  db: Db,
+  storage: ImageStorage,
+  id: string,
+  confirmedName: string,
+): Promise<void> {
   const barId = parseId(id, "Bar");
   const files = db.transaction(
     (tx) => {

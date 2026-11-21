@@ -76,7 +76,11 @@ export function startSession(tx: Tx, userId: string, previous: string): string {
   return createSession(tx, userId);
 }
 
-export async function signIn(db: Db, { email, password }: SignIn, previous: string) {
+export async function signIn(
+  db: Db,
+  { email, password }: SignIn,
+  previous: string,
+): Promise<string> {
   const credentials = repo.findCredentials(db, "email", email);
   const valid = await verifyPassword(password, credentials?.hash ?? DUMMY_HASH);
   const invalidCredentials = new AppError("UNAUTHORIZED", "Invalid email or password");
@@ -126,7 +130,7 @@ export function requireRegistration(db: Executor, via: Registration): void {
   }
 }
 
-export async function signUp(db: Db, data: NewAccount, previous: string) {
+export async function signUp(db: Db, data: NewAccount, previous: string): Promise<string> {
   requireRegistration(db, "public");
   const hash = await hashPassword(data.password);
   return db.transaction(
@@ -147,7 +151,12 @@ async function verifyCurrentPassword(db: Db, userId: string, password: string): 
 }
 
 /** Recheck the credential under the write lock in case of a reset or suspension while hashing. */
-function changeAccount(db: Db, userId: string, expectedHash: string, update: (tx: Tx) => void) {
+function changeAccount(
+  db: Db,
+  userId: string,
+  expectedHash: string,
+  update: (tx: Tx) => void,
+): string {
   return db.transaction(
     (tx) => {
       if (repo.findCredentials(tx, "id", userId)?.hash !== expectedHash) {
@@ -160,7 +169,7 @@ function changeAccount(db: Db, userId: string, expectedHash: string, update: (tx
   );
 }
 
-export async function changeEmail(db: Db, userId: string, data: ChangeEmail) {
+export async function changeEmail(db: Db, userId: string, data: ChangeEmail): Promise<string> {
   const expected = await verifyCurrentPassword(db, userId, data.current_password);
   return changeAccount(db, userId, expected, (tx) => {
     const existing = repo.findUserByEmail(tx, data.email);
@@ -169,7 +178,11 @@ export async function changeEmail(db: Db, userId: string, data: ChangeEmail) {
   });
 }
 
-export async function changePassword(db: Db, userId: string, data: ChangePassword) {
+export async function changePassword(
+  db: Db,
+  userId: string,
+  data: ChangePassword,
+): Promise<string> {
   // One after the other: a queue slot stands for one hash, and a wrong password skips the second.
   const expected = await verifyCurrentPassword(db, userId, data.current_password);
   const hash = await hashPassword(data.new_password);

@@ -1,7 +1,10 @@
 import { AppError } from "../errors.ts";
 
 /** Runs at most `max` tasks at once; later ones wait their turn in arrival order. */
-export function concurrencyLimit(max: number, maxWaiting: number) {
+export function concurrencyLimit(
+  max: number,
+  maxWaiting: number,
+): <T>(task: () => Promise<T>) => Promise<T> {
   let active = 0;
   const waiting: (() => void)[] = [];
   return async <T>(task: () => Promise<T>): Promise<T> => {

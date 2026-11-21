@@ -22,7 +22,7 @@ export function afterName(
 }
 
 /** The order `afterName` pages through: name key, then id to break ties. */
-export const byName = (nameKey: SQL<string>, id: SQLiteColumn) => [asc(nameKey), asc(id)];
+export const byName = (nameKey: SQL<string>, id: SQLiteColumn): SQL[] => [asc(nameKey), asc(id)];
 
 /** Rows after `after` in newest-first (key, id descending) order; no condition on the first page. */
 export function beforeKey(
@@ -35,7 +35,7 @@ export function beforeKey(
 }
 
 /** The order `beforeKey` pages through: newest key first, then id to break ties. */
-export const newestFirst = (key: SQLiteColumn, id: SQLiteColumn) => [desc(key), desc(id)];
+export const newestFirst = (key: SQLiteColumn, id: SQLiteColumn): SQL[] => [desc(key), desc(id)];
 
 export function encodeCursor({ key, id }: NameCursor): string {
   return Buffer.from(JSON.stringify([key, id])).toString("base64url");

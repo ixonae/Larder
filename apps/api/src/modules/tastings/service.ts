@@ -9,7 +9,7 @@ import {
   type UpdateTasting,
 } from "@larder/shared";
 import type { Executor } from "../../db/client.ts";
-import { decodeCursor, toPage } from "../../db/cursor.ts";
+import { decodeCursor, type NameCursor, toPage } from "../../db/cursor.ts";
 import { forbidden, notFound, parseId } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { listAllCategories } from "../categories/repo.ts";
@@ -20,7 +20,7 @@ import * as repo from "./repo.ts";
  * The author deletes their own tasting while they may write in the bar. The owner also deletes
  * tastings by people who no longer can, which nobody else could remove.
  */
-const canDelete = ({ userId, role }: Ctx, row: repo.TastingRow) =>
+const canDelete = ({ userId, role }: Ctx, row: repo.TastingRow): boolean =>
   (row.created_by === userId && hasRole(role, "editor")) ||
   (role === "owner" && !row.author_can_write);
 
@@ -53,7 +53,7 @@ function page(ctx: Ctx, rows: (repo.TastingRow & { key: string })[], limit: numb
   return { ...result, items: result.items.map((row) => toTasting(ctx, row)) };
 }
 
-const after = (cursor: string | undefined) =>
+const after = (cursor: string | undefined): NameCursor | undefined =>
   cursor === undefined ? undefined : decodeCursor(cursor);
 
 /** `GET /tastings`: the bar's journal, newest first. A category filter includes sub-categories. */

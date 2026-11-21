@@ -22,15 +22,16 @@ export class AppError extends Error {
 }
 
 /** `429` with the seconds to wait before trying again. */
-export const rateLimited = (retryAfter: number) =>
+export const rateLimited = (retryAfter: number): AppError =>
   new AppError("RATE_LIMITED", "Too many requests. Try again shortly.", undefined, {
     "Retry-After": String(retryAfter),
   });
 
-export const notFound = (what = "Resource") => new AppError("NOT_FOUND", `${what} not found`);
-export const forbidden = (message = "You do not have access to this resource") =>
+export const notFound = (what: string = "Resource"): AppError =>
+  new AppError("NOT_FOUND", `${what} not found`);
+export const forbidden = (message: string = "You do not have access to this resource"): AppError =>
   new AppError("FORBIDDEN", message);
-export const conflict = (message: string, details?: unknown) =>
+export const conflict = (message: string, details?: unknown): AppError =>
   new AppError("CONFLICT", message, details);
 /** `id` from the URL when it is a well-formed id; anything else is reported as `what` not found. */
 export function parseId(id: string | undefined, what: string): string {
@@ -39,7 +40,7 @@ export function parseId(id: string | undefined, what: string): string {
   return parsed.data;
 }
 
-export const invalid = (message: string, details?: unknown) =>
+export const invalid = (message: string, details?: unknown): AppError =>
   new AppError("VALIDATION", message, details);
 
 /** One kind of thing that can stop a delete: its `used_by` type, a plural label, and the rows. */

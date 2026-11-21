@@ -15,25 +15,30 @@ import * as repo from "./purchases-repo.ts";
 import { updateProduct, type Viewer } from "./repo.ts";
 import { requireProduct, requireProductRef } from "./service.ts";
 
-function requirePurchase(db: Executor, barId: string, productId: string, id: string | undefined) {
+function requirePurchase(
+  db: Executor,
+  barId: string,
+  productId: string,
+  id: string | undefined,
+): Purchase {
   const purchase = repo.findPurchase(db, barId, productId, parseId(id, "Purchase"));
   if (!purchase) throw notFound("Purchase");
   return purchase;
 }
 
 /** A bottle cannot run out before it was bought; reported on `finished_on` for forms. */
-function requireFinishAfterPurchase(bought_on: string, finished_on: string | null) {
+function requireFinishAfterPurchase(bought_on: string, finished_on: string | null): void {
   if (finished_on !== null && finished_on < bought_on) {
     const message = "A bottle cannot run out before the day it was bought";
     throw invalid(message, [{ path: ["finished_on"], message }]);
   }
 }
 
-const setStatus = (db: Executor, barId: string, id: string, status: Product["status"]) =>
+const setStatus = (db: Executor, barId: string, id: string, status: Product["status"]): void =>
   updateProduct(db, barId, id, { status });
 
 /** After a bottle ran out or was removed: with purchases left but none open, it is finished. */
-function finishIfNoneOpen(db: Executor, viewer: Viewer, productId: string) {
+function finishIfNoneOpen(db: Executor, viewer: Viewer, productId: string): void {
   const { stock } = requireProduct(db, viewer, productId);
   if (stock.total_count > 0 && stock.open_count === 0) {
     setStatus(db, viewer.barId, productId, "finished");
@@ -45,7 +50,7 @@ function price(
   price_minor: number | null | undefined,
   currency: CurrencyCode | null | undefined,
   fallback: CurrencyCode,
-) {
+): { price_minor: null; currency: null } | { price_minor: number; currency: CurrencyCode } {
   if (price_minor === null || price_minor === undefined) {
     return { price_minor: null, currency: null };
   }
@@ -113,7 +118,11 @@ export function updatePurchase(
  * Removes a purchase. Removing the last open bottle while finished ones remain finishes the bottle;
  * removing a finished one never changes the status.
  */
-export function deletePurchase(ctx: Ctx, productId: string | undefined, id: string | undefined) {
+export function deletePurchase(
+  ctx: Ctx,
+  productId: string | undefined,
+  id: string | undefined,
+): void {
   ctx.db.transaction((tx) => {
     const product = requireProductRef(tx, ctx.barId, productId);
     const existing = requirePurchase(tx, ctx.barId, product.id, id);

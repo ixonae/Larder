@@ -13,11 +13,11 @@ const RANK: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 4
 /** Structured logger writing one JSON object per line. */
 export function createLogger(
   level: LogLevel,
-  write: (line: string) => void = (line) => process.stdout.write(`${line}\n`),
+  write: (line: string) => void = (line: string) => process.stdout.write(`${line}\n`),
 ): Logger {
   const log =
     (lvl: Exclude<LogLevel, "silent">) =>
-    (msg: string, fields: LogFields = {}) => {
+    (msg: string, fields: LogFields = {}): void => {
       if (RANK[lvl] < RANK[level]) return;
       const core = { time: new Date().toISOString(), level: lvl, msg };
       // Core keys come first in the line and cannot be overwritten by a field of the same name.

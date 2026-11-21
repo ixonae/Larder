@@ -1,5 +1,5 @@
 import { SESSION_REQUEST_HEADER } from "@larder/shared";
-import type { Context } from "hono";
+import type { Context, TypedResponse } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import { AppError, forbidden } from "../errors.ts";
@@ -9,13 +9,13 @@ import { SESSION_TTL_SECONDS, sessionUser } from "./service.ts";
 
 export const SESSION_COOKIE = "larder_session";
 
-export const sessionCookie = (c: Context<AppEnv>) => getCookie(c, SESSION_COOKIE) ?? "";
+export const sessionCookie = (c: Context<AppEnv>): string => getCookie(c, SESSION_COOKIE) ?? "";
 
 export function writeSessionCookie(
   c: Context<AppEnv>,
   token: string,
-  maxAge = SESSION_TTL_SECONDS,
-) {
+  maxAge: number = SESSION_TTL_SECONDS,
+): void {
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "Lax",
@@ -26,7 +26,10 @@ export function writeSessionCookie(
 }
 
 /** Sets the new session cookie and answers 204. */
-export function respondWithSession(c: Context<AppEnv>, token: string) {
+export function respondWithSession(
+  c: Context<AppEnv>,
+  token: string,
+): Response & TypedResponse<null, 204, "body"> {
   writeSessionCookie(c, token);
   return c.body(null, 204);
 }

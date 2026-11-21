@@ -1,11 +1,13 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { CurrencyCode } from "@larder/shared";
+import type Database from "better-sqlite3";
 import { and, eq, getTableName } from "drizzle-orm";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
-import { openDb } from "./client.ts";
+import { type Db, openDb } from "./client.ts";
 import { MIGRATIONS_DIR, runMigrations } from "./migrate.ts";
 import {
   barDataMigrations,
@@ -37,7 +39,7 @@ import {
 } from "./schema/index.ts";
 import { DEFAULT_BAR_NAME, DEFAULT_USER, seed, seedUser } from "./seed.ts";
 
-function freshDb() {
+function freshDb(): Db {
   const db = openDb(":memory:");
   runMigrations(db);
   return db;
@@ -186,7 +188,8 @@ describe("bars table", () => {
   it("defaults the currency to JPY and refuses an unknown one", () => {
     const db = freshDb();
     const { barId } = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
-    const currency = () => db.select().from(bars).where(eq(bars.id, barId)).get()?.currency;
+    const currency = (): CurrencyCode | undefined =>
+      db.select().from(bars).where(eq(bars.id, barId)).get()?.currency;
     expect(currency()).toBe("JPY");
     for (const bad of ["jpy", "XXX", ""]) {
       expect(() =>
@@ -203,22 +206,31 @@ describe("bars table", () => {
 });
 
 describe("products table", () => {
-  function setup() {
+  function setup(): {
+    db: Db;
+    row: { bar_id: string; created_by: string; name: string };
+    aliceCat: string;
+    bobCat: string;
+  } {
     const db = freshDb();
     const alice = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
     const bob = seedUser(db, { email: "b@x.y", display_name: "B" }, "B");
-    const pick = (barId: string) =>
+    const pick = (barId: string): string =>
       db.select().from(categories).where(eq(categories.bar_id, barId)).get()?.id ?? "";
     const row = { bar_id: alice.barId, created_by: alice.userId, name: "X" };
     return { db, row, aliceCat: pick(alice.barId), bobCat: pick(bob.barId) };
   }
 
   it.each([
-    ["a category from another bar", (c: string) => ({ category_id: c }), /FOREIGN KEY/],
-    ["an abv over 100", () => ({ abv: 101 }), /CHECK/],
-    ["a negative age", () => ({ age_years: -1 }), /CHECK/],
-    ["a country name", () => ({ country: "Japan" }), /CHECK/],
-    ["a lowercase country code", () => ({ country: "jp" }), /CHECK/],
+    [
+      "a category from another bar",
+      (c: string): { category_id: string } => ({ category_id: c }),
+      /FOREIGN KEY/,
+    ],
+    ["an abv over 100", (): { abv: number } => ({ abv: 101 }), /CHECK/],
+    ["a negative age", (): { age_years: number } => ({ age_years: -1 }), /CHECK/],
+    ["a country name", (): { country: string } => ({ country: "Japan" }), /CHECK/],
+    ["a lowercase country code", (): { country: string } => ({ country: "jp" }), /CHECK/],
   ])("refuses %s", (_, override, error) => {
     const { db, row, aliceCat, bobCat } = setup();
     // Bypasses the column's TypeScript type on purpose: the database must refuse it too.
@@ -245,11 +257,15 @@ describe("products table", () => {
 });
 
 describe("product_purchases table", () => {
-  function setup() {
+  function setup(): {
+    db: Db;
+    row: { bar_id: string; created_by: string; product_id: string; bought_on: string };
+    bobBottle: string;
+  } {
     const db = freshDb();
     const alice = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
     const bob = seedUser(db, { email: "b@x.y", display_name: "B" }, "B");
-    const bottle = (barId: string, userId: string) => {
+    const bottle = (barId: string, userId: string): string => {
       const category = db.select().from(categories).where(eq(categories.bar_id, barId)).get();
       return db
         .insert(products)
@@ -267,12 +283,28 @@ describe("product_purchases table", () => {
   }
 
   it.each([
-    ["a bottle from another bar", (bob: string) => ({ product_id: bob }), /FOREIGN KEY/],
-    ["a negative price", () => ({ price_minor: -1, currency: "JPY" }), /CHECK/],
-    ["a price without a currency", () => ({ price_minor: 100 }), /CHECK/],
-    ["a currency without a price", () => ({ currency: "JPY" }), /CHECK/],
-    ["an unknown currency", () => ({ price_minor: 1, currency: "XXX" }), /CHECK/],
-    ["a finish before the purchase", () => ({ finished_on: "2026-10-31" }), /CHECK/],
+    [
+      "a bottle from another bar",
+      (bob: string): { product_id: string } => ({ product_id: bob }),
+      /FOREIGN KEY/,
+    ],
+    [
+      "a negative price",
+      (): { price_minor: number; currency: string } => ({ price_minor: -1, currency: "JPY" }),
+      /CHECK/,
+    ],
+    ["a price without a currency", (): { price_minor: number } => ({ price_minor: 100 }), /CHECK/],
+    ["a currency without a price", (): { currency: string } => ({ currency: "JPY" }), /CHECK/],
+    [
+      "an unknown currency",
+      (): { price_minor: number; currency: string } => ({ price_minor: 1, currency: "XXX" }),
+      /CHECK/,
+    ],
+    [
+      "a finish before the purchase",
+      (): { finished_on: string } => ({ finished_on: "2026-10-31" }),
+      /CHECK/,
+    ],
   ])("refuses %s", (_, override, error) => {
     const { db, row, bobBottle } = setup();
     // Bypasses the column types on purpose: the database must refuse it too.
@@ -376,7 +408,7 @@ describe("favourites table", () => {
       .values({ ...row, name: "Negroni", method: "stirred" })
       .returning()
       .get();
-    const add = (target: { product_id?: string; cocktail_id?: string }) =>
+    const add = (target: { product_id?: string; cocktail_id?: string }): Database.RunResult =>
       db
         .insert(favourites)
         .values({ ...row, ...target })
@@ -395,18 +427,23 @@ describe("favourites table", () => {
 });
 
 describe("pantry_ingredients table", () => {
-  function setup() {
+  function setup(): {
+    insert: (name: string, category_id: string) => Database.RunResult;
+    pick: (barId: string, name: string) => string;
+    alice: { userId: string; barId: string };
+    bob: { userId: string; barId: string };
+  } {
     const db = freshDb();
     const alice = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
     const bob = seedUser(db, { email: "b@x.y", display_name: "B" }, "B");
-    const pick = (barId: string, name: string) =>
+    const pick = (barId: string, name: string): string =>
       db
         .select()
         .from(categories)
         .where(and(eq(categories.bar_id, barId), eq(categories.name, name)))
         .get()?.id ?? "";
     const row = { bar_id: alice.barId, created_by: alice.userId };
-    const insert = (name: string, category_id: string) =>
+    const insert = (name: string, category_id: string): Database.RunResult =>
       db
         .insert(pantryIngredients)
         .values({ ...row, name, category_id })

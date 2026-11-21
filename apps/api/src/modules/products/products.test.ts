@@ -2,15 +2,29 @@ import type { Page, Product } from "@larder/shared";
 import { and, count, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { barMembers, categories, products } from "../../db/schema/index.ts";
-import { createTestApp, errorOf, readJson as json, jsonRequest } from "../../test/app.ts";
+import {
+  createTestApp,
+  errorOf,
+  readJson as json,
+  jsonRequest,
+  type TestApp,
+} from "../../test/app.ts";
 
 const UNKNOWN = "01a1f326-d941-7d74-8a40-504a488cd388";
 
-function setup() {
+function setup(): TestApp & {
+  bar: (barId: string) => string;
+  base: string;
+  cat: (name: string, barId?: string) => string;
+  send: (method: string, path: string, body?: unknown) => Response | Promise<Response>;
+  create: (body: Record<string, unknown>) => Promise<Product>;
+  names: (query: string) => Promise<string[]>;
+  count: (barId?: string) => number;
+} {
   const t = createTestApp();
-  const bar = (barId: string) => `/api/bars/${barId}`;
+  const bar = (barId: string): string => `/api/bars/${barId}`;
   const base = `${bar(t.alice.barId)}/products`;
-  const cat = (name: string, barId = t.alice.barId) => {
+  const cat = (name: string, barId: string = t.alice.barId): string => {
     const row = t.db
       .select({ id: categories.id })
       .from(categories)
@@ -19,22 +33,24 @@ function setup() {
     if (!row) throw new Error(`No category ${name}`);
     return row.id;
   };
-  const send = (method: string, path: string, body?: unknown) =>
+  const send = (method: string, path: string, body?: unknown): Response | Promise<Response> =>
     t.app.request(`${base}${path}`, jsonRequest(method, body));
-  const create = async (body: Record<string, unknown>) => {
+  const create = async (body: Record<string, unknown>): Promise<Product> => {
     const res = await send("POST", "", body);
     expect(res.status).toBe(201);
     return json<Product>(res);
   };
-  const names = async (query: string) =>
+  const names = async (query: string): Promise<string[]> =>
     (await json<Page<Product>>(await send("GET", query))).items.map((p) => p.name);
-  const countRows = (barId = t.alice.barId) =>
+  const countRows = (barId: string = t.alice.barId): number =>
     t.db.select({ n: count() }).from(products).where(eq(products.bar_id, barId)).get()?.n ?? 0;
   return { ...t, bar, base, cat, send, create, names, count: countRows };
 }
 
 /** A few bottles across the starter tree. */
-async function stock(t: ReturnType<typeof setup>) {
+async function stock(
+  t: ReturnType<typeof setup>,
+): Promise<{ talisker: Product; buffalo: Product; hendricks: Product; whisky: Product }> {
   const talisker = await t.create({
     name: "Talisker 10",
     category_id: t.cat("Scotch"),
@@ -328,7 +344,8 @@ describe("PATCH /products/:id", () => {
   it("sets, changes and clears the country, and refuses a bad code", async () => {
     const t = setup();
     const { buffalo } = await stock(t);
-    const patch = (body: unknown) => t.send("PATCH", `/${buffalo.id}`, body);
+    const patch = (body: unknown): Response | Promise<Response> =>
+      t.send("PATCH", `/${buffalo.id}`, body);
     expect(await json(await patch({ country: "US", region: "Kentucky" }))).toMatchObject({
       country: "US",
       region: "Kentucky",

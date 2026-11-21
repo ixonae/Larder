@@ -1,40 +1,74 @@
 import {
   type Category,
+  type Cocktail,
+  type CocktailDetail,
   cocktailDetailSchema,
   cocktailPageSchema,
+  type Page,
   type PantryIngredient,
   type Product,
 } from "@larder/shared";
 import { eq } from "drizzle-orm";
 import { expect, test } from "vitest";
+import type { Db } from "../../db/client.ts";
 import { categories, pantryIngredients, products } from "../../db/schema/index.ts";
-import { createTestApp, errorOf, jsonRequest, readJson } from "../../test/app.ts";
+import { createTestApp, errorOf, jsonRequest, readJson, type TestApp } from "../../test/app.ts";
 
-async function setup() {
+async function setup(): Promise<{
+  app: TestApp["app"];
+  db: Db;
+  bar: string;
+  bob: { userId: string; barId: string };
+  send: <T>(method: string, path: string, input: object, status?: number) => Promise<T>;
+  addBottle: (name: string, category_id: string, owned?: boolean) => Promise<Product>;
+  addSupply: (name: string, category_id: string, flags?: object) => Promise<PantryIngredient>;
+  setStock: (id: string, in_stock: boolean) => Promise<unknown>;
+  setOwned: (id: string, owned: boolean) => Promise<unknown>;
+  create: (name: string, ingredients: object[]) => Promise<CocktailDetail>;
+  get: (id: string) => Promise<CocktailDetail>;
+  list: (query?: string) => Promise<Page<Cocktail>>;
+  names: (query: string) => Promise<string[]>;
+  gin: Category;
+  london: Category;
+  rum: Category;
+  bottledLemon: Category;
+  fruit: Category;
+  larder: Category;
+}> {
   const { app, db, alice, bob } = createTestApp();
   const bar = `/api/bars/${alice.barId}`;
-  const send = async <T>(method: string, path: string, input: object, status = 200) => {
+  const send = async <T>(
+    method: string,
+    path: string,
+    input: object,
+    status: number = 200,
+  ): Promise<T> => {
     const response = await app.request(`${bar}/${path}`, jsonRequest(method, input));
     expect(response.status).toBe(status);
     return readJson<T>(response);
   };
-  const post = <T>(path: string, input: object) => send<T>("POST", path, input, 201);
-  const addCategory = (input: object) => post<Category>("categories", input);
-  const addSupply = (name: string, category_id: string, flags: object = {}) =>
+  const post = <T>(path: string, input: object): Promise<T> => send<T>("POST", path, input, 201);
+  const addCategory = (input: object): Promise<Category> => post<Category>("categories", input);
+  const addSupply = (
+    name: string,
+    category_id: string,
+    flags: object = {},
+  ): Promise<PantryIngredient> =>
     post<PantryIngredient>("pantry-ingredients", { name, category_id, ...flags });
-  const addBottle = (name: string, category_id: string, owned = true) =>
+  const addBottle = (name: string, category_id: string, owned: boolean = true): Promise<Product> =>
     post<Product>("products", { name, category_id, status: owned ? "owned" : "tasted" });
-  const setStock = (id: string, in_stock: boolean) =>
+  const setStock = (id: string, in_stock: boolean): Promise<unknown> =>
     send("PATCH", `pantry-ingredients/${id}`, { in_stock });
-  const setOwned = (id: string, owned: boolean) =>
+  const setOwned = (id: string, owned: boolean): Promise<unknown> =>
     send("PATCH", `products/${id}/status`, { status: owned ? "owned" : "finished" });
-  const create = async (name: string, ingredients: object[]) =>
+  const create = async (name: string, ingredients: object[]): Promise<CocktailDetail> =>
     cocktailDetailSchema.parse(await post("cocktails", { name, method: "shaken", ingredients }));
-  const get = async (id: string) =>
+  const get = async (id: string): Promise<CocktailDetail> =>
     cocktailDetailSchema.parse(await (await app.request(`${bar}/cocktails/${id}`)).json());
-  const list = async (query = "") =>
+  const list = async (query: string = ""): Promise<Page<Cocktail>> =>
     cocktailPageSchema.parse(await (await app.request(`${bar}/cocktails?${query}`)).json());
-  const names = async (query: string) => (await list(query)).items.map(({ name }) => name);
+  const names = async (query: string): Promise<string[]> =>
+    (await list(query)).items.map(({ name }) => name);
 
   const spirit = await addCategory({ name: "Distilled", kind: "spirit" });
   const gin = await addCategory({ name: "Juniper", parent_id: spirit.id });
@@ -67,7 +101,7 @@ async function setup() {
   };
 }
 
-const line = (source: object, extra: object = {}) => ({
+const line = (source: object, extra: object = {}): { amount: number; unit: string } => ({
   amount: 1,
   unit: "piece",
   ...source,
@@ -89,7 +123,8 @@ test("a juice line accepting fresh or bottled is missing only when neither is th
     line({ pantry_ingredient_id: lemon.id }, { amount: 25, unit: "ml", note: "freshly squeezed" }),
     line({ pantry_ingredient_id: lemon.id }, { note: "twist" }),
   ]);
-  const missingIn = async (id: string) => (await get(id)).missing.map(({ name }) => name);
+  const missingIn = async (id: string): Promise<string[]> =>
+    (await get(id)).missing.map(({ name }) => name);
 
   // Neither.
   expect((await get(flexible.id)).missing).toEqual([

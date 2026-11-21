@@ -1,7 +1,15 @@
 import type { Cocktail, CocktailDetail, Comment, Page, Rating, RatingInput } from "@larder/shared";
 import { expect, test } from "vitest";
 import { barMembers } from "../../db/schema/index.ts";
-import { ALICE, cookieFor, createTestApp, errorOf, jsonRequest, readJson } from "../../test/app.ts";
+import {
+  ALICE,
+  cookieFor,
+  createTestApp,
+  errorOf,
+  jsonRequest,
+  readJson,
+  type TestApp,
+} from "../../test/app.ts";
 
 /** A well-formed id that no cocktail has. */
 const missingId: string = "01890000-0000-7000-8000-000000000000";
@@ -10,7 +18,17 @@ const missingId: string = "01890000-0000-7000-8000-000000000000";
 const tick = (): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, 5));
 
 /** Alice owns the bar; Bob is a viewer in it and Bob's own bar is a second tenant. */
-function setup() {
+function setup(): TestApp & {
+  bobCookie: string;
+  path: string;
+  create: (name: string, patch?: object) => Promise<CocktailDetail>;
+  send: (url: string, method: string, body?: unknown, cookie?: string) => Promise<Response>;
+  rate: (id: string, input: RatingInput, cookie?: string) => Promise<Response>;
+  detail: (id: string, cookie?: string) => Promise<CocktailDetail>;
+  list: (query?: string, cookie?: string) => Promise<Page<Cocktail>>;
+  comment: (id: string, body: object, cookie?: string) => Promise<Response>;
+  comments: (id: string, query?: string, cookie?: string) => Promise<Page<Comment>>;
+} {
   const t = createTestApp();
   t.db
     .insert(barMembers)
@@ -36,11 +54,15 @@ function setup() {
     send(`${path}/${id}/rating`, "PUT", input, cookie);
   const detail = async (id: string, cookie?: string): Promise<CocktailDetail> =>
     readJson<CocktailDetail>(await send(`${path}/${id}`, "GET", undefined, cookie));
-  const list = async (query = "", cookie?: string): Promise<Page<Cocktail>> =>
+  const list = async (query: string = "", cookie?: string): Promise<Page<Cocktail>> =>
     readJson<Page<Cocktail>>(await send(`${path}?${query}`, "GET", undefined, cookie));
   const comment = (id: string, body: object, cookie?: string): Promise<Response> =>
     send(`${path}/${id}/comments`, "POST", body, cookie);
-  const comments = async (id: string, query = "", cookie?: string): Promise<Page<Comment>> =>
+  const comments = async (
+    id: string,
+    query: string = "",
+    cookie?: string,
+  ): Promise<Page<Comment>> =>
     readJson<Page<Comment>>(
       await send(`${path}/${id}/comments?${query}`, "GET", undefined, cookie),
     );
