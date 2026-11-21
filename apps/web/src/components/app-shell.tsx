@@ -94,7 +94,7 @@ export function AppShell(): JSX.Element {
     );
   if (me.data === null) {
     return (
-      <main className="mx-auto grid min-h-dvh w-full max-w-sm content-center gap-6 px-5 py-8">
+      <main className="mx-auto grid min-h-dvh w-full max-w-sm content-center gap-6 px-5 pt-[calc(2rem+env(safe-area-inset-top))] pb-[calc(2rem+env(safe-area-inset-bottom))]">
         <Brand />
         {publicPage ? (
           <Outlet />
@@ -127,7 +127,7 @@ function SignedInLayout({
   const bar = useActiveBar()?.bar;
   return (
     <div className="min-h-dvh bg-background text-foreground md:flex">
-      <aside className="sticky top-0 hidden h-dvh border-sidebar-border border-r bg-sidebar p-3 md:flex md:w-60 md:shrink-0 md:flex-col md:gap-6">
+      <aside className="sticky top-0 hidden h-dvh border-sidebar-border border-r bg-sidebar p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:flex md:w-60 md:shrink-0 md:flex-col md:gap-6">
         <Brand className="px-2 pt-2" />
         <nav aria-label="Sidebar" className="flex flex-col gap-1">
           <NavLinks variant="side" />
@@ -142,7 +142,7 @@ function SignedInLayout({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-2 border-b bg-background/85 px-4 backdrop-blur md:px-8">
+        <header className="sticky top-0 z-10 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center justify-between gap-2 border-b bg-background/85 px-4 pt-[env(safe-area-inset-top)] backdrop-blur md:px-8">
           <Brand className="md:hidden" />
           <Link
             to="/bars"
@@ -165,7 +165,7 @@ function SignedInLayout({
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 pb-24 md:px-8 md:py-8">
+        <main className="flex-1 px-4 py-6 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-[calc(2rem+env(safe-area-inset-bottom))]">
           {error && <ErrorState error={error} onRetry={onRetry} />}
           <Fragment key={bar?.id}>
             <Outlet />
@@ -175,7 +175,7 @@ function SignedInLayout({
 
       <nav
         aria-label="Bottom navigation"
-        className="fixed inset-x-0 bottom-0 grid grid-cols-5 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed right-[env(safe-area-inset-right)] bottom-0 left-[env(safe-area-inset-left)] grid grid-cols-5 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         <NavLinks variant="bottom" />
       </nav>

@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createTestApp } from "./test/app.ts";
 
@@ -33,6 +34,20 @@ describe("web app serving", () => {
   it("revalidates other static files", async () => {
     const { app } = createTestApp({ webDir });
     const res = await app.request("/favicon.svg");
+    expect(res.headers.get("Cache-Control")).toBe("no-cache");
+  });
+
+  it.each([
+    ["/favicon.ico", "image/x-icon"],
+    ["/manifest.webmanifest", "application/manifest+json"],
+    ["/service-worker.js", "text/javascript"],
+    ["/pwa/apple-touch-icon.png", "image/png"],
+  ])("serves and revalidates the web resource %s", async (path, contentType) => {
+    const publicDir = fileURLToPath(new URL("../../web/public", import.meta.url));
+    const { app } = createTestApp({ webDir: publicDir });
+    const res = await app.request(path);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain(contentType);
     expect(res.headers.get("Cache-Control")).toBe("no-cache");
   });
 

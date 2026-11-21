@@ -17,3 +17,9 @@ createRoot(document.getElementById("root")!).render(
     <App queryClient={queryClient} router={router} />
   </StrictMode>,
 );
+
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  void navigator.serviceWorker.register("/service-worker.js").catch((error: unknown) => {
+    console.warn("Could not register Larder's service worker", error);
+  });
+}
