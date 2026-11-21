@@ -15,6 +15,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Thumbnail } from "@/components/thumbnail.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { onClosed } from "@/lib/dialog.ts";
 import { CategorySheet, type SheetTarget } from "./category-sheet.tsx";
 
 const Title = (): JSX.Element => <h1 className="text-3xl">Categories</h1>;
@@ -113,7 +114,7 @@ function CategoriesView({
       {deleting && (
         <ConfirmDialog
           open
-          onOpenChange={(): void => setDeleting(null)}
+          onOpenChange={onClosed((): void => setDeleting(null))}
           title={`Delete ${deleting.name}?`}
           description="This cannot be undone."
           onConfirm={async (): Promise<void> => {

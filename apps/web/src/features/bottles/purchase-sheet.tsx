@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/sheet.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { localToday } from "@/lib/dates.ts";
+import { onClosed } from "@/lib/dialog.ts";
 import {
   applyServerErrors,
   ComboboxField,
@@ -66,7 +67,7 @@ export function PurchaseSheet({
   onClose: () => void;
 }>): JSX.Element {
   return (
-    <Sheet open={target !== null} onOpenChange={onClose}>
+    <Sheet open={target !== null} onOpenChange={onClosed(onClose)}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{target?.kind === "edit" ? "Edit purchase" : "Bought"}</SheetTitle>

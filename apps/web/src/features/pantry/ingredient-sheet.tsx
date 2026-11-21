@@ -24,6 +24,7 @@ import {
   categoryIdField,
   categoryOptions,
 } from "@/features/categories/category-options.tsx";
+import { onClosed } from "@/lib/dialog.ts";
 import {
   applyServerErrors,
   ComboboxField,
@@ -47,7 +48,7 @@ export function IngredientSheet({
 }>): JSX.Element {
   const editing = target === "new" ? null : target;
   return (
-    <Sheet open={target !== null} onOpenChange={onClose}>
+    <Sheet open={target !== null} onOpenChange={onClosed(onClose)}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{editing ? `Edit ${editing.name}` : "New ingredient"}</SheetTitle>

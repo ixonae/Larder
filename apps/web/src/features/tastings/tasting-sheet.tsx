@@ -32,6 +32,7 @@ import {
   categoryIdField,
 } from "@/features/categories/category-options.tsx";
 import { localToday } from "@/lib/dates.ts";
+import { onClosed } from "@/lib/dialog.ts";
 import {
   applyServerErrors,
   ComboboxField,
@@ -86,7 +87,7 @@ export function TastingSheet({
   const preset = target?.kind === "new" ? target.bottle : editing?.product;
   const header = shown?.kind === "edit" ? shown.tasting.product : shown?.bottle;
   return (
-    <Sheet open={target !== null} onOpenChange={onClose}>
+    <Sheet open={target !== null} onOpenChange={onClosed(onClose)}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{shown?.kind === "edit" ? "Edit tasting" : "Add tasting"}</SheetTitle>
