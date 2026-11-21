@@ -5,7 +5,11 @@ export default defineConfig({
     projects: ["{apps,packages}/*/vitest.config.ts"],
     coverage: {
       provider: "v8",
-      include: ["apps/*/src/**/*.{ts,tsx}", "packages/*/src/**/*.{ts,tsx}"],
+      include: [
+        "apps/*/src/**/*.{ts,tsx}",
+        "packages/*/src/**/*.{ts,tsx}",
+        "apps/web/public/service-worker.js",
+      ],
       // Allowed exclusions only (see AGENTS.md, Testing).
       // Anything else needs a `/* v8 ignore next */` with a reason, called out in the PR.
       exclude: [

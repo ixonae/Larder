@@ -63,6 +63,16 @@ command leaves an existing owner and bar untouched.
 
 ## Using Larder
 
+### Install Larder as an app
+
+Open Larder on its HTTPS address and choose **Install** in a supported browser. On iPhone or iPad,
+open the Share menu in Safari, choose **Add to Home Screen**, then enable **Open as Web App** if
+shown. You can also try installation locally at <http://127.0.0.1:3000> when serving the production
+build.
+
+After your first online visit, Larder shows a reconnect page if your browser cannot reach the server.
+Viewing bar data, including uploads, and saving changes require a connection to your Larder server.
+
 ### Bars and members
 
 Select the current bar’s name to open **Bars**. You can start with an empty bar or use the starter
