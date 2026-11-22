@@ -14,6 +14,7 @@ const gin: Category = {
   parent_id: null,
   kind: "spirit",
   default_abv: 40,
+  always_available: false,
   description: null,
   image_id: IMAGE,
   ...timestamps,

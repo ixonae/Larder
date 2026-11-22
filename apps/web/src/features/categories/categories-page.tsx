@@ -180,7 +180,12 @@ function TreeRow({
           <span className="size-9 shrink-0" />
         )}
         <Thumbnail imageId={node.image_id} className="size-7" />
-        <span className="min-w-0 flex-1 truncate">{node.name}</span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate">{node.name}</div>
+          {node.always_available && (
+            <div className="text-muted-foreground text-xs">Always available</div>
+          )}
+        </div>
         <span className="hidden text-muted-foreground text-xs sm:inline">
           {CATEGORY_KIND_LABEL[node.kind]}
           {node.default_abv !== null && ` · ${node.default_abv}%`}

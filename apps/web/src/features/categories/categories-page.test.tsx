@@ -20,6 +20,7 @@ const cat = (
   parent_id: parent?.id ?? null,
   kind,
   default_abv: kind === "spirit" ? 40 : null,
+  always_available: false,
   description: null,
   image_id: null,
   ...timestamps,
@@ -192,6 +193,7 @@ describe("CategoriesPage", () => {
           parent_id: null,
           kind: "other",
           default_abv: 0,
+          always_available: false,
           description: "Staples",
         },
       },
@@ -213,6 +215,7 @@ describe("CategoriesPage", () => {
     await choose(user, "Kind", "Other");
     await choose(user, "Kind", "Same as parent (Juice)");
     await user.type(within(sheet).getByLabelText("Name"), "Yuzu juice");
+    await user.click(within(sheet).getByRole("checkbox", { name: "Always available" }));
     await user.click(within(sheet).getByRole("button", { name: "Create" }));
 
     await waitFor(() => expect(requests).toHaveLength(1));
@@ -220,11 +223,32 @@ describe("CategoriesPage", () => {
       name: "Yuzu juice",
       parent_id: byName("Juice").id,
       default_abv: null,
+      always_available: true,
       description: null,
     });
     // The parent was expanded to show the new child.
     // Retry the tree lookup too: it is hidden from assistive tech until the sheet has closed.
     await waitFor(() => expect(within(tree()).getByText("Yuzu juice")).toBeInTheDocument());
+    expect(within(tree()).getByText("Always available")).toBeInTheDocument();
+  });
+
+  it("shows the saved availability setting and lets an editor clear it", async () => {
+    byName("Lime juice").always_available = true;
+    const { user } = await openPage();
+    await user.click(screen.getByRole("button", { name: "Expand Juice" }));
+    expect(within(tree()).getByText("Always available")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit Lime juice" }));
+    const sheet = screen.getByRole("dialog", { name: "Edit Lime juice" });
+    const available = within(sheet).getByRole("checkbox", { name: "Always available" });
+    expect(available).toBeChecked();
+    await user.click(available);
+    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(within(tree()).queryByText("Always available")).toBeNull());
+    expect(requests).toMatchObject([
+      { method: "PATCH", id: byName("Lime juice").id, body: { always_available: false } },
+    ]);
   });
 
   it("uploads a picture after saving, and shows it as a thumbnail", async () => {

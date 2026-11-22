@@ -69,6 +69,7 @@ describe("categoryTreeSchema", () => {
     parent_id: null,
     kind: "spirit",
     default_abv: 40,
+    always_available: false,
     description: null,
     image_id: null,
     created_at: "2026-01-01T00:00:00.000Z",

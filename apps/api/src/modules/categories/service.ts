@@ -97,6 +97,7 @@ export function createCategory(ctx: Ctx, input: CreateCategory): Category {
           parent_id: parentId,
           kind,
           default_abv: input.default_abv ?? null,
+          always_available: input.always_available,
           description: input.description ?? null,
         }),
       duplicateName(name),

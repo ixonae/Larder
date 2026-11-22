@@ -17,6 +17,7 @@ const category = (name: string): Category => ({
   parent_id: null,
   kind: name === "Garnish" ? "garnish" : "other",
   default_abv: null,
+  always_available: false,
   description: null,
   image_id: null,
   ...timestamps,

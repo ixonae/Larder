@@ -86,6 +86,8 @@ export const categorySchema = z.object({
   kind: categoryKindSchema,
   /** Percent, 0–100. */
   default_abv: z.number().nullable(),
+  /** Counts as available in recipes without an owned bottle. */
+  always_available: z.boolean(),
   description: z.string().nullable(),
   /** The picture (`imageUrl(image_id)`), set through `PUT /:id/image`. */
   image_id: idSchema.nullable(),
@@ -112,6 +114,7 @@ const fields = z.object({
   /** Defaults to the parent's kind; required for a root category. */
   kind: categoryKindSchema,
   default_abv: z.number().min(0).max(100).nullable(),
+  always_available: z.boolean(),
   /** Blank text is stored as `null`. */
   description: optionalText(DESCRIPTION_MAX),
 });
