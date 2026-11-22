@@ -200,6 +200,7 @@ describe("POST /categories", () => {
       parent_id: null,
       kind: "wine",
       default_abv: 15,
+      always_available: false,
       description: null,
     });
     const row = db.select().from(categories).where(eq(categories.id, created.id)).get();
@@ -210,6 +211,19 @@ describe("POST /categories", () => {
     const { send, idOf } = setup();
     const res = await send("POST", "", { name: "Yuzu juice", parent_id: idOf("Juice") });
     expect(await json(res)).toMatchObject({ kind: "juice" });
+  });
+
+  it("can create a category as always available", async () => {
+    const { send, idOf } = setup();
+    const res = await send("POST", "", {
+      name: "Sparkling water",
+      parent_id: idOf("Mixer"),
+      always_available: true,
+    });
+    expect(res.status).toBe(201);
+    const category = await json<Category>(res);
+    expect(category.always_available).toBe(true);
+    expect(await json(await send("GET", `/${category.id}`))).toEqual(category);
   });
 
   it.each([

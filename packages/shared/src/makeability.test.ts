@@ -83,6 +83,46 @@ describe("isAvailable", () => {
     ).toBe(false);
   });
 
+  describe("always-available categories", () => {
+    const flagged = (...ids: string[]): Inventory =>
+      buildInventory(
+        categories.map((item) => ({ ...item, always_available: ids.includes(item.id) })),
+        [],
+        [],
+      );
+
+    test("count for themselves and every category above them, never below", () => {
+      const inventory = flagged("gin");
+      expect(isAvailable(category("gin"), inventory)).toBe(true);
+      expect(isAvailable(category("spirit"), inventory)).toBe(true);
+      expect(isAvailable(category("london"), inventory)).toBe(false);
+      expect(isAvailable(category("rum"), inventory)).toBe(false);
+    });
+
+    test("do not satisfy a named product or pantry ingredient, and match no bottle", () => {
+      const inventory = flagged("gin", "pantry");
+      expect(isAvailable(product("tanqueray"), inventory)).toBe(false);
+      expect(isAvailable(pantry("lemon"), inventory)).toBe(false);
+      expect(matchingBottles(category("gin"), inventory)).toEqual([]);
+    });
+
+    test("satisfy a line through an alternative", () => {
+      const lines = [line("rum", category("rum"), { alternatives: [category("london")] })];
+      expect(makeability(lines, flagged())).toHaveLength(1);
+      expect(makeability(lines, flagged("london"))).toEqual([]);
+    });
+
+    test("a flagged category whose parent is missing counts only for itself", () => {
+      const inventory = buildInventory(
+        [{ id: "lost", parent_id: "gone", always_available: true }],
+        [],
+        [],
+      );
+      expect(isAvailable(category("lost"), inventory)).toBe(true);
+      expect(isAvailable(category("gone"), inventory)).toBe(false);
+    });
+  });
+
   test("a product in a category missing from the tree still counts for its own category", () => {
     const orphan = buildInventory([], [bottle("odd", "lost")], []);
     expect(isAvailable(category("lost"), orphan)).toBe(true);

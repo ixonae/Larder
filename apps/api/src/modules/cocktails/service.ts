@@ -63,7 +63,7 @@ function summarize(
   };
 }
 
-/** What the bar's owned bottles and available Pantry ingredients can pour. */
+/** What recipes can use from owned bottles, always-available categories and the Pantry. */
 const loadInventory = (db: Executor, barId: string, categories: Category[]): Inventory =>
   buildInventory(
     categories,

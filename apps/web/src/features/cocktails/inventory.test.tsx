@@ -12,6 +12,7 @@ import { act, renderHook, screen, waitFor, within } from "@testing-library/react
 import { type DefaultBodyType, HttpResponse, http } from "msw";
 import type { ReactNode } from "react";
 import { expect, it } from "vitest";
+import { useCategoryMutations } from "@/api/categories.ts";
 import { cocktailsKey } from "@/api/cocktails.ts";
 import { usePantryMutations } from "@/api/pantry.ts";
 import {
@@ -289,6 +290,13 @@ const stockChanges: [string, () => () => Promise<unknown>][] = [
       return (): Promise<unknown> => mutateAsync(id(400));
     },
   ],
+  [
+    "marking a category always available",
+    (): (() => Promise<unknown>) => {
+      const { mutateAsync } = useCategoryMutations(BAR_ID).update;
+      return (): Promise<unknown> => mutateAsync({ id: id(401), json: { always_available: true } });
+    },
+  ],
 ];
 
 it.each(stockChanges)("%s marks the cocktails stale", async (_label, useChange) => {
@@ -299,6 +307,7 @@ it.each(stockChanges)("%s marks the cocktails stale", async (_label, useChange) 
   server.use(
     http.all(`${base}/products*`, answer),
     http.all(`${base}/pantry-ingredients*`, answer),
+    http.patch(`${base}/categories/:id`, answer),
   );
   const queryClient = createQueryClient();
   const listKey = [...cocktailsKey(BAR_ID), "list", {}];
@@ -336,6 +345,7 @@ it("restocking a lemon in the Pantry updates the cocktails on return", async () 
             parent_id: null,
             kind: "garnish",
             default_abv: null,
+            always_available: false,
             description: null,
             image_id: null,
             children: [],

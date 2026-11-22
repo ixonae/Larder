@@ -49,6 +49,7 @@ export const categories = sqliteTable(
     name: nocaseText("name").notNull(),
     kind: text("kind", { enum: CATEGORY_KINDS }).notNull(),
     default_abv: real("default_abv"),
+    always_available: integer("always_available", { mode: "boolean" }).notNull().default(false),
     description: text("description"),
     image_id: imageId(),
     created_by: text("created_by")

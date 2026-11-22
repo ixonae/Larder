@@ -7,7 +7,7 @@ import {
   flattenTree,
   subtreeIds,
 } from "@larder/shared";
-import { type JSX, useMemo } from "react";
+import { type JSX, useId, useMemo } from "react";
 import { useCategoryMutations } from "@/api/categories.ts";
 import { ImageUpload, useImageField } from "@/components/image-upload.tsx";
 import { toast } from "@/components/toaster.tsx";
@@ -80,6 +80,7 @@ function CategoryForm({
 }>): JSX.Element {
   const { create, update } = useCategoryMutations(barId);
   const picture = useImageField(barId, "categories");
+  const availabilityHint = useId();
   const all = useMemo(() => flattenTree(tree), [tree]);
   // A category cannot move under itself or one of its sub-categories.
   const parentOptions = useMemo(() => {
@@ -98,6 +99,7 @@ function CategoryForm({
       parent_id: editing ? editing.parent_id : parentId,
       kind: editing?.kind,
       default_abv: editing?.default_abv ?? null,
+      always_available: editing?.always_available ?? false,
       description: editing?.description ?? "",
     },
   });
@@ -171,6 +173,22 @@ function CategoryForm({
           />
         )}
       </FormField>
+
+      <div className="grid gap-1.5">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-4"
+            aria-describedby={availabilityHint}
+            {...form.register("always_available")}
+          />
+          <span>Always available</span>
+        </label>
+        <p id={availabilityHint} className="text-muted-foreground text-xs">
+          Counts as in stock for recipes that call for this category or one of its parents, even
+          without a bottle entry.
+        </p>
+      </div>
 
       <FormField form={form} name="description" label="Description">
         {(control: ControlProps): JSX.Element => (
