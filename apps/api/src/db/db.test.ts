@@ -45,6 +45,50 @@ function freshDb(): Db {
   return db;
 }
 
+function dbBeforeMigration(index: number): Db {
+  const dir = mkdtempSync(join(tmpdir(), "larder-migrations-"));
+  try {
+    cpSync(MIGRATIONS_DIR, dir, { recursive: true });
+    const journalPath = join(dir, "meta", "_journal.json");
+    const journal = JSON.parse(readFileSync(journalPath, "utf8")) as { entries: unknown[] };
+    writeFileSync(
+      journalPath,
+      JSON.stringify({ ...journal, entries: journal.entries.slice(0, index) }),
+    );
+    const db = openDb(":memory:");
+    migrate(db, { migrationsFolder: dir });
+    return db;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Seeds migration fixtures with raw SQL and only the columns of the first migration, so later
+ * schema changes to these tables cannot break tests that start from an older migration.
+ */
+function seedLegacyBar(db: Db): { barId: string; userId: string; categoryId: string } {
+  const userId = "existing-user";
+  const barId = "existing-bar";
+  const categoryId = "existing-category";
+  db.$client
+    .prepare(
+      "INSERT INTO users (id, email, display_name, created_at, updated_at) VALUES (?, ?, ?, '', '')",
+    )
+    .run(userId, DEFAULT_USER.email, DEFAULT_USER.display_name);
+  db.$client
+    .prepare(
+      "INSERT INTO bars (id, name, owner_id, created_at, updated_at) VALUES (?, ?, ?, '', '')",
+    )
+    .run(barId, DEFAULT_BAR_NAME, userId);
+  db.$client
+    .prepare(
+      "INSERT INTO categories (id, bar_id, created_by, name, kind, created_at, updated_at) VALUES (?, ?, ?, 'Soda water', 'mixer', '', '')",
+    )
+    .run(categoryId, barId, userId);
+  return { barId, userId, categoryId };
+}
+
 describe("openDb", () => {
   it("enables foreign keys", () => {
     const db = freshDb();
@@ -322,73 +366,64 @@ describe("product_purchases table", () => {
 
 describe("0005 bottle status migration", () => {
   it("turns in_bar bottles into owned ones and leaves the others without a status", () => {
-    // Applies the migrations before 0005, adds bottles the old way, then runs the rest.
-    const dir = mkdtempSync(join(tmpdir(), "larder-migrations-"));
-    try {
-      cpSync(MIGRATIONS_DIR, dir, { recursive: true });
-      const journalPath = join(dir, "meta", "_journal.json");
-      const journal = JSON.parse(readFileSync(journalPath, "utf8")) as { entries: unknown[] };
-      writeFileSync(
-        journalPath,
-        JSON.stringify({ ...journal, entries: journal.entries.slice(0, 5) }),
-      );
-      const db = openDb(":memory:");
-      migrate(db, { migrationsFolder: dir });
-      const { barId, userId } = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
-      const category = db.select().from(categories).where(eq(categories.bar_id, barId)).get();
-      const insert = db.$client.prepare(
-        "INSERT INTO products (id, bar_id, category_id, name, in_bar, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, '', '')",
-      );
-      insert.run("a", barId, category?.id, "Kept", 1, userId);
-      insert.run("b", barId, category?.id, "Gone", 0, userId);
-      runMigrations(db);
-      expect(
-        db.select({ name: products.name, status: products.status }).from(products).all(),
-      ).toEqual(
-        expect.arrayContaining([
-          { name: "Kept", status: "owned" },
-          { name: "Gone", status: null },
-        ]),
-      );
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    const db = dbBeforeMigration(5);
+    const { barId, userId, categoryId } = seedLegacyBar(db);
+    const insert = db.$client.prepare(
+      "INSERT INTO products (id, bar_id, category_id, name, in_bar, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, '', '')",
+    );
+    insert.run("a", barId, categoryId, "Kept", 1, userId);
+    insert.run("b", barId, categoryId, "Gone", 0, userId);
+    runMigrations(db);
+    expect(
+      db.select({ name: products.name, status: products.status }).from(products).all(),
+    ).toEqual(
+      expect.arrayContaining([
+        { name: "Kept", status: "owned" },
+        { name: "Gone", status: null },
+      ]),
+    );
   });
 });
 
 describe("0006 bottle activity migration", () => {
   it("keeps cocktail favourites, giving each an id", () => {
-    const dir = mkdtempSync(join(tmpdir(), "larder-migrations-"));
-    try {
-      cpSync(MIGRATIONS_DIR, dir, { recursive: true });
-      const journalPath = join(dir, "meta", "_journal.json");
-      const journal = JSON.parse(readFileSync(journalPath, "utf8")) as { entries: unknown[] };
-      writeFileSync(
-        journalPath,
-        JSON.stringify({ ...journal, entries: journal.entries.slice(0, 6) }),
-      );
-      const db = openDb(":memory:");
-      migrate(db, { migrationsFolder: dir });
-      const { barId, userId } = seedUser(db, { email: "a@x.y", display_name: "A" }, "A");
-      const cocktail = db
-        .insert(cocktails)
-        .values({ bar_id: barId, created_by: userId, name: "Negroni", method: "stirred" })
-        .returning()
-        .get();
-      db.$client
-        .prepare(
-          "INSERT INTO favourites (bar_id, created_by, created_at, updated_at, cocktail_id) VALUES (?, ?, '2026-11-20T12:00:00.000Z', '', ?)",
-        )
-        .run(barId, userId, cocktail.id);
-      runMigrations(db);
-      const [row, ...rest] = db.select().from(favourites).all();
-      expect(rest).toEqual([]);
-      expect(row).toMatchObject({ cocktail_id: cocktail.id, product_id: null, created_by: userId });
-      expect(row?.id).toMatch(/^01a1f8d3-ea00-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-      expect(db.$client.pragma("foreign_key_check")).toEqual([]);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    const db = dbBeforeMigration(6);
+    const { barId, userId } = seedLegacyBar(db);
+    const cocktail = db
+      .insert(cocktails)
+      .values({ bar_id: barId, created_by: userId, name: "Negroni", method: "stirred" })
+      .returning()
+      .get();
+    db.$client
+      .prepare(
+        "INSERT INTO favourites (bar_id, created_by, created_at, updated_at, cocktail_id) VALUES (?, ?, '2026-11-20T12:00:00.000Z', '', ?)",
+      )
+      .run(barId, userId, cocktail.id);
+    runMigrations(db);
+    const [row, ...rest] = db.select().from(favourites).all();
+    expect(rest).toEqual([]);
+    expect(row).toMatchObject({ cocktail_id: cocktail.id, product_id: null, created_by: userId });
+    expect(row?.id).toMatch(/^01a1f8d3-ea00-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(db.$client.pragma("foreign_key_check")).toEqual([]);
+  });
+});
+
+describe("0007 category availability migration", () => {
+  it("keeps existing categories with always available turned off", () => {
+    const db = dbBeforeMigration(7);
+    const { categoryId, barId, userId } = seedLegacyBar(db);
+    runMigrations(db);
+    expect(db.select().from(categories).all()).toMatchObject([
+      {
+        id: categoryId,
+        bar_id: barId,
+        created_by: userId,
+        name: "Soda water",
+        kind: "mixer",
+        always_available: false,
+      },
+    ]);
+    expect(db.$client.pragma("foreign_key_check")).toEqual([]);
   });
 });
 

@@ -18,6 +18,7 @@ const category = (n: number, name: string, parent: Category | null = null): Cate
   parent_id: parent?.id ?? null,
   kind: "spirit",
   default_abv: 40,
+  always_available: false,
   description: null,
   image_id: null,
   ...timestamps,

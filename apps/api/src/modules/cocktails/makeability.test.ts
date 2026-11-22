@@ -174,6 +174,37 @@ test("products must be owned, and categories match owned bottles in sub-categori
   expect((await get(named.id)).missing).toEqual([]);
 });
 
+test("an always-available category can satisfy recipes without a matching bottle", async () => {
+  const { addBottle, create, get, names, send, gin, london, rum } = await setup();
+  const bottle = await addBottle("Dry Bottle", gin.id, false);
+  const generic = await create("Juniper Martini", [line({ category_id: gin.id })]);
+  const substitute = await create("Cane or Juniper", [
+    line({ category_id: rum.id }, { alternatives: [{ category_id: gin.id }] }),
+  ]);
+  const narrower = await create("Dry Juniper Martini", [line({ category_id: london.id })]);
+  const named = await create("Named Martini", [line({ product_id: bottle.id })]);
+  expect(await names("missing=0")).toEqual([]);
+
+  // A generic category covers itself. A more specific recipe needs its own source.
+  const setAvailable = (id: string, always_available: boolean): Promise<Category> =>
+    send("PATCH", `categories/${id}`, { always_available });
+  await setAvailable(gin.id, true);
+  expect(await names("missing=0")).toEqual([substitute.name, generic.name]);
+  expect((await get(generic.id)).ingredients[0]?.matching_bottles).toEqual([]);
+  const withSubstitute = await get(substitute.id);
+  expect(withSubstitute.missing).toEqual([]);
+  expect(withSubstitute.ingredients[0]?.alternatives[0]?.matching_bottles).toEqual([]);
+
+  // Availability from a sub-category also satisfies recipes that allow its parent.
+  await setAvailable(gin.id, false);
+  await setAvailable(london.id, true);
+  expect(await names("missing=0")).toEqual([substitute.name, narrower.name, generic.name]);
+  expect((await get(named.id)).missing.map(({ name }) => name)).toEqual([bottle.name]);
+
+  await setAvailable(london.id, false);
+  expect(await names("missing=0")).toEqual([]);
+});
+
 test("list reports missing lines and filters by the exact missing count across pages", async () => {
   const { addSupply, setStock, create, list, names, fruit, larder } = await setup();
   const lemon = await addSupply("Lemon", fruit.id);
@@ -249,7 +280,7 @@ test("another bar's stock never makes a cocktail available or shows as a matchin
     .run();
   const foreign = db
     .insert(categories)
-    .values({ ...audit, name: gin.name, kind: "spirit" })
+    .values({ ...audit, name: gin.name, kind: "spirit", always_available: true })
     .returning()
     .get();
   db.insert(products)

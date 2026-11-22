@@ -32,8 +32,7 @@ export const categoryTreeQuery = (barId: string): ApiQueryOptions<CategoryTreeNo
   });
 
 /**
- * Create, update and delete. Each refreshes every query of the bar, not only the categories: bottles
- * carry their category's name.
+ * Category changes refresh the bar's queries, including bottle category names and cocktail availability.
  */
 export function useCategoryMutations(barId: string): {
   create: UseMutationResult<Category, Error, CreateCategory>;

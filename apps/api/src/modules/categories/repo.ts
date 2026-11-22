@@ -11,6 +11,7 @@ const columns: Pick<
   | "parent_id"
   | "kind"
   | "default_abv"
+  | "always_available"
   | "description"
   | "image_id"
   | "created_at"
@@ -21,6 +22,7 @@ const columns: Pick<
   parent_id: categories.parent_id,
   kind: categories.kind,
   default_abv: categories.default_abv,
+  always_available: categories.always_available,
   description: categories.description,
   image_id: categories.image_id,
   created_at: categories.created_at,
@@ -31,7 +33,10 @@ const nameKey: SQL<string> = sql<string>`larder_name_key(${categories.name})`;
 
 export type NewCategory = typeof categories.$inferInsert;
 export type CategoryChanges = Partial<
-  Pick<NewCategory, "name" | "parent_id" | "kind" | "default_abv" | "description">
+  Pick<
+    NewCategory,
+    "name" | "parent_id" | "kind" | "default_abv" | "always_available" | "description"
+  >
 >;
 
 export interface CategoryFilter {

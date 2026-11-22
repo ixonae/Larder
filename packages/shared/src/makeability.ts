@@ -35,24 +35,33 @@ interface StockBottle extends MatchingBottle {
   category_id: string;
 }
 
+interface StockCategory extends TreeItem {
+  always_available?: boolean;
+}
+
 /** What the bar can pour from, indexed for repeated lookups. */
 export interface Inventory {
   products: ReadonlySet<string>;
   /** Owned bottles by category, listed under their own category and every one above it. */
   categories: ReadonlyMap<string, MatchingBottle[]>;
+  /** Categories that count as available without a bottle, including their ancestors. */
+  alwaysAvailableCategories: ReadonlySet<string>;
   pantry: ReadonlySet<string>;
 }
 
-/**
- * Indexes the bottles in the bar (in display order) and the ids of the pantry ingredients that are
- * available (in stock or always available).
- */
+/** Indexes owned bottles in display order, always-available categories and available pantry ingredients. */
 export function buildInventory(
-  categories: readonly TreeItem[],
+  categories: readonly StockCategory[],
   bottles: readonly StockBottle[],
   pantryIds: readonly string[],
 ): Inventory {
   const byId = new Map(categories.map((category) => [category.id, category]));
+  const alwaysAvailableCategories = new Set<string>();
+  for (const category of categories) {
+    if (category.always_available) {
+      for (const { id } of ancestry(byId, category.id)) alwaysAvailableCategories.add(id);
+    }
+  }
   const byCategory = new Map<string, MatchingBottle[]>();
   for (const { id, name, category_id } of bottles) {
     // The bottle's own category also counts when it is missing from the tree.
@@ -66,13 +75,19 @@ export function buildInventory(
   return {
     products: new Set(bottles.map(({ id }) => id)),
     categories: byCategory,
+    alwaysAvailableCategories,
     pantry: new Set(pantryIds),
   };
 }
 
 export function isAvailable(source: StockSource, inventory: Inventory): boolean {
   if (source.product_id !== null) return inventory.products.has(source.product_id);
-  if (source.category_id !== null) return inventory.categories.has(source.category_id);
+  if (source.category_id !== null) {
+    return (
+      inventory.categories.has(source.category_id) ||
+      inventory.alwaysAvailableCategories.has(source.category_id)
+    );
+  }
   return source.pantry_ingredient_id !== null && inventory.pantry.has(source.pantry_ingredient_id);
 }
 
