@@ -57,10 +57,11 @@ const editRoute = getRouteApi("/cocktails/$cocktailId/edit");
 
 export function NewCocktailPage(): JSX.Element {
   const { variantOf, ...search } = newRoute.useSearch();
+  const title = variantOf ? "Create variant" : "New cocktail";
   return (
-    <BarGate title={variantOf ? "Create variant" : "New cocktail"}>
+    <BarGate title={title}>
       {(bar: BarSummary): JSX.Element => (
-        <EditorPage bar={bar} search={search} variantOf={variantOf} />
+        <EditorPage bar={bar} title={title} search={search} variantOf={variantOf} />
       )}
     </BarGate>
   );
@@ -69,29 +70,32 @@ export function NewCocktailPage(): JSX.Element {
 export function EditCocktailPage(): JSX.Element {
   const { cocktailId }: { cocktailId: string } = editRoute.useParams();
   const search: CocktailFilters = editRoute.useSearch();
+  const title = "Edit cocktail";
   return (
-    <BarGate title="Edit cocktail">
-      {(bar: BarSummary): JSX.Element => <EditorPage bar={bar} id={cocktailId} search={search} />}
+    <BarGate title={title}>
+      {(bar: BarSummary): JSX.Element => (
+        <EditorPage bar={bar} title={title} id={cocktailId} search={search} />
+      )}
     </BarGate>
   );
 }
 
 function EditorPage({
   bar,
+  title,
   id,
   variantOf,
   search,
 }: Readonly<{
   bar: BarSummary;
+  title: string;
   id?: string;
   variantOf?: string;
   search: CocktailFilters;
 }>): JSX.Element {
   return (
     <section className="mx-auto grid max-w-5xl gap-4">
-      <h1 className="text-3xl">
-        {id ? "Edit cocktail" : variantOf ? "Create variant" : "New cocktail"}
-      </h1>
+      <h1 className="text-3xl">{title}</h1>
       {hasRole(bar.role, "editor") ? (
         <EditorLoader
           key={`${bar.id}/${id}/${variantOf}`}
@@ -210,10 +214,8 @@ function CocktailFormView({
         const saved = await save.mutateAsync({ json });
         id = saved.id;
       }
-      await picture.apply(
-        id,
-        recipe ? "Cocktail saved" : json.variant_of_id ? "Variant added" : "Cocktail added",
-      );
+      const addedMessage = json.variant_of_id ? "Variant added" : "Cocktail added";
+      await picture.apply(id, recipe ? "Cocktail saved" : addedMessage);
       if (active.current) await navigate(detailLocation(id));
     } catch (err) {
       applyServerErrors(form, err);
@@ -228,6 +230,7 @@ function CocktailFormView({
     .filter(({ kind }) => kind === "glass")
     .map(({ id, name }) => ({ value: id, label: name }));
   const previous = recipe ?? base;
+  const addLabel = parentId ? "Add variant" : "Add cocktail";
 
   return (
     <form onSubmit={submit} noValidate>
@@ -343,9 +346,7 @@ function CocktailFormView({
           >
             Cancel
           </Button>
-          <Button type="submit">
-            {recipe ? "Save cocktail" : parentId ? "Add variant" : "Add cocktail"}
-          </Button>
+          <Button type="submit">{recipe ? "Save cocktail" : addLabel}</Button>
         </div>
       </fieldset>
     </form>
