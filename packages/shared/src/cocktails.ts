@@ -113,6 +113,8 @@ export const listCocktailsQuerySchema = paginationQuerySchema.extend({
   /** `rating`: highest average first, unrated last, then by name. */
   sort: z.enum(COCKTAIL_SORTS).default("name"),
   q: nameSchema.optional(),
+  /** Candidates for this cocktail's parent, excluding the cocktail and all its variants. */
+  parent_for: idSchema.optional(),
   /** Any of these methods. */
   method: listOf(methodSchema).optional(),
   /**

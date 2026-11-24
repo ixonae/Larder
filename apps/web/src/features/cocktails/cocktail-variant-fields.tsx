@@ -24,14 +24,16 @@ export function CocktailVariantFields({
   const [query, setQuery] = useState("");
   const [text, setText] = useDebouncedSearch(query, setQuery);
   const list = useInfiniteQuery({
-    ...cocktailListQuery(barId, { sort: "name", q: query.trim() || undefined }),
+    ...cocktailListQuery(barId, {
+      sort: "name",
+      q: query.trim() || undefined,
+      parent_for: cocktailId,
+    }),
     placeholderData: undefined,
   });
   const options =
     list.data?.pages.flatMap(({ items }) =>
-      items
-        .filter(({ id }) => id !== cocktailId)
-        .map(({ id, name }) => ({ value: id, label: name })),
+      items.map(({ id, name }) => ({ value: id, label: name })),
     ) ?? [];
 
   return (
@@ -41,12 +43,11 @@ export function CocktailVariantFields({
         name="variant_of_id"
         label="Variant of"
         options={options}
-        clearLabel="None"
+        placeholder="None"
         fallbackLabel={selection}
         toValue={(value: string): string => {
           setSelection(options.find((option) => option.value === value)?.label);
           setText("");
-          if (!value) form.setValue("variant_note", "");
           return value;
         }}
         searchPlaceholder="Search cocktails"
@@ -69,11 +70,26 @@ export function CocktailVariantFields({
         }
       />
       {parentId && (
-        <FormField form={form} name="variant_note" label="Variant note">
-          {(control: ControlProps): JSX.Element => (
-            <Textarea rows={2} {...control} {...form.register("variant_note")} />
-          )}
-        </FormField>
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-fit"
+            onClick={(): void => {
+              form.setValue("variant_note", "", { shouldDirty: true });
+              form.setValue("variant_of_id", "", { shouldDirty: true, shouldValidate: true });
+              form.setFocus("variant_of_id");
+            }}
+          >
+            Remove parent
+          </Button>
+          <FormField form={form} name="variant_note" label="Variant note">
+            {(control: ControlProps): JSX.Element => (
+              <Textarea rows={2} {...control} {...form.register("variant_note")} />
+            )}
+          </FormField>
+        </>
       )}
     </>
   );

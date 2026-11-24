@@ -157,6 +157,25 @@ test("deleting a referenced glass or base cocktail is refused and nothing is del
   });
 });
 
+test("parent search excludes the cocktail and every descendant before paging", async () => {
+  const { app, path, read } = setup();
+  const parent = await read("Sour original");
+  const cocktail = await read("Sour A", { variant_of_id: parent.id });
+  const child = await read("Sour B", { variant_of_id: cocktail.id });
+  await read("Sour C", { variant_of_id: child.id });
+  const sibling = await read("Sour sibling", { variant_of_id: parent.id });
+  await read("Unrelated cocktail");
+
+  const url = `${path}?parent_for=${cocktail.id}&q=sour&limit=1`;
+  const first = await readJson<Page<Cocktail>>(await app.request(url));
+  expect(first.items).toEqual([parent]);
+  expect(first.next_cursor).not.toBeNull();
+  expect(await (await app.request(`${url}&cursor=${first.next_cursor}`)).json()).toEqual({
+    items: [sibling],
+    next_cursor: null,
+  });
+});
+
 test("another bar's cocktail and glass cannot be read, changed, or linked", async () => {
   const { app, bob, db, path, create, read } = setup();
   const glassId = newId();
@@ -174,6 +193,10 @@ test("another bar's cocktail and glass cannot be read, changed, or linked", asyn
     .run(foreignId, bob.barId, bob.userId);
   const ours = await read("Martini");
   expect(await (await app.request(path)).json()).toEqual({ items: [ours], next_cursor: null });
+  expect(await (await app.request(`${path}?parent_for=${foreignId}`)).json()).toEqual({
+    items: [ours],
+    next_cursor: null,
+  });
   for (const method of ["GET", "PATCH", "DELETE"]) {
     const init = method === "PATCH" ? jsonRequest(method, { name: "Stolen" }) : { method };
     expect((await app.request(`${path}/${foreignId}`, init)).status).toBe(404);

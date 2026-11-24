@@ -664,10 +664,36 @@ it("saves a standalone cocktail when the editor clears the template parent", asy
   const { user } = renderWithProviders(`/cocktails/new?variantOf=${recipe.id}`);
   await user.type(await screen.findByLabelText("Name"), emptyRecipe.name);
   await user.type(screen.getByLabelText("Variant note"), "Less gin");
-  await pick(user, screen.getByLabelText("Variant of"), "None");
+  await user.click(screen.getByRole("button", { name: "Remove parent" }));
+  expect(screen.getByLabelText("Variant of")).toHaveFocus();
   await user.click(screen.getByRole("button", { name: "Add cocktail" }));
   expect(await screen.findByRole("heading", { name: emptyRecipe.name })).toBeInTheDocument();
   expect(await screen.findByText("Cocktail added")).toBeInTheDocument();
+});
+
+it("keeps the parent and note when Enter is pressed in a search with no matches", async () => {
+  editorCatalogue();
+  const existing: CocktailDetail = {
+    ...recipe,
+    variant_of_id: emptyRecipe.id,
+    variant_of: { id: emptyRecipe.id, name: emptyRecipe.name },
+    variant_note: "Keep this note",
+  };
+  server.use(
+    http.get(detail, () => HttpResponse.json(existing)),
+    http.get(`${base}/cocktails`, ({ request }) =>
+      page(new URL(request.url).searchParams.has("q") ? [] : [emptyRecipe]),
+    ),
+  );
+  const { user } = renderWithProviders(`/cocktails/${recipe.id}/edit`);
+  const trigger = await screen.findByLabelText("Variant of");
+  await user.click(trigger);
+  expect(await screen.findByRole("option", { name: emptyRecipe.name })).toBeInTheDocument();
+  await user.type(screen.getByPlaceholderText("Search cocktails"), "Unknown");
+  expect(await screen.findByText("No matches")).toBeInTheDocument();
+  await user.keyboard("{Enter}");
+  expect(trigger).toHaveTextContent(emptyRecipe.name);
+  expect(screen.getByLabelText("Variant note")).toHaveValue(existing.variant_note);
 });
 
 it("retries a failed parent list refresh from the first page", async () => {
@@ -701,6 +727,7 @@ it("searches, pages, links and unlinks a parent for an existing recipe", async (
     http.get(detail, () => HttpResponse.json(current)),
     http.get(`${base}/cocktails`, ({ request }) => {
       const query = new URL(request.url).searchParams;
+      expect(query.get("parent_for")).toBe(recipe.id);
       if (failFirstPage) {
         failFirstPage = false;
         return failure("INTERNAL", 500);
@@ -712,7 +739,7 @@ it("searches, pages, links and unlinks a parent for an existing recipe", async (
         }
         return page([emptyRecipe]);
       }
-      return page([recipe], query.get("q") === parent.name ? "next" : null);
+      return page([], query.get("q") === parent.name ? "next" : null);
     }),
     http.patch(detail, async ({ request }) => {
       expect(await request.json()).toEqual({ variant_of_id: linked ? null : parent.id });
@@ -739,7 +766,7 @@ it("searches, pages, links and unlinks a parent for an existing recipe", async (
   expect(await screen.findByRole("link", { name: parent.name })).toBeInTheDocument();
 
   await user.click(screen.getByRole("link", { name: "Edit cocktail" }));
-  await pick(user, await screen.findByLabelText("Variant of"), "None");
+  await user.click(await screen.findByRole("button", { name: "Remove parent" }));
   expect(screen.queryByLabelText("Variant note")).toBeNull();
   await user.click(screen.getByRole("button", { name: "Save cocktail" }));
   expect(await screen.findByRole("heading", { name: recipe.name })).toBeInTheDocument();
