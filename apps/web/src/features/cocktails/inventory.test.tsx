@@ -81,6 +81,8 @@ const cocktail = (
   glass_id: null,
   servings: 1,
   variant_of_id: null,
+  variant_of: null,
+  variants: [],
   ...unrated,
   description: null,
   garnish: null,

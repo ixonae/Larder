@@ -19,7 +19,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Controller, type ControllerRenderProps, useFieldArray } from "react-hook-form";
+import { Controller, type ControllerRenderProps, useFieldArray, useWatch } from "react-hook-form";
 import { categoryTreeQuery } from "@/api/categories.ts";
 import { type CocktailFilters, cocktailQuery, useSaveCocktail } from "@/api/cocktails.ts";
 import { utensilOptionsQuery } from "@/api/utensils.ts";
@@ -50,15 +50,19 @@ import {
   sourceOption,
 } from "./cocktail-editor-schema.ts";
 import { CocktailIngredientsEditor } from "./cocktail-ingredients-editor.tsx";
+import { CocktailVariantFields } from "./cocktail-variant-fields.tsx";
 
 const newRoute = getRouteApi("/cocktails/new");
 const editRoute = getRouteApi("/cocktails/$cocktailId/edit");
 
 export function NewCocktailPage(): JSX.Element {
-  const search: CocktailFilters = newRoute.useSearch();
+  const { variantOf, ...search } = newRoute.useSearch();
+  const title = variantOf ? "Create variant" : "New cocktail";
   return (
-    <BarGate title="New cocktail">
-      {(bar: BarSummary): JSX.Element => <EditorPage bar={bar} search={search} />}
+    <BarGate title={title}>
+      {(bar: BarSummary): JSX.Element => (
+        <EditorPage bar={bar} title={title} search={search} variantOf={variantOf} />
+      )}
     </BarGate>
   );
 }
@@ -66,27 +70,40 @@ export function NewCocktailPage(): JSX.Element {
 export function EditCocktailPage(): JSX.Element {
   const { cocktailId }: { cocktailId: string } = editRoute.useParams();
   const search: CocktailFilters = editRoute.useSearch();
+  const title = "Edit cocktail";
   return (
-    <BarGate title="Edit cocktail">
-      {(bar: BarSummary): JSX.Element => <EditorPage bar={bar} id={cocktailId} search={search} />}
+    <BarGate title={title}>
+      {(bar: BarSummary): JSX.Element => (
+        <EditorPage bar={bar} title={title} id={cocktailId} search={search} />
+      )}
     </BarGate>
   );
 }
 
 function EditorPage({
   bar,
+  title,
   id,
+  variantOf,
   search,
 }: Readonly<{
   bar: BarSummary;
+  title: string;
   id?: string;
+  variantOf?: string;
   search: CocktailFilters;
 }>): JSX.Element {
   return (
     <section className="mx-auto grid max-w-5xl gap-4">
-      <h1 className="text-3xl">{id ? "Edit cocktail" : "New cocktail"}</h1>
+      <h1 className="text-3xl">{title}</h1>
       {hasRole(bar.role, "editor") ? (
-        <EditorLoader key={`${bar.id}/${id}`} barId={bar.id} id={id} search={search} />
+        <EditorLoader
+          key={`${bar.id}/${id}/${variantOf}`}
+          barId={bar.id}
+          id={id}
+          variantOf={variantOf}
+          search={search}
+        />
       ) : (
         <EmptyState title="Editing is unavailable">
           An editor or owner can change recipes.
@@ -99,13 +116,19 @@ function EditorPage({
 function EditorLoader({
   barId,
   id,
+  variantOf,
   search,
 }: Readonly<{
   barId: string;
   id: string | undefined;
+  variantOf: string | undefined;
   search: CocktailFilters;
 }>): JSX.Element {
-  const recipe = useQuery({ ...cocktailQuery(barId, id ?? ""), enabled: id !== undefined });
+  const recipeId = id ?? variantOf;
+  const recipe = useQuery({
+    ...cocktailQuery(barId, recipeId ?? ""),
+    enabled: recipeId !== undefined,
+  });
   const categories = useQuery(categoryTreeQuery(barId));
   const utensils = useQuery(utensilOptionsQuery(barId));
   const queries = [recipe, categories, utensils];
@@ -117,7 +140,7 @@ function EditorLoader({
         onRetry={(): ReturnType<typeof failed.refetch> => failed.refetch()}
       />
     );
-  if (!categories.data || !utensils.data || (id && !recipe.data)) {
+  if (!categories.data || !utensils.data || (recipeId && !recipe.data)) {
     return <LoadingState label="Loading recipe editor…" />;
   }
   const refreshError = queries.find((query) => query.isRefetchError);
@@ -134,7 +157,8 @@ function EditorLoader({
       )}
       <CocktailFormView
         barId={barId}
-        recipe={recipe.data}
+        recipe={id ? recipe.data : undefined}
+        base={variantOf ? recipe.data : undefined}
         categories={categoryOptions}
         utensils={utensils.data}
         search={search}
@@ -146,19 +170,22 @@ function EditorLoader({
 function CocktailFormView({
   barId,
   recipe,
+  base,
   categories,
   utensils,
   search,
 }: Readonly<{
   barId: string;
   recipe: CocktailDetail | undefined;
+  base: CocktailDetail | undefined;
   categories: SourceOption[];
   utensils: Utensil[];
   search: CocktailFilters;
 }>): JSX.Element {
-  const [defaultValues] = useState(() => cocktailDefaults(recipe));
+  const [defaultValues] = useState(() => cocktailDefaults(recipe, base));
   const [initial] = useState(() => recipe && cocktailEditorSchema.parse(defaultValues));
   const form = useZodForm(cocktailEditorSchema, { defaultValues });
+  const parentId = useWatch({ control: form.control, name: "variant_of_id" });
   const save = useSaveCocktail(barId);
   const picture = useImageField(barId, "cocktails");
   const navigate = useNavigate();
@@ -187,7 +214,8 @@ function CocktailFormView({
         const saved = await save.mutateAsync({ json });
         id = saved.id;
       }
-      await picture.apply(id, recipe ? "Cocktail saved" : "Cocktail added");
+      const addedMessage = json.variant_of_id ? "Variant added" : "Cocktail added";
+      await picture.apply(id, recipe ? "Cocktail saved" : addedMessage);
       if (active.current) await navigate(detailLocation(id));
     } catch (err) {
       applyServerErrors(form, err);
@@ -201,6 +229,8 @@ function CocktailFormView({
   const glasses = utensils
     .filter(({ kind }) => kind === "glass")
     .map(({ id, name }) => ({ value: id, label: name }));
+  const previous = recipe ?? base;
+  const addLabel = parentId ? "Add variant" : "Add cocktail";
 
   return (
     <form onSubmit={submit} noValidate>
@@ -218,6 +248,13 @@ function CocktailFormView({
                   <Textarea rows={2} {...control} {...form.register("description")} />
                 )}
               </FormField>
+              <CocktailVariantFields
+                barId={barId}
+                cocktailId={recipe?.id}
+                parentId={parentId}
+                parentName={base?.name ?? recipe?.variant_of?.name}
+                form={form}
+              />
               <ImageUpload
                 imageId={recipe?.image_id ?? null}
                 value={picture.change}
@@ -304,12 +341,12 @@ function CocktailFormView({
             type="button"
             variant="ghost"
             onClick={(): Promise<void> =>
-              navigate(recipe ? detailLocation(recipe.id) : { to: "/cocktails", search })
+              navigate(previous ? detailLocation(previous.id) : { to: "/cocktails", search })
             }
           >
             Cancel
           </Button>
-          <Button type="submit">{recipe ? "Save cocktail" : "Add cocktail"}</Button>
+          <Button type="submit">{recipe ? "Save cocktail" : addLabel}</Button>
         </div>
       </fieldset>
     </form>

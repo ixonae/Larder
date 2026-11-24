@@ -225,9 +225,14 @@ function detail(
     resolve,
     (source) => matchingBottles(source, inventory),
   );
+  const parent = cocktail.variant_of_id
+    ? repo.findCocktail(db, barId, cocktail.variant_of_id)
+    : undefined;
   return {
     ...cocktail,
     ...ratingDetail(db, barId, userId, cocktail.id),
+    variant_of: parent ? { id: parent.id, name: parent.name } : null,
+    variants: repo.listCocktailReferences(db, barId, "variant_of_id", cocktail.id),
     servings,
     computed: summarize(lines, cocktail.method, scaled),
     missing: makeability(ingredients, inventory),

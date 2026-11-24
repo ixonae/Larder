@@ -8,7 +8,7 @@ import {
 } from "@larder/shared";
 import { type UseMutationResult, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, GitFork, Pencil } from "lucide-react";
 import { Fragment, type JSX, type ReactElement, useState } from "react";
 import { ApiError } from "@/api/client.ts";
 import { type CocktailFilters, cocktailQuery } from "@/api/cocktails.ts";
@@ -71,12 +71,20 @@ function CocktailView({ bar, id }: Readonly<{ bar: BarSummary; id: string }>): J
           All cocktails
         </Link>
         {recipe.isSuccess && hasRole(bar.role, "editor") && (
-          <Button asChild size="sm" variant="ghost" className="text-muted-foreground">
-            <Link to="/cocktails/$cocktailId/edit" params={{ cocktailId: id }} search={search}>
-              <Pencil aria-hidden />
-              Edit cocktail
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-1">
+            <Button asChild size="sm" variant="ghost" className="text-muted-foreground">
+              <Link to="/cocktails/new" search={{ ...search, variantOf: id }}>
+                <GitFork aria-hidden />
+                Create variant
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="ghost" className="text-muted-foreground">
+              <Link to="/cocktails/$cocktailId/edit" params={{ cocktailId: id }} search={search}>
+                <Pencil aria-hidden />
+                Edit cocktail
+              </Link>
+            </Button>
+          </div>
         )}
       </nav>
       {content}
@@ -88,6 +96,7 @@ function CocktailRecipe({
   barId,
   recipe,
 }: Readonly<{ barId: string; recipe: CocktailDetail }>): JSX.Element {
+  const search: CocktailFilters = route.useSearch();
   const setFavourite: UseMutationResult<unknown, Error, { id: string; favourite: boolean }> =
     useSetFavourite(barId);
   return (
@@ -104,6 +113,22 @@ function CocktailRecipe({
         </div>
         <RatingSummary barId={barId} recipe={recipe} />
       </div>
+      {recipe.variant_of && (
+        <div className="grid gap-1 wrap-anywhere text-muted-foreground text-sm">
+          <p>
+            Variant of{" "}
+            <Link
+              to="/cocktails/$cocktailId"
+              params={{ cocktailId: recipe.variant_of.id }}
+              search={search}
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              {recipe.variant_of.name}
+            </Link>
+          </p>
+          {recipe.variant_note && <p className="whitespace-pre-line">{recipe.variant_note}</p>}
+        </div>
+      )}
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-[auto] lg:gap-6 lg:has-[>img]:grid-rows-[auto_1fr]">
         {recipe.image_id && (
           <img
@@ -245,6 +270,7 @@ function CocktailFacts({
   barId,
   recipe,
 }: Readonly<{ barId: string; recipe: CocktailDetail }>): JSX.Element {
+  const search: CocktailFilters = route.useSearch();
   const glass = useQuery({
     ...utensilQuery(barId, recipe.glass_id ?? ""),
     enabled: recipe.glass_id !== null,
@@ -273,6 +299,30 @@ function CocktailFacts({
             </div>
           ))}
       </dl>
+      {recipe.variants.length > 0 && (
+        <section
+          aria-labelledby="cocktail-variants"
+          className="grid gap-2 rounded-xl border bg-card p-4 shadow-xs sm:p-5"
+        >
+          <h2 id="cocktail-variants" className="font-semibold text-lg">
+            Variants
+          </h2>
+          <ul className="space-y-1 text-sm">
+            {recipe.variants.map(({ id, name }) => (
+              <li key={id} className="wrap-anywhere">
+                <Link
+                  to="/cocktails/$cocktailId"
+                  params={{ cocktailId: id }}
+                  search={search}
+                  className="font-medium underline-offset-4 hover:underline"
+                >
+                  {name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {glass.isError && (
         <ErrorState
           error={glass.error}

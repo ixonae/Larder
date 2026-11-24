@@ -39,12 +39,27 @@ function afterRating(after: NameCursor | undefined): SQL | undefined {
   );
 }
 
+function outsideVariantTree(barId: string, cocktailId: string): SQL {
+  return sql`${cocktails.id} not in (
+    with recursive variant_tree(id) as (
+      select ${cocktailId}
+      union
+      select ${cocktails.id}
+      from ${cocktails}
+      join variant_tree on ${cocktails.variant_of_id} = variant_tree.id
+      where ${cocktails.bar_id} = ${barId}
+    )
+    select id from variant_tree
+  )`;
+}
+
 export function listCocktails(
   db: Executor,
   barId: string,
   /** Without a `limit`, every matching row: for filters applied after the query. */
   {
     q,
+    parent_for,
     method,
     tag,
     sort,
@@ -69,6 +84,7 @@ export function listCocktails(
       and(
         eq(cocktails.bar_id, barId),
         q === undefined ? undefined : sql`instr(${nameKey}, larder_name_key(${q})) > 0`,
+        parent_for === undefined ? undefined : outsideVariantTree(barId, parent_for),
         method === undefined ? undefined : inArray(cocktails.method, method),
         ...(tag ?? []).map((tagId) =>
           exists(

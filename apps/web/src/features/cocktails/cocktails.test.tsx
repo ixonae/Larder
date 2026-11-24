@@ -53,6 +53,8 @@ const recipe: CocktailDetail = {
   glass_id: glass.id,
   servings: 1,
   variant_of_id: null,
+  variant_of: null,
+  variants: [],
   ...unrated,
   description: "Bright and tart.",
   garnish: "Lime wheel",
@@ -573,6 +575,204 @@ it("retries loading editor choices and cancels creation without writing", async 
   expect(await screen.findByRole("searchbox")).toHaveValue("Gimlet");
 });
 
+it("creates a linked variant from the saved recipe after changing the display servings", async () => {
+  editorCatalogue();
+  const parent = { id: recipe.id, name: recipe.name };
+  const variant = {
+    ...recipe,
+    id: id(18),
+    name: "Dry Gimlet",
+    image_id: null,
+    variant_of_id: parent.id,
+    variant_of: parent,
+    variant_note: "Use less gin",
+  };
+  let saved = false;
+  server.use(
+    http.get(detail, ({ request }) => {
+      const original = {
+        ...recipe,
+        variants: saved ? [{ id: variant.id, name: variant.name }] : [],
+      };
+      return HttpResponse.json(
+        new URL(request.url).searchParams.has("servings")
+          ? { ...original, servings: 2, ingredients: [{ ...ingredient, amount: 60 }] }
+          : original,
+      );
+    }),
+    http.post(`${base}/cocktails`, async ({ request }) => {
+      expect(await request.json()).toMatchObject({
+        name: variant.name,
+        variant_of_id: parent.id,
+        variant_note: variant.variant_note,
+        glass_id: glass.id,
+        ingredients: [
+          { amount: 25, category_id: gin.id },
+          { amount: 1, alternatives: [{ category_id: gin.id, note: "if preferred" }] },
+        ],
+        servings: 1,
+        steps: [{ text: "Shake with ice" }],
+        tags: [tag.name],
+        tool_ids: [shaker.id],
+      });
+      saved = true;
+      return HttpResponse.json(variant, { status: 201 });
+    }),
+    http.get(`${base}/cocktails/${variant.id}`, () => HttpResponse.json(variant)),
+  );
+  const { user } = renderWithProviders(`/cocktails/${recipe.id}?q=Gimlet`);
+  await user.click(await screen.findByRole("button", { name: "More servings" }));
+  expect(await screen.findByText("60 ml")).toBeInTheDocument();
+  await user.click(screen.getByRole("link", { name: "Create variant" }));
+  expect(await screen.findByRole("heading", { name: "Create variant" })).toBeInTheDocument();
+  await user.click(await screen.findByRole("button", { name: "Cancel" }));
+  await user.click(await screen.findByRole("link", { name: "Create variant" }));
+  const title = await screen.findByLabelText("Name");
+  expect(title).toHaveValue("");
+  expect(screen.getByLabelText("Variant of")).toHaveTextContent(parent.name);
+  expect(screen.getByLabelText("Servings")).toHaveValue(1);
+  expect(screen.queryByAltText("Preview")).toBeNull();
+  const first = within(screen.getByRole("group", { name: "Ingredient 1" }));
+  expect(first.getByLabelText("Amount")).toHaveValue(30);
+  await user.clear(first.getByLabelText("Amount"));
+  await user.type(first.getByLabelText("Amount"), "25");
+  await user.type(title, variant.name);
+  await user.type(screen.getByLabelText("Variant note"), variant.variant_note);
+  await user.click(screen.getByRole("button", { name: "Add variant" }));
+
+  expect(await screen.findByRole("heading", { name: variant.name })).toBeInTheDocument();
+  expect(screen.getByText(variant.variant_note)).toBeInTheDocument();
+  await user.click(screen.getByRole("link", { name: parent.name }));
+  const variants = await screen.findByRole("region", { name: "Variants" });
+  expect(within(variants).getByRole("link", { name: variant.name })).toHaveAttribute(
+    "href",
+    `/cocktails/${variant.id}?q=Gimlet`,
+  );
+});
+
+it("saves a standalone cocktail when the editor clears the template parent", async () => {
+  editorCatalogue();
+  server.use(
+    http.get(detail, () => HttpResponse.json(recipe)),
+    http.get(`${base}/cocktails`, () => page([recipe])),
+    http.post(`${base}/cocktails`, async ({ request }) => {
+      expect(await request.json()).toMatchObject({ variant_of_id: null, variant_note: null });
+      return HttpResponse.json(emptyRecipe, { status: 201 });
+    }),
+    http.get(`${base}/cocktails/${emptyRecipe.id}`, () => HttpResponse.json(emptyRecipe)),
+  );
+  const { user } = renderWithProviders(`/cocktails/new?variantOf=${recipe.id}`);
+  await user.type(await screen.findByLabelText("Name"), emptyRecipe.name);
+  await user.type(screen.getByLabelText("Variant note"), "Less gin");
+  await user.click(screen.getByRole("button", { name: "Remove parent" }));
+  expect(screen.getByLabelText("Variant of")).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: "Add cocktail" }));
+  expect(await screen.findByRole("heading", { name: emptyRecipe.name })).toBeInTheDocument();
+  expect(await screen.findByText("Cocktail added")).toBeInTheDocument();
+});
+
+it("keeps the parent and note when Enter is pressed in a search with no matches", async () => {
+  editorCatalogue();
+  const existing: CocktailDetail = {
+    ...recipe,
+    variant_of_id: emptyRecipe.id,
+    variant_of: { id: emptyRecipe.id, name: emptyRecipe.name },
+    variant_note: "Keep this note",
+  };
+  server.use(
+    http.get(detail, () => HttpResponse.json(existing)),
+    http.get(`${base}/cocktails`, ({ request }) =>
+      page(new URL(request.url).searchParams.has("q") ? [] : [emptyRecipe]),
+    ),
+  );
+  const { user } = renderWithProviders(`/cocktails/${recipe.id}/edit`);
+  const trigger = await screen.findByLabelText("Variant of");
+  await user.click(trigger);
+  expect(await screen.findByRole("option", { name: emptyRecipe.name })).toBeInTheDocument();
+  await user.type(screen.getByPlaceholderText("Search cocktails"), "Unknown");
+  expect(await screen.findByText("No matches")).toBeInTheDocument();
+  await user.keyboard("{Enter}");
+  expect(trigger).toHaveTextContent(emptyRecipe.name);
+  expect(screen.getByLabelText("Variant note")).toHaveValue(existing.variant_note);
+});
+
+it("retries a failed parent list refresh from the first page", async () => {
+  editorCatalogue();
+  const cursors: (string | null)[] = [];
+  server.use(
+    http.get(`${base}/cocktails`, ({ request }) => {
+      cursors.push(new URL(request.url).searchParams.get("cursor"));
+      if (cursors.length === 2) return failure("INTERNAL", 500);
+      return cursors.length === 1 ? page([recipe], "next") : page([emptyRecipe]);
+    }),
+  );
+  const { user, queryClient } = renderWithProviders("/cocktails/new");
+  await user.click(await screen.findByLabelText("Variant of"));
+  expect(await screen.findByRole("option", { name: recipe.name })).toBeInTheDocument();
+  await act(() => queryClient.refetchQueries({ queryKey: ["bars", BAR_ID, "cocktails", "list"] }));
+  await user.click(await screen.findByRole("button", { name: "Retry loading cocktails" }));
+  expect(await screen.findByRole("option", { name: emptyRecipe.name })).toBeInTheDocument();
+  expect(screen.queryByRole("option", { name: recipe.name })).toBeNull();
+  expect(cursors).toEqual([null, null, null]);
+});
+
+it("searches, pages, links and unlinks a parent for an existing recipe", async () => {
+  editorCatalogue();
+  let current = recipe;
+  let linked = false;
+  let failFirstPage = true;
+  let failNextPage = true;
+  const parent = { id: emptyRecipe.id, name: emptyRecipe.name };
+  server.use(
+    http.get(detail, () => HttpResponse.json(current)),
+    http.get(`${base}/cocktails`, ({ request }) => {
+      const query = new URL(request.url).searchParams;
+      expect(query.get("parent_for")).toBe(recipe.id);
+      if (failFirstPage) {
+        failFirstPage = false;
+        return failure("INTERNAL", 500);
+      }
+      if (query.has("cursor")) {
+        if (failNextPage) {
+          failNextPage = false;
+          return failure("INTERNAL", 500);
+        }
+        return page([emptyRecipe]);
+      }
+      return page([], query.get("q") === parent.name ? "next" : null);
+    }),
+    http.patch(detail, async ({ request }) => {
+      expect(await request.json()).toEqual({ variant_of_id: linked ? null : parent.id });
+      linked = !linked;
+      current = {
+        ...current,
+        variant_of_id: linked ? parent.id : null,
+        variant_of: linked ? parent : null,
+      };
+      return HttpResponse.json(current);
+    }),
+  );
+  const { user } = renderWithProviders(`/cocktails/${recipe.id}/edit`);
+  await user.click(await screen.findByLabelText("Variant of"));
+  await user.click(await screen.findByRole("button", { name: "Retry loading cocktails" }));
+  await user.type(screen.getByPlaceholderText("Search cocktails"), parent.name);
+  await user.click(await screen.findByRole("button", { name: "Load more cocktails" }));
+  await user.click(await screen.findByRole("button", { name: "Retry loading cocktails" }));
+  expect(screen.queryByRole("option", { name: recipe.name })).toBeNull();
+  await user.click(await screen.findByRole("option", { name: parent.name }));
+  expect(screen.getByLabelText("Variant of")).toHaveTextContent(parent.name);
+  expect(screen.getByLabelText("Variant note")).toHaveValue("");
+  await user.click(screen.getByRole("button", { name: "Save cocktail" }));
+  expect(await screen.findByRole("link", { name: parent.name })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("link", { name: "Edit cocktail" }));
+  await user.click(await screen.findByRole("button", { name: "Remove parent" }));
+  expect(screen.queryByLabelText("Variant note")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Save cocktail" }));
+  expect(await screen.findByRole("heading", { name: recipe.name })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: parent.name })).toBeNull();
+});
+
 it("hides editing actions from viewers and prevents direct access to the editor", async () => {
   server.use(
     http.get("/api/me", () =>
@@ -590,6 +790,7 @@ it("hides editing actions from viewers and prevents direct access to the editor"
   await user.click(screen.getByRole("link", { name: /Gimlet/ }));
   expect(await screen.findByRole("heading", { name: "Gimlet" })).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Edit cocktail" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Create variant" })).toBeNull();
   await router.navigate({ to: "/cocktails/$cocktailId/edit", params: { cocktailId: recipe.id } });
   expect(await screen.findByText("Editing is unavailable")).toBeInTheDocument();
 });

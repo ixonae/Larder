@@ -28,15 +28,16 @@ export const cocktailListKey = (barId: string) => [...cocktailsKey(barId), "list
 /** Every cached copy of one cocktail (any serving size). */
 export const cocktailDetailKey = (barId: string, id: string) =>
   [...cocktailsKey(barId), "detail", id] as const;
-export type CocktailFilters = Omit<ListCocktailsQuery, "limit" | "cursor">;
+type CocktailListFilters = Omit<ListCocktailsQuery, "limit" | "cursor">;
+export type CocktailFilters = Omit<CocktailListFilters, "parent_for">;
 
 /** The API takes a list filter as one comma-separated value. */
 const joined = (values: readonly string[] | undefined): string | undefined => values?.join(",");
 
 export const cocktailListQuery = (
   barId: string,
-  filters: CocktailFilters,
-): ApiInfiniteQueryOptions<Cocktail, string | undefined, (string | CocktailFilters)[]> =>
+  filters: CocktailListFilters,
+): ApiInfiniteQueryOptions<Cocktail, string | undefined, (string | CocktailListFilters)[]> =>
   infiniteQueryOptions({
     queryKey: [...cocktailListKey(barId), filters],
     queryFn: async ({
