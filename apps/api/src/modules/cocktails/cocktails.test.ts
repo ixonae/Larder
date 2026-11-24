@@ -137,6 +137,8 @@ test("deleting a referenced glass or base cocktail is refused and nothing is del
   expect(await (await app.request(glassPath)).json()).toEqual(glass);
   expect(await (await app.request(`${path}/${base.id}`)).json()).toEqual({
     ...base,
+    variant_of: null,
+    variants: [{ id: variant.id, name: variant.name }],
     other_ratings: [],
     ingredients: [],
     steps: [],
@@ -145,6 +147,8 @@ test("deleting a referenced glass or base cocktail is refused and nothing is del
   });
   expect(await (await app.request(`${path}/${variant.id}`)).json()).toEqual({
     ...variant,
+    variant_of: { id: base.id, name: base.name },
+    variants: [],
     other_ratings: [],
     ingredients: [],
     steps: [],

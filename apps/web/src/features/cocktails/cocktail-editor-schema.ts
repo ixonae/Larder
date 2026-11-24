@@ -58,6 +58,7 @@ export const cocktailEditorSchema = createCocktailSchema
   })
   .extend({
     glass_id: idSchema.or(z.literal("")).transform((value) => value || null),
+    variant_of_id: idSchema.or(z.literal("")).transform((value) => value || null),
     ingredients: ingredient.array(),
     tags: z
       .object({ name: listTagsQuerySchema.shape.q.unwrap() })
@@ -105,20 +106,26 @@ export function cocktailPatch(
   );
 }
 
-export function cocktailDefaults(recipe?: CocktailDetail): CocktailEditorInput {
+export function cocktailDefaults(
+  recipe?: CocktailDetail,
+  base?: CocktailDetail,
+): CocktailEditorInput {
+  const template = recipe ?? base;
   return {
     name: recipe?.name ?? "",
-    description: recipe?.description ?? "",
-    method: recipe?.method ?? "shaken",
-    ice: recipe?.ice ?? "none",
-    servings: recipe?.servings ?? 1,
-    glass_id: recipe?.glass_id ?? "",
-    garnish: recipe?.garnish ?? "",
-    serving_notes: recipe?.serving_notes ?? "",
-    source: recipe?.source ?? "",
-    notes: recipe?.notes ?? "",
+    description: template?.description ?? "",
+    method: template?.method ?? "shaken",
+    ice: template?.ice ?? "none",
+    servings: template?.servings ?? 1,
+    glass_id: template?.glass_id ?? "",
+    garnish: template?.garnish ?? "",
+    serving_notes: template?.serving_notes ?? "",
+    source: template?.source ?? "",
+    notes: template?.notes ?? "",
+    variant_of_id: base?.id ?? recipe?.variant_of_id ?? "",
+    variant_note: recipe?.variant_note ?? "",
     ingredients:
-      recipe?.ingredients.map(
+      template?.ingredients.map(
         ({ amount, unit, optional, preparation_only, alternatives, ...line }) => ({
           ...sourceDefaults(line),
           amount,
@@ -128,8 +135,8 @@ export function cocktailDefaults(recipe?: CocktailDetail): CocktailEditorInput {
           alternatives: alternatives.map(sourceDefaults),
         }),
       ) ?? [],
-    steps: recipe?.steps.map(({ text }) => ({ text })) ?? [],
-    tool_ids: recipe?.tools.map(({ id }) => id) ?? [],
-    tags: recipe?.tags.map(({ name }) => ({ name })) ?? [],
+    steps: template?.steps.map(({ text }) => ({ text })) ?? [],
+    tool_ids: template?.tools.map(({ id }) => id) ?? [],
+    tags: template?.tags.map(({ name }) => ({ name })) ?? [],
   };
 }

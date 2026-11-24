@@ -26,6 +26,8 @@ const detail = (extra: Partial<CocktailDetail> = {}): CocktailDetail => ({
   glass_id: null,
   servings: 1,
   variant_of_id: null,
+  variant_of: null,
+  variants: [],
   description: null,
   garnish: null,
   serving_notes: null,

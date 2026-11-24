@@ -107,7 +107,9 @@ export const routeTree = rootRoute.addChildren([
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/cocktails/new",
-    validateSearch: cocktailsSearchSchema,
+    validateSearch: cocktailsSearchSchema.extend({
+      variantOf: idSchema.optional().catch(undefined),
+    }),
     component: NewCocktailPage,
   }),
   createRoute({

@@ -77,6 +77,8 @@ export const listTagsQuerySchema = paginationQuerySchema.extend({ q: nameSchema.
 export type ListTagsQuery = z.infer<typeof listTagsQuerySchema>;
 
 export const cocktailDetailSchema = cocktailSchema.extend({
+  variant_of: namedReferenceSchema.nullable(),
+  variants: namedReferenceSchema.array(),
   ingredients: cocktailIngredientSchema.array(),
   steps: stepSchema.array(),
   tools: namedReferenceSchema.array(),
