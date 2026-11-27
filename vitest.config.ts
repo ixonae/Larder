@@ -9,6 +9,7 @@ export default defineConfig({
         "apps/*/src/**/*.{ts,tsx}",
         "packages/*/src/**/*.{ts,tsx}",
         "apps/web/public/service-worker.js",
+        "apps/web/vite.config.ts",
       ],
       // Allowed exclusions only (see AGENTS.md, Testing).
       // Anything else needs a `/* v8 ignore next */` with a reason, called out in the PR.
