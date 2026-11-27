@@ -1,22 +1,21 @@
 import { type NewAccount, newAccountSchema } from "@larder/shared";
-import { useMutation } from "@tanstack/react-query";
 import type { JSX } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { type ControlProps, FormError, FormField, PasswordField, useZodForm } from "@/lib/form.tsx";
+import { useCredentialSubmit } from "./credential-submit.ts";
 
 export function NewAccountForm({
   submit,
   label,
 }: Readonly<{ submit: (data: NewAccount) => Promise<unknown>; label: string }>): JSX.Element {
   const form = useZodForm(newAccountSchema);
-  const create = useMutation({ mutationFn: submit, onSuccess: () => form.reset() });
+  const create = useCredentialSubmit(async (data: NewAccount) => {
+    await submit(data);
+    form.reset();
+  });
   return (
-    <form
-      className="grid gap-3"
-      noValidate
-      onSubmit={form.handleSubmit((data) => create.mutate(data))}
-    >
+    <form className="grid gap-3" noValidate onSubmit={form.handleSubmit(create.submit)}>
       <FormField form={form} name="display_name" label="Display name">
         {(control: ControlProps): JSX.Element => (
           <Input {...control} {...form.register("display_name")} autoComplete="name" />

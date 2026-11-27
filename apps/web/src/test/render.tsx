@@ -4,9 +4,36 @@ import type { RenderResult } from "@testing-library/react";
 import { render, screen } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import userEvent from "@testing-library/user-event";
+import { type JSX, useState } from "react";
 import { createQueryClient } from "@/api/query-client.ts";
 import { App } from "@/app.tsx";
 import { createAppRouter } from "@/routes/router.tsx";
+
+const newClient = (): QueryClient => {
+  const client = createQueryClient();
+  client.setDefaultOptions({ ...client.getDefaultOptions(), queries: { retry: false } });
+  return client;
+};
+// Recreate the document's React tree on a session change; jsdom cannot navigate a real page.
+function TestApp({
+  queryClient,
+  router,
+}: {
+  queryClient: QueryClient;
+  router: ReturnType<typeof createAppRouter>;
+}): JSX.Element {
+  const [session, setSession] = useState({ queryClient, generation: 0 });
+  return (
+    <App
+      key={session.generation}
+      queryClient={session.queryClient}
+      router={router}
+      restart={(): void =>
+        setSession({ queryClient: newClient(), generation: session.generation + 1 })
+      }
+    />
+  );
+}
 
 /**
  * Renders the whole app at `path` with the app's query client (fresh cache, no retries) and in-memory
@@ -17,12 +44,11 @@ export function renderWithProviders(path = "/"): RenderResult & {
   user: UserEvent;
   queryClient: QueryClient;
 } {
-  const queryClient = createQueryClient();
-  queryClient.setDefaultOptions({ queries: { retry: false } });
+  const queryClient = newClient();
   const router = createAppRouter({ queryClient }, createMemoryHistory({ initialEntries: [path] }));
   const user = userEvent.setup();
   return {
-    ...render(<App queryClient={queryClient} router={router} />),
+    ...render(<TestApp queryClient={queryClient} router={router} />),
     router,
     user,
     queryClient,

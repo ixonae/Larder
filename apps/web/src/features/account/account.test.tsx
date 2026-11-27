@@ -22,7 +22,7 @@ it("requires sign-in, shows credential errors, and returns to the requested page
       return new HttpResponse(null, { status: 204 });
     }),
   );
-  const { user, router } = renderWithProviders("/bottles");
+  const { user, router, queryClient } = renderWithProviders("/bottles");
   expect(await screen.findByRole("heading", { name: "Sign in" })).toBeVisible();
   expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   await user.type(screen.getByLabelText("Email"), "OWNER@larder.local");
@@ -30,10 +30,12 @@ it("requires sign-in, shows credential errors, and returns to the requested page
   await user.type(password, "bad password");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Invalid email or password");
+  expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   await user.clear(password);
   await user.type(password, "correct password");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
   expect(await screen.findByRole("heading", { name: "Bottles" })).toBeVisible();
+  expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   expect(router.state.location.pathname).toBe("/bottles");
 });
 
@@ -58,5 +60,6 @@ it("can sign out from the top bar, retry a failure, and clear signed-in data", a
   await user.click(button);
   await waitFor(() => expect(queryClient.getQueryData(["bar-content"])).toBeUndefined());
   expect(await screen.findByRole("heading", { name: "Sign in" })).toBeVisible();
+  expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   expect(screen.queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
 });

@@ -14,7 +14,7 @@ const router = createAppRouter({ queryClient });
 // biome-ignore lint/style/noNonNullAssertion: #root is in index.html
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App queryClient={queryClient} router={router} />
+    <App queryClient={queryClient} router={router} restart={(): void => window.location.reload()} />
   </StrictMode>,
 );
 

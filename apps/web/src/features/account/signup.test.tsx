@@ -24,13 +24,14 @@ it("offers public registration when enabled and takes the new user to Bars", asy
       return new HttpResponse(null, { status: 204 });
     }),
   );
-  const { user } = renderWithProviders("/cocktails");
+  const { user, queryClient } = renderWithProviders("/cocktails");
   await user.click(await screen.findByRole("link", { name: "Create an account" }));
   await user.type(await screen.findByLabelText("Display name"), "Alex");
   await user.type(screen.getByLabelText("Email"), "alex@example.com");
   await user.type(screen.getByLabelText("Password"), "a long new password");
   await user.click(screen.getByRole("button", { name: "Create account" }));
   expect(await screen.findByRole("heading", { name: /^Bars$/ })).toBeVisible();
+  expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
 });
 
 it("recovers when signup policy cannot load and hides the form when signup is closed", async () => {

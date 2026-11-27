@@ -4,7 +4,7 @@ import {
   changeEmailSchema,
   changePasswordSchema,
 } from "@larder/shared";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { CircleUserRound, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import type { JSX } from "react";
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { useSignedIn } from "@/features/bars/active-bar.tsx";
 import { type ControlProps, FormError, FormField, PasswordField, useZodForm } from "@/lib/form.tsx";
+
+import { useCredentialSubmit } from "./credential-submit.ts";
 
 export function SettingsPage(): JSX.Element {
   const { user } = useSignedIn().me;
@@ -59,18 +61,16 @@ export function SettingsPage(): JSX.Element {
 function EmailForm({ email }: Readonly<{ email: string }>): JSX.Element {
   const client = useQueryClient();
   const form = useZodForm(changeEmailSchema, { defaultValues: { email, current_password: "" } });
-  const change = useMutation({
-    mutationFn: async (json: ChangeEmail) => unwrap(await api.api.me.email.$patch({ json })),
-    onSuccess: async (_result: unknown, { email }: { current_password: string; email: string }) => {
-      form.reset({ email, current_password: "" });
-      await client.invalidateQueries({ queryKey: meQuery.queryKey });
-    },
+  const change = useCredentialSubmit(async (json: ChangeEmail) => {
+    await unwrap(await api.api.me.email.$patch({ json }));
+    form.reset({ email: json.email, current_password: "" });
+    await client.invalidateQueries({ queryKey: meQuery.queryKey });
   });
   return (
     <form
       className="grid gap-4 rounded-xl border bg-card p-4 sm:p-5"
       noValidate
-      onSubmit={form.handleSubmit((data) => change.mutate(data))}
+      onSubmit={form.handleSubmit(change.submit)}
     >
       <h3 className="flex items-center gap-2 font-semibold">
         <Mail className="size-4 text-muted-foreground" aria-hidden />
@@ -98,15 +98,15 @@ function EmailForm({ email }: Readonly<{ email: string }>): JSX.Element {
 
 function PasswordForm(): JSX.Element {
   const form = useZodForm(changePasswordSchema);
-  const change = useMutation({
-    mutationFn: async (json: ChangePassword) => unwrap(await api.api.me.password.$patch({ json })),
-    onSuccess: () => form.reset(),
+  const change = useCredentialSubmit(async (json: ChangePassword) => {
+    await unwrap(await api.api.me.password.$patch({ json }));
+    form.reset();
   });
   return (
     <form
       className="grid gap-4 rounded-xl border bg-card p-4 sm:p-5"
       noValidate
-      onSubmit={form.handleSubmit((data) => change.mutate(data))}
+      onSubmit={form.handleSubmit(change.submit)}
     >
       <h3 className="flex items-center gap-2 font-semibold">
         <KeyRound className="size-4 text-muted-foreground" aria-hidden />

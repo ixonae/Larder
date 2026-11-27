@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { type JSX, useState } from "react";
 import { api, unwrap } from "@/api/client.ts";
 import { meQuery, useMe } from "@/api/queries.ts";
+import { signedIn } from "@/api/session.ts";
 import { ErrorState, LoadingState } from "@/components/states.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { NewAccountForm } from "@/features/account/new-account-form.tsx";
@@ -98,7 +99,7 @@ function RegisterForm({ token }: Readonly<{ token: string }>): JSX.Element {
       label="Create account and join"
       submit={async (json: NewAccount): Promise<void> => {
         await unwrap(await api.api.invitations.register.$post({ json: { ...json, token } }));
-        await client.invalidateQueries({ queryKey: meQuery.queryKey });
+        await signedIn(client);
         await navigate({ to: "/cocktails" });
         client.removeQueries({ queryKey: invitationKey(token) });
       }}
