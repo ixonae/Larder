@@ -27,6 +27,7 @@ import {
   images,
   pantryIngredients,
   products,
+  starterImports,
   tags,
   utensils,
 } from "../schema/index.ts";
@@ -360,6 +361,7 @@ it("leaves no bar or image files when seeded bar creation fails while staging ic
   );
   expect(response.status).toBe(500);
   expect(writes).toHaveBeenCalledTimes(4);
+  expect(db.select().from(starterImports).all()).toEqual([]);
   expect(db.select().from(bars).all()).toEqual(existingBars);
   expect(db.select().from(barMembers).all()).toEqual(existingMembers);
   expect(db.select().from(barDataMigrations).all()).toEqual([]);

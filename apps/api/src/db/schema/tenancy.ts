@@ -61,6 +61,17 @@ export const barDataMigrations = sqliteTable(
   (t) => [primaryKey({ columns: [t.bar_id, t.migration] })],
 );
 
+/** Holds a quota slot while a new bar's artwork is staged, before the bar itself exists. */
+export const starterImports = sqliteTable(
+  "starter_imports",
+  {
+    bar_id: text("bar_id").primaryKey(),
+    owner_id: text("owner_id").references(() => users.id, { onDelete: "set null" }),
+    expires_at: text("expires_at").notNull(),
+  },
+  (t) => [index("starter_imports_owner_id_idx").on(t.owner_id)],
+);
+
 export const barInvitations = sqliteTable(
   "bar_invitations",
   {
