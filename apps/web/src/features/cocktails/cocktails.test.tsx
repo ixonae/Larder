@@ -335,6 +335,7 @@ function editorCatalogue(): void {
   );
 }
 
+// The full recipe editor flow can exceed Vitest's default timeout on CI.
 it("creates a recipe with reordered ingredients, alternatives, steps, tools, tags, and a picture", async () => {
   editorCatalogue();
   let body: CreateCocktail | undefined;
@@ -464,7 +465,7 @@ it("creates a recipe with reordered ingredients, alternatives, steps, tools, tag
     "href",
     "/cocktails?q=Gimlet",
   );
-});
+}, 10_000);
 
 it("edits the original recipe after scaling, preserves input on a conflict, and removes a picture", async () => {
   editorCatalogue();
