@@ -1,7 +1,9 @@
+import { SESSION_REQUEST_HEADER } from "@larder/shared";
 import { HTTPException } from "hono/http-exception";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { AppError, conflict, forbidden, notFound } from "./errors.ts";
+import { MAX_PUBLIC_BODY_BYTES } from "./middleware/body.ts";
 import { validate } from "./middleware/validate.ts";
 import { createTestApp, errorOf, jsonRequest } from "./test/app.ts";
 
@@ -64,6 +66,71 @@ describe("body limit", () => {
     const res = await app.request("/api/echo", post("{}"));
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("{}");
+  });
+
+  it.each(["/api/bars", "/api/invitations/accept", "/api/unknown"])(
+    "authenticates before reading the body on %s",
+    async (path) => {
+      const { rawRequest } = setup({ maxBodyBytes: 16 });
+      const request = new Request(new URL(path, "http://localhost"), {
+        method: "POST",
+        headers: { [SESSION_REQUEST_HEADER]: "1", "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "An oversized signed-out request" }),
+      });
+      const res = await rawRequest(request);
+      expect(res.status).toBe(401);
+      expect(request.bodyUsed).toBe(false);
+    },
+  );
+
+  it.each([
+    "auth/sign-in",
+    "auth/sign-up",
+    "auth/sign-out",
+    "invitations/preview",
+    "invitations/register",
+  ])("enforces the public body cap on %s before handling the request", async (path) => {
+    const { app } = setup();
+    const res = await app.request(`/api/${path}`, post("x".repeat(MAX_PUBLIC_BODY_BYTES + 1)));
+    expect(res.status).toBe(413);
+    expect(await errorOf(res)).toEqual({
+      code: "PAYLOAD_TOO_LARGE",
+      message: `Request body is larger than ${MAX_PUBLIC_BODY_BYTES} bytes`,
+    });
+  });
+
+  it("honours a lower configured limit for public forms", async () => {
+    const { app } = setup({ maxBodyBytes: 16 });
+    const res = await app.request("/api/invitations/preview", post("x".repeat(17)));
+    expect(res.status).toBe(413);
+    expect((await errorOf(res)).message).toBe("Request body is larger than 16 bytes");
+  });
+
+  it("bounds simultaneous authenticated bodies across routes and releases their slots", async () => {
+    const { app } = setup();
+    let active = 0;
+    const full = Promise.withResolvers<void>();
+    const finish = Promise.withResolvers<void>();
+    app.post("/api/hold", async (c) => {
+      if (++active === 4) full.resolve();
+      await finish.promise;
+      return c.text("done");
+    });
+    app.post("/api/echo", async (c) => c.text(await c.req.text()));
+    const holding = Array.from({ length: 4 }, () => app.request("/api/hold", post("{}")));
+    try {
+      await full.promise;
+      const busy = await app.request("/api/echo", post("{}"));
+      expect(busy.status).toBe(503);
+      expect(busy.headers.get("Retry-After")).toBe("1");
+      expect((await errorOf(busy)).code).toBe("UNAVAILABLE");
+      expect((await app.request("/api/me")).status).toBe(200);
+      expect((await app.request("/api/invitations/preview", post("{}"))).status).toBe(400);
+    } finally {
+      finish.resolve();
+      await Promise.all(holding);
+    }
+    expect((await app.request("/api/echo", post("{}"))).status).toBe(200);
   });
 
   it("defaults to 10 MB", async () => {

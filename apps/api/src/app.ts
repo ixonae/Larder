@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { bodyLimit } from "hono/body-limit";
 import { requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
 import { concurrencyLimit } from "./auth/limit.ts";
@@ -7,8 +6,8 @@ import { currentUser, protectApi } from "./auth/middleware.ts";
 import { rateLimit } from "./auth/rate-limit.ts";
 import { authRoutes } from "./auth/routes.ts";
 import type { Db } from "./db/client.ts";
-import { AppError } from "./errors.ts";
 import type { Logger } from "./logger.ts";
+import { admitBodies, MAX_PUBLIC_BODY_BYTES } from "./middleware/body.ts";
 import { handleError, handleNotFound } from "./middleware/errors.ts";
 import { adminRoutes } from "./modules/admin/routes.ts";
 import { barDirectoryRoutes, barRoutes } from "./modules/bars/routes.ts";
@@ -95,25 +94,17 @@ export function createApp({
 
   app.use("/api/*", protectApi);
 
-  app.use(
-    "/api/*",
-    bodyLimit({
-      maxSize: maxBodyBytes,
-      onError: () => {
-        throw new AppError(
-          "PAYLOAD_TOO_LARGE",
-          `Request body is larger than ${maxBodyBytes} bytes`,
-        );
-      },
-    }),
-  );
+  // Public traffic has its own small allocation and cannot occupy upload slots.
+  const publicBody = admitBodies(Math.min(maxBodyBytes, MAX_PUBLIC_BODY_BYTES), 8);
+  const privateBody = admitBodies(maxBodyBytes, 4);
 
   // Deny by default: only the routes mounted before `currentUser` answer signed-out requests.
   const routes = app
     .get("/api/health", (c) => c.json({ status: "ok" as const }))
-    .route("/api/auth", authRoutes)
-    .route("/api/invitations", publicInvitationRoutes)
+    .route("/api/auth", authRoutes(publicBody))
+    .route("/api/invitations", publicInvitationRoutes(publicBody))
     .use("/api/*", currentUser)
+    .use("/api/*", privateBody)
     .route("/api/admin", adminRoutes)
     .route("/api/me", meRoutes)
     .route("/api/bars", barDirectoryRoutes)

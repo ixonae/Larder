@@ -49,7 +49,7 @@ Set options in a `.env` file next to `docker-compose.yml`.
 | `LARDER_BIND` | `127.0.0.1` | Host address to bind to |
 | `LARDER_DATA_DIR` | `./data` | Data directory on the host |
 | `LARDER_UID` / `LARDER_GID` | `1000` | User and group IDs of the owner of the data directory |
-| `MAX_UPLOAD_MB` | `10` | Largest request body the API accepts |
+| `MAX_UPLOAD_MB` | `10` | Largest authenticated request body. Public account and invitation forms also have a 16 KiB limit |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` or `silent` |
 
 ### Resetting the owner password
