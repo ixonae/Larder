@@ -107,7 +107,8 @@ pnpm dev
 
 Open <http://localhost:5173> and sign in as `owner@larder.local` with the password you set. The dev
 server forwards API requests to `127.0.0.1:3000`. Local data lives in `./data` by default. Set
-`DATA_DIR` to use another directory. Relative paths are resolved from the repository root.
+`DATA_DIR` to use another directory. Relative paths are resolved from the repository root. Keep this directory outside
+the frontend source, public assets and dependencies served by Vite.
 
 Run these checks before opening a pull request.
 
