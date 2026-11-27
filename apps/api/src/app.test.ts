@@ -1,13 +1,45 @@
+import { IncomingMessage, ServerResponse } from "node:http";
+import { Socket } from "node:net";
+import { getRequestListener } from "@hono/node-server";
 import { SESSION_REQUEST_HEADER } from "@larder/shared";
 import { HTTPException } from "hono/http-exception";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import type { AppType } from "./app.ts";
+import { bars, sessions } from "./db/schema/index.ts";
 import { AppError, conflict, forbidden, notFound } from "./errors.ts";
-import { MAX_PUBLIC_BODY_BYTES } from "./middleware/body.ts";
+import { MAX_PUBLIC_BODY_BYTES, PUBLIC_BODY_TIMEOUT_MS } from "./middleware/body.ts";
 import { validate } from "./middleware/validate.ts";
 import { createTestApp, errorOf, jsonRequest } from "./test/app.ts";
 
 const setup: typeof createTestApp = createTestApp;
+
+/** Pass an HTTP/1 message through the production adapter without opening a listening socket. */
+async function nodeRequest(
+  app: AppType,
+  method: string,
+  path: string,
+  headers: Record<string, string>,
+  body?: string,
+): Promise<number> {
+  const incoming = new IncomingMessage(new Socket());
+  incoming.method = method;
+  incoming.url = path;
+  incoming.httpVersionMajor = 1;
+  const requestHeaders = new Headers({
+    host: "localhost",
+    [SESSION_REQUEST_HEADER]: "1",
+    ...headers,
+  });
+  incoming.rawHeaders = [...requestHeaders].flat();
+  incoming.headers = Object.fromEntries(requestHeaders);
+  incoming.complete = true;
+  if (body !== undefined) incoming.push(Buffer.from(body));
+  incoming.push(null);
+  const outgoing = new ServerResponse(incoming);
+  await getRequestListener(app.fetch, { overrideGlobalObjects: false })(incoming, outgoing);
+  return outgoing.statusCode;
+}
 
 describe("GET /api/health", () => {
   it("returns ok", async () => {
@@ -106,8 +138,110 @@ describe("body limit", () => {
     expect((await errorOf(res)).message).toBe("Request body is larger than 16 bytes");
   });
 
+  it.each([true, false])(
+    "rechecks the session after reading the body (declared length %s)",
+    async (fixedLength) => {
+      const { rawRequest, db, cookie } = setup();
+      const before = db.select().from(bars).all();
+      const payload = Buffer.from(JSON.stringify({ name: "New bar" }));
+      const body = new ReadableStream<Uint8Array>(
+        {
+          pull(controller: ReadableStreamDefaultController<Uint8Array>): void {
+            db.delete(sessions).run();
+            controller.enqueue(payload);
+            controller.close();
+          },
+        },
+        { highWaterMark: 0 },
+      );
+      const res = await rawRequest("/api/bars", {
+        method: "POST",
+        duplex: "half",
+        body,
+        headers: {
+          cookie: cookie as string,
+          "content-type": "application/json",
+          [SESSION_REQUEST_HEADER]: "1",
+          ...(fixedLength && { "content-length": String(payload.length) }),
+        },
+      });
+      expect(res.status).toBe(401);
+      expect(db.select().from(bars).all()).toEqual(before);
+    },
+  );
+
+  it("releases public capacity after a read deadline and keeps other peers and empty sign-outs available", async () => {
+    const { app, cookie } = setup();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const reading = Promise.withResolvers<void>();
+      const cancelled = vi.fn();
+      let started = 0;
+      const pending = Array.from({ length: 2 }, () =>
+        app.request("/api/invitations/preview", {
+          method: "POST",
+          duplex: "half",
+          body: new ReadableStream<Uint8Array>(
+            {
+              pull(): void {
+                if (++started === 2) reading.resolve();
+              },
+              cancel: cancelled,
+            },
+            { highWaterMark: 0 },
+          ),
+        }),
+      );
+      await reading.promise;
+      const busy = await app.request("/api/auth/sign-in", post("{}"));
+      expect(busy.status).toBe(429);
+      expect(busy.headers.get("Retry-After")).toBe("1");
+      const other = await app.request("/api/invitations/preview", post("{}"), {
+        incoming: { socket: { remoteAddress: "192.0.2.2" } },
+      });
+      expect((await errorOf(other)).code).toBe("VALIDATION");
+      expect(
+        await nodeRequest(app, "POST", "/api/auth/sign-out", {
+          "content-length": "0",
+          cookie: cookie as string,
+        }),
+      ).toBe(204);
+      expect((await app.request("/api/me")).status).toBe(401);
+      await vi.advanceTimersByTimeAsync(PUBLIC_BODY_TIMEOUT_MS);
+      for (const res of await Promise.all(pending)) {
+        expect(await errorOf(res)).toEqual({
+          code: "VALIDATION",
+          message: "Request body timed out",
+        });
+      }
+      expect(cancelled).toHaveBeenCalledTimes(2);
+      expect((await app.request("/api/invitations/preview", post("{}"))).status).toBe(400);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("checks both declared and streamed sizes and preserves bytes split across chunks", async () => {
+    const { app } = setup({ maxBodyBytes: 5 });
+    app.post("/api/echo", async (c) => c.text(await c.req.text()));
+    const tooLarge = await app.request("/api/echo", {
+      ...post("abcdef"),
+      headers: { "content-length": "6" },
+    });
+    expect(tooLarge.status).toBe(413);
+    const body = new ReadableStream<Uint8Array>({
+      start(controller: ReadableStreamDefaultController<Uint8Array>): void {
+        for (const chunk of ["ab", "c", "d", "e"]) controller.enqueue(Buffer.from(chunk));
+        controller.close();
+      },
+    });
+    expect(
+      await (await app.request("/api/echo", { method: "POST", body, duplex: "half" })).text(),
+    ).toBe("abcde");
+  });
+
   it("bounds simultaneous authenticated bodies across routes and releases their slots", async () => {
-    const { app } = setup();
+    const { app, cookie } = setup();
     let active = 0;
     const full = Promise.withResolvers<void>();
     const finish = Promise.withResolvers<void>();
@@ -117,6 +251,7 @@ describe("body limit", () => {
       return c.text("done");
     });
     app.post("/api/echo", async (c) => c.text(await c.req.text()));
+    app.delete("/api/empty", (c) => c.body(null, 204));
     const holding = Array.from({ length: 4 }, () => app.request("/api/hold", post("{}")));
     try {
       await full.promise;
@@ -125,6 +260,20 @@ describe("body limit", () => {
       expect(busy.headers.get("Retry-After")).toBe("1");
       expect((await errorOf(busy)).code).toBe("UNAVAILABLE");
       expect((await app.request("/api/me")).status).toBe(200);
+      const headers = { cookie: cookie as string };
+      expect(await nodeRequest(app, "DELETE", "/api/empty", headers)).toBe(204);
+      expect(
+        await nodeRequest(
+          app,
+          "POST",
+          "/api/echo",
+          { ...headers, "transfer-encoding": "chunked" },
+          "ok",
+        ),
+      ).toBe(503);
+      expect(
+        await nodeRequest(app, "POST", "/api/echo", { ...headers, "content-length": "2" }, "ok"),
+      ).toBe(503);
       expect((await app.request("/api/invitations/preview", post("{}"))).status).toBe(400);
     } finally {
       finish.resolve();

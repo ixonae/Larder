@@ -52,6 +52,10 @@ Set options in a `.env` file next to `docker-compose.yml`.
 | `MAX_UPLOAD_MB` | `10` | Largest authenticated request body. Public account and invitation forms also have a 16 KiB limit |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` or `silent` |
 
+Public account and invitation forms have 15 seconds to finish sending their body. The API accepts
+up to two concurrent public requests with bodies per transport peer and eight across the instance.
+Clients behind the same reverse proxy share its peer limit.
+
 ### Resetting the owner password
 
 ```bash
