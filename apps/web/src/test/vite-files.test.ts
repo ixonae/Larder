@@ -1,12 +1,22 @@
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempDisposableSync, symlinkSync, writeFileSync } from "node:fs";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join, parse, resolve } from "node:path";
-import { isFileLoadingAllowed, normalizePath, resolveConfig } from "vite";
+import {
+  type Connect,
+  createServer,
+  type InlineConfig,
+  isFileLoadingAllowed,
+  normalizePath,
+  resolveConfig,
+  type ViteDevServer,
+} from "vite";
 import { afterEach, expect, it, onTestFinished, vi } from "vitest";
 import webConfig from "../../vite.config.ts";
 
-const web = resolve(import.meta.dirname, "../..");
-const config = { ...webConfig, root: web, configFile: false } as const;
+const web: string = resolve(import.meta.dirname, "../..");
+const config: InlineConfig = { ...webConfig, root: web, configFile: false };
 afterEach(() => vi.unstubAllEnvs());
 
 function fixtureDirectory(): string {
@@ -22,6 +32,7 @@ it("allows frontend modules and shared dependencies while excluding Larder data"
     "src/main.tsx",
     "../../packages/shared/src/index.ts",
     "node_modules/.vite/deps/react.js",
+    "../../node_modules/.pnpm/react@19.3.1/node_modules/react/index.js",
   ]) {
     expect(isFileLoadingAllowed(resolved, normalizePath(resolve(web, file)))).toBe(true);
   }
@@ -89,6 +100,14 @@ it("checks custom output directories relative to the Vite root", async () => {
   ).rejects.toThrow("DATA_DIR");
 });
 
+it("checks custom Rolldown output directories relative to the working directory", async () => {
+  const root = fixtureDirectory();
+  const dir = `larder-missing-output-${randomUUID()}`;
+  vi.stubEnv("DATA_DIR", resolve(dir, "state"));
+  const build = { rolldownOptions: { output: { dir } } };
+  await expect(resolveConfig({ ...config, root, build }, "build")).rejects.toThrow("DATA_DIR");
+});
+
 it.each(["build", "serve"] as const)("checks nested public symlinks before %s", async (command) => {
   const root = fixtureDirectory();
   const publicDir = join(root, "public");
@@ -105,6 +124,37 @@ it.each(["build", "serve"] as const)("checks nested public symlinks before %s", 
   );
   symlinkSync(state, join(artwork, "archive"), "junction");
   await expect(resolveConfig({ ...config, publicDir }, command)).rejects.toThrow("DATA_DIR");
+});
+
+it("checks dangling public links against the data directory they would expose", async () => {
+  const root = fixtureDirectory();
+  const publicDir = join(root, "public");
+  mkdirSync(publicDir);
+  symlinkSync(join(root, "missing-artwork"), join(publicDir, "artwork"));
+  vi.stubEnv("DATA_DIR", join(root, "state"));
+  await expect(resolveConfig({ ...config, publicDir }, "build")).resolves.toHaveProperty(
+    "command",
+    "build",
+  );
+  symlinkSync(join(root, "state", "uploads"), join(publicDir, "uploads"));
+  await expect(resolveConfig({ ...config, publicDir }, "build")).rejects.toThrow("DATA_DIR");
+});
+
+it("follows a dangling data directory link to its future target", async () => {
+  const root = fixtureDirectory();
+  const publicDir = join(root, "public");
+  mkdirSync(publicDir);
+  symlinkSync(join(publicDir, "state"), join(root, "state"));
+  vi.stubEnv("DATA_DIR", join(root, "state"));
+  await expect(resolveConfig({ ...config, publicDir }, "build")).rejects.toThrow("DATA_DIR");
+});
+
+it("reports link loops instead of treating them as missing paths", async () => {
+  const root = fixtureDirectory();
+  symlinkSync(join(root, "b"), join(root, "a"));
+  symlinkSync(join(root, "a"), join(root, "b"));
+  vi.stubEnv("DATA_DIR", join(root, "a"));
+  await expect(resolveConfig({ ...config, publicDir: false }, "build")).rejects.toThrow("ELOOP");
 });
 
 it("compares existing paths using the filesystem's actual casing", async () => {
@@ -131,4 +181,60 @@ it("uses the configured API origin for the development proxy", async () => {
   vi.resetModules();
   const { default: overridden } = await import("../../vite.config.ts");
   expect(overridden.server?.proxy?.["/api"]).toBe("http://localhost:4310");
+});
+
+async function startServer(overrides: InlineConfig): Promise<ViteDevServer> {
+  const server = await createServer({
+    ...config,
+    logLevel: "silent",
+    optimizeDeps: { noDiscovery: true },
+    ...overrides,
+    server: { ...config.server, middlewareMode: true, ws: false },
+  });
+  onTestFinished(() => server.close());
+  return server;
+}
+
+function privateAssetGuard(server: ViteDevServer): Connect.NextHandleFunction | undefined {
+  const layer = server.middlewares.stack.find(
+    ({ handle }) => typeof handle === "function" && handle.name === "refusePrivateAssets",
+  );
+  return layer?.handle as Connect.NextHandleFunction | undefined;
+}
+
+it("refuses public links into the data directory that are added after startup", async () => {
+  const root = fixtureDirectory();
+  const publicDir = join(root, "public");
+  const state = join(root, "state");
+  mkdirSync(publicDir);
+  writeFileSync(join(publicDir, "logo.svg"), "<svg/>");
+  vi.stubEnv("DATA_DIR", state);
+  const guard = privateAssetGuard(await startServer({ root, publicDir, base: "/app/" }));
+  expect(guard).toBeDefined();
+  mkdirSync(state);
+  writeFileSync(join(state, "larder.db"), "private");
+  symlinkSync(state, join(publicDir, "state"), "junction");
+  const status = (url: string | undefined): number | "next" => {
+    const response = { statusCode: 200, end: vi.fn() };
+    const next = vi.fn();
+    guard?.({ url } as IncomingMessage, response as unknown as ServerResponse, next);
+    return next.mock.calls.length > 0 ? "next" : response.statusCode;
+  };
+  expect(status("/app/state/larder.db")).toBe(403);
+  expect(status("/app/state/%6carder.db")).toBe(403);
+  for (const url of [
+    "/app/logo.svg",
+    "/app/missing.svg",
+    "/app/..%2f..%2fstate/larder.db",
+    "/app/%E0%A4%A",
+    "/state/larder.db",
+    undefined,
+  ]) {
+    expect(status(url)).toBe("next");
+  }
+});
+
+it("adds no public asset guard when the public directory is disabled", async () => {
+  const root = fixtureDirectory();
+  expect(privateAssetGuard(await startServer({ root, publicDir: false }))).toBeUndefined();
 });

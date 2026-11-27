@@ -109,7 +109,8 @@ Open <http://localhost:5173> and sign in as `owner@larder.local` with the passwo
 server forwards API requests to `127.0.0.1:3000`. Local data lives in `./data` by default. Set
 `DATA_DIR` to use another directory. Relative paths are resolved from the repository root. Keep this directory outside
 the frontend source, public assets, dependencies and build output (`apps/web/dist` by default).
-Vite checks public asset symlink targets when it starts.
+Vite checks public asset symlink targets when it starts, and the dev server refuses public
+requests that resolve into this directory.
 
 Run these checks before opening a pull request.
 
