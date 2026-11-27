@@ -33,6 +33,16 @@ describe("loadEnv", () => {
     });
   });
 
+  it("accepts only a single trusted proxy IP and treats an empty setting as unset", () => {
+    expect(loadEnv({ LARDER_TRUSTED_PROXY: "" }).LARDER_TRUSTED_PROXY).toBeUndefined();
+    for (const ip of ["192.0.2.1", "2001:db8::1"]) {
+      expect(loadEnv({ LARDER_TRUSTED_PROXY: ip }).LARDER_TRUSTED_PROXY).toBe(ip);
+    }
+    expect(() => loadEnv({ LARDER_TRUSTED_PROXY: "proxy.example" })).toThrow(
+      "LARDER_TRUSTED_PROXY",
+    );
+  });
+
   it("treats an empty public URL as unset", () => {
     expect(loadEnv({ LARDER_PUBLIC_URL: "" }).LARDER_PUBLIC_URL).toBeUndefined();
   });

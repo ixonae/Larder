@@ -26,6 +26,7 @@ const app: AppType = createApp({
   db,
   storage,
   publicUrl: env.LARDER_PUBLIC_URL,
+  trustedProxy: env.LARDER_TRUSTED_PROXY,
   webDir: env.WEB_DIR,
   maxBodyBytes: env.MAX_UPLOAD_MB * 1024 * 1024,
 });

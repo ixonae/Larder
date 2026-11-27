@@ -17,6 +17,9 @@ const envSchema = z.object({
     .transform((value) => resolve(repositoryRoot, value)),
   LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
   MAX_UPLOAD_MB: z.coerce.number().positive().default(10),
+  LARDER_TRUSTED_PROXY: z
+    .union([z.ipv4(), z.ipv6(), z.literal("").transform(() => undefined)])
+    .optional(),
   LARDER_PUBLIC_URL: z
     .string()
     .optional()

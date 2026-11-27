@@ -45,12 +45,21 @@ Set options in a `.env` file next to `docker-compose.yml`.
 | Variable | Default | Meaning |
 |---|---|---|
 | `LARDER_PUBLIC_URL` | — | Browser-facing origin, for example `https://bar.example.com` |
+| `LARDER_TRUSTED_PROXY` | — | Exact IPv4 or IPv6 address of the immediate reverse proxy, as seen by Larder |
 | `LARDER_PORT` | `3000` | Host port |
 | `LARDER_BIND` | `127.0.0.1` | Host address to bind to |
 | `LARDER_DATA_DIR` | `./data` | Data directory on the host |
 | `LARDER_UID` / `LARDER_GID` | `1000` | User and group IDs of the owner of the data directory |
 | `MAX_UPLOAD_MB` | `10` | Largest request body the API accepts |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` or `silent` |
+
+For per-client sign-in limits behind a reverse proxy, set `LARDER_TRUSTED_PROXY` and configure that
+proxy to overwrite `X-Real-IP` with the verified client address on every request. Only trust a peer
+address dedicated to that proxy. With the setting unset, limits use the connection address.
+IPv4 clients share an allowance per address, including IPv4-mapped IPv6 connections. IPv6 clients
+share an allowance per /64 subnet. Larder ignores zone identifiers when grouping connections and
+accepts forwarded addresses only from an exact, unscoped proxy match. Missing peer addresses share
+a local allowance. Authenticated password operations have a separate allowance per acting account.
 
 ### Resetting the owner password
 

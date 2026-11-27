@@ -189,3 +189,45 @@ it("uses the public URL to verify browser mutations behind a reverse proxy", asy
     ).status,
   ).toBe(204);
 });
+
+it("applies separate limits to proxied clients and authenticated account changes", async () => {
+  const t = createTestApp({ trustedProxy: "192.0.2.1" });
+  const signup = async (peer: string, client?: string): Promise<number> => {
+    const init = jsonRequest("POST", {
+      email: ALICE.email,
+      display_name: "Test",
+      password: PASSWORD,
+    });
+    const response = await t.rawRequest(
+      "/api/auth/sign-up",
+      {
+        ...init,
+        headers: {
+          ...init.headers,
+          [SESSION_REQUEST_HEADER]: "1",
+          ...(client && { "X-Real-IP": client }),
+        },
+      },
+      { incoming: { socket: { remoteAddress: peer } } },
+    );
+    return response.status;
+  };
+  // Invite-only signup exercises the attempt limiter without performing a password hash.
+  for (let i = 0; i < 10; i++) {
+    expect(await signup("::ffff:192.0.2.1", "2001:db8::7")).toBe(403);
+    expect(await signup("192.0.2.44", "192.0.2.60")).toBe(403);
+    expect(await signup("192.0.2.1")).toBe(403);
+  }
+  expect(await signup("192.0.2.1", "2001:0db8::8")).toBe(429);
+  expect(await signup("192.0.2.1", "2001:db8:0:1::7")).toBe(403);
+  expect(await signup("192.0.2.1", "192.0.2.8")).toBe(403);
+  expect(await signup("192.0.2.44", "192.0.2.61")).toBe(429);
+  expect(await signup("192.0.2.1", "192.0.2.61, 192.0.2.62")).toBe(429);
+
+  const response = await t.app.request(
+    "/api/me/email",
+    { ...jsonRequest("PATCH", { email: ALICE.email, current_password: "incorrect" }) },
+    { incoming: { socket: { remoteAddress: "192.0.2.1" } } },
+  );
+  expect(response.status).toBe(400);
+});
