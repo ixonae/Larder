@@ -1,8 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempDisposableSync, symlinkSync, writeFileSync } from "node:fs";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import {
+  createServer as createHttpServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join, parse, resolve } from "node:path";
+import { bypass } from "msw";
 import {
   type Connect,
   createServer,
@@ -202,6 +208,28 @@ function privateAssetGuard(server: ViteDevServer): Connect.NextHandleFunction | 
   return layer?.handle as Connect.NextHandleFunction | undefined;
 }
 
+async function listen(vite: ViteDevServer): Promise<string> {
+  const httpServer = createHttpServer(vite.middlewares);
+  await new Promise<void>((resolve, reject) => {
+    httpServer.once("error", reject);
+    httpServer.listen(0, "127.0.0.1", resolve);
+  });
+  onTestFinished(() => httpServer[Symbol.asyncDispose]());
+  const { port } = httpServer.address() as AddressInfo;
+  return `http://127.0.0.1:${port}`;
+}
+
+it("serves the public manifest only through Vite's public asset middleware", async () => {
+  vi.stubEnv("DATA_DIR", fixtureDirectory());
+  const origin = await listen(await startServer({ base: "/app/" }));
+  const manifest = await fetch(bypass(`${origin}/app/manifest.webmanifest`));
+  expect(manifest.status).toBe(200);
+  expect(await manifest.json()).toMatchObject({ name: "Larder" });
+
+  const filesystemResponse = await fetch(bypass(`${origin}/app/public/manifest.webmanifest`));
+  expect(filesystemResponse.status).toBe(403);
+});
+
 it("refuses public links into the data directory that are added after startup", async () => {
   const root = fixtureDirectory();
   const publicDir = join(root, "public");
@@ -209,28 +237,26 @@ it("refuses public links into the data directory that are added after startup", 
   mkdirSync(publicDir);
   writeFileSync(join(publicDir, "logo.svg"), "<svg/>");
   vi.stubEnv("DATA_DIR", state);
-  const guard = privateAssetGuard(await startServer({ root, publicDir, base: "/app/" }));
-  expect(guard).toBeDefined();
+  const vite = await startServer({ root, publicDir, base: "/app/" });
+  const origin = await listen(vite);
   mkdirSync(state);
   writeFileSync(join(state, "larder.db"), "private");
   symlinkSync(state, join(publicDir, "state"), "junction");
-  const status = (url: string | undefined): number | "next" => {
-    const response = { statusCode: 200, end: vi.fn() };
-    const next = vi.fn();
-    guard?.({ url } as IncomingMessage, response as unknown as ServerResponse, next);
-    return next.mock.calls.length > 0 ? "next" : response.statusCode;
-  };
-  expect(status("/app/state/larder.db")).toBe(403);
-  expect(status("/app/state/%6carder.db")).toBe(403);
+  for (const path of ["/app/state/larder.db", "/app/state/%6carder.db", "/state/larder.db"]) {
+    const response = await fetch(bypass(origin + path));
+    expect(response.status).toBe(403);
+  }
+  const guard = privateAssetGuard(vite);
   for (const url of [
     "/app/logo.svg",
     "/app/missing.svg",
     "/app/..%2f..%2fstate/larder.db",
     "/app/%E0%A4%A",
-    "/state/larder.db",
     undefined,
   ]) {
-    expect(status(url)).toBe("next");
+    const next = vi.fn();
+    guard?.({ url } as IncomingMessage, {} as ServerResponse, next);
+    expect(next).toHaveBeenCalledOnce();
   }
 });
 

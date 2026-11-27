@@ -13,10 +13,10 @@ import {
 
 const webRoot: string = import.meta.dirname;
 const repositoryRoot: string = resolve(webRoot, "../..");
+// Vite serves publicDir separately. Keep those files out of the general filesystem middleware.
 const allow: string[] = [
   resolve(webRoot, "index.html"),
   resolve(webRoot, "src"),
-  resolve(webRoot, "public"),
   resolve(webRoot, "node_modules/.vite"),
   // Vite only adds pnpm's virtual store itself when it lives outside node_modules.
   resolve(repositoryRoot, "node_modules/.pnpm"),
@@ -69,12 +69,12 @@ function checkAssetTree(path: string, data: string, visited: Set<string>): void 
 function isPrivateAsset(publicDir: string, base: string, url: string | undefined): boolean {
   let pathname: string;
   try {
-    pathname = decodeURIComponent(new URL(url ?? "/", "http://vite.invalid").pathname);
+    pathname = decodeURIComponent(new URL(url ?? "/", "https://vite.invalid").pathname);
   } catch {
     return false;
   }
-  if (!pathname.startsWith(base)) return false;
-  const file = join(publicDir, pathname.slice(base.length));
+  // When embedded as middleware, Vite can also serve requests without its configured base.
+  const file = join(publicDir, pathname.startsWith(base) ? pathname.slice(base.length) : pathname);
   if (!contains(publicDir, file) || !existsSync(file)) return false;
   return contains(pathKey(dataPath()), realpathSync.native(file));
 }
