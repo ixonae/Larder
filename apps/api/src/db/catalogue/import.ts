@@ -400,12 +400,14 @@ export async function withCataloguePictures(
   ctx: Pick<Ctx, "barId" | "userId" | "storage">,
   pictures: Catalogue["pictures"],
   apply: (staged: ReadonlyMap<string, StagedImage>) => ReadonlySet<string>,
+  beforeStage?: () => void,
 ): Promise<void> {
   const staged = new Map<string, StagedImage>();
   const preparedPictures = new Map<ProcessedImage, StagedImage>();
   let used: ReadonlySet<string> = new Set();
   try {
     for (const [key, picture] of pictures ?? []) {
+      beforeStage?.();
       const prepared = !(picture instanceof Uint8Array);
       const pending = prepared
         ? (preparedPictures.get(picture) ?? stagePreparedImage(ctx, picture))

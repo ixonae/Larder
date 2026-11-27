@@ -80,6 +80,11 @@ recipes and catalogue. Bar owners can rename or delete their bars, switch member
 and editor roles, remove members, and share or revoke single-use invitations for either role.
 When you remove a member, they lose access to the bar, but anything they added stays.
 
+Each account can own up to 3 bars with the starter catalogue. An installation can hold 24 such bars
+and import 2 catalogues at once. The initial owner’s bar counts toward both bar limits. Older bars
+remain available when an installation exceeds a limit. Deleting a seeded bar frees its slot.
+You can still create empty bars at either limit.
+
 ### Accounts and administration
 
 The owner account is the installation admin. Open **Administration** to see when each user last

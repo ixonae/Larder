@@ -18,6 +18,13 @@ import {
   pantryPictureKey,
   withCataloguePictures,
 } from "./import.ts";
+import {
+  checkImportDeadline,
+  discardStarterImport,
+  finishStarterImport,
+  recoverStarterImports,
+  reserveStarterImport,
+} from "./quota.ts";
 
 function lines(file: string): string[] {
   return readFileSync(new URL(file, import.meta.url), "utf8")
@@ -173,17 +180,32 @@ export async function addStarterCatalogue(
   ctx: Pick<Ctx, "db" | "storage" | "barId" | "userId">,
   initializeBar: (tx: Tx) => void,
 ): Promise<void> {
-  const { db, barId, userId } = ctx;
-  await withCataloguePictures(ctx, newBarPictures, (staged) =>
-    db.transaction((tx) => {
-      initializeBar(tx);
-      const used = applyCatalogue(tx, barId, userId, catalogue, staged);
-      tx.insert(barDataMigrations)
-        .values({ bar_id: barId, migration: rootCategoryCatalogue.id })
-        .run();
-      return used;
-    }),
-  );
+  const { db, barId, userId, storage } = ctx;
+  await recoverStarterImports(db, storage);
+  const expires = reserveStarterImport(db, barId, userId, optedOut);
+  try {
+    await withCataloguePictures(
+      ctx,
+      newBarPictures,
+      (staged) =>
+        db.transaction(
+          (tx) => {
+            finishStarterImport(tx, barId, userId);
+            initializeBar(tx);
+            const used = applyCatalogue(tx, barId, userId, catalogue, staged);
+            tx.insert(barDataMigrations)
+              .values({ bar_id: barId, migration: rootCategoryCatalogue.id })
+              .run();
+            return used;
+          },
+          { behavior: "immediate" },
+        ),
+      () => checkImportDeadline(expires),
+    );
+  } catch (err) {
+    await discardStarterImport(db, storage, barId);
+    throw err;
+  }
 }
 
 export function skipStarterCatalogue(db: Executor, barId: string): void {
@@ -206,6 +228,7 @@ export async function seedStarterCatalogue(
 
 /** Backfill existing bars and seed the default bar once it has been created. */
 export async function migrateStarterCatalogues(db: Db, storage: ImageStorage): Promise<void> {
+  await recoverStarterImports(db, storage);
   const allBars = db.select({ id: bars.id }).from(bars).all();
   // Backfill one bar at a time to keep catalogue staging bounded during startup.
   for (const { id } of allBars) {

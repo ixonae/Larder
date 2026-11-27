@@ -8,6 +8,8 @@ export interface ImageStorage {
   get(key: string): Promise<Buffer | null>;
   /** Removes the file; a missing file is not an error. */
   delete(key: string): Promise<void>;
+  /** Discards files staged for a new bar whose import did not commit. */
+  discardStagedBar(barId: string): Promise<void>;
 }
 
 const isMissing = (err: unknown): boolean => (err as { code?: unknown }).code === "ENOENT";
@@ -37,6 +39,9 @@ export function createDiskStorage(root: string): ImageStorage {
     },
     async delete(key: string): Promise<void> {
       await rm(pathOf(key), { force: true });
+    },
+    async discardStagedBar(barId: string): Promise<void> {
+      await rm(pathOf(barId), { recursive: true, force: true });
     },
   };
 }

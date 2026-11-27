@@ -32,6 +32,7 @@ import {
   products,
   ratings,
   sessions,
+  starterImports,
   tags,
   tastings,
   users,
@@ -516,6 +517,7 @@ describe("schema", () => {
   it.each([
     [bars, [["owner_id", "users"]]],
     [barDataMigrations, [["bar_id", "bars"]]],
+    [starterImports, [["owner_id", "users"]]],
     [
       barInvitations,
       [
