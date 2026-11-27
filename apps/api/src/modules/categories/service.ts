@@ -82,7 +82,7 @@ export function getCategory(ctx: Ctx, id: string | undefined): Category {
 }
 
 export function createCategory(ctx: Ctx, input: CreateCategory): Category {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const parentId = input.parent_id ?? null;
     const parent = parentId === null ? undefined : requireParent(tx, ctx.barId, parentId);
     const kind = input.kind ?? parent?.kind;
@@ -106,7 +106,7 @@ export function createCategory(ctx: Ctx, input: CreateCategory): Category {
 }
 
 export function updateCategory(ctx: Ctx, id: string | undefined, patch: UpdateCategory): Category {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const existing = requireCategory(tx, ctx.barId, id);
     // Only a real move needs the parent and cycle checks (forms send the unchanged parent too).
     if (patch.parent_id && patch.parent_id !== existing.parent_id) {

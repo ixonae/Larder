@@ -54,7 +54,7 @@ export async function deleteWithImage(
   ctx: Ctx,
   remove: (tx: Executor) => string | null,
 ): Promise<void> {
-  const files = ctx.db.transaction((tx) => dropImage(tx, ctx.barId, remove(tx)));
+  const files = ctx.write((tx) => dropImage(tx, ctx.barId, remove(tx)));
   await removeImageFiles(ctx.storage, files);
 }
 
@@ -124,14 +124,15 @@ export async function uploadImage(
   file: File,
 ): Promise<Image> {
   const ownerId = parseId(id, LABEL[entity]);
-  requireOwner(ctx.db, entity, ctx.barId, ownerId);
+  // Form parsing may outlast the session or edit permission. Check before staging files.
+  ctx.write((tx) => requireOwner(tx, entity, ctx.barId, ownerId));
   const staged = await stageImage(ctx, new Uint8Array(await file.arrayBuffer()), {
     mime: file.type,
     thumbnailSide: entity === "cocktails" ? COCKTAIL_THUMB_MAX_SIDE : undefined,
   });
   let result: { image: repo.StoredImage; replaced: Files | undefined };
   try {
-    result = ctx.db.transaction((tx) => {
+    result = ctx.write((tx) => {
       // Checked again: the item may have been deleted while the picture was processed.
       const owner = requireOwner(tx, entity, ctx.barId, ownerId);
       const image = repo.insertImage(tx, staged);
@@ -154,7 +155,7 @@ export async function removeImage(
   id: string | undefined,
 ): Promise<void> {
   const ownerId = parseId(id, LABEL[entity]);
-  const removed = ctx.db.transaction((tx) => {
+  const removed = ctx.write((tx) => {
     const owner = requireOwner(tx, entity, ctx.barId, ownerId);
     repo.setOwnerImage(tx, entity, ctx.barId, ownerId, null);
     return dropImage(tx, ctx.barId, owner.image_id);

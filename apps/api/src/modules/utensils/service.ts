@@ -69,7 +69,7 @@ export function getUtensil(ctx: Ctx, id: string | undefined): Utensil {
 }
 
 export function createUtensil(ctx: Ctx, input: CreateUtensil): Utensil {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const id = onUniqueViolation(
       () =>
         repo.insertUtensil(tx, {
@@ -87,7 +87,7 @@ export function createUtensil(ctx: Ctx, input: CreateUtensil): Utensil {
 }
 
 export function updateUtensil(ctx: Ctx, id: string | undefined, patch: UpdateUtensil): Utensil {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const existing = requireUtensil(tx, ctx.barId, id);
     const kind = patch.kind ?? existing.kind;
     if (kind !== existing.kind) requireUnusedUtensil(tx, ctx.barId, existing);

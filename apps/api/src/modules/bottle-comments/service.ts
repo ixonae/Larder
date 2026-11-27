@@ -66,7 +66,7 @@ export function addBottleComment(
   productId: string | undefined,
   input: NewComment,
 ): BottleComment {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const product = requireProductRef(tx, ctx.barId, productId);
     const id = repo.insertBottleComment(tx, {
       bar_id: ctx.barId,
@@ -84,7 +84,7 @@ export function editBottleComment(
   id: string | undefined,
   patch: UpdateComment,
 ): BottleComment {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const existing = requireOwnComment(ctx, tx, productId, id);
     const changed =
       (patch.body !== undefined && patch.body !== existing.body) ||
@@ -100,7 +100,7 @@ export function removeBottleComment(
   productId: string | undefined,
   id: string | undefined,
 ): void {
-  ctx.db.transaction((tx) => {
+  ctx.write((tx) => {
     const existing = requireOwnComment(ctx, tx, productId, id);
     repo.deleteBottleComment(tx, ctx.barId, existing.id);
   });

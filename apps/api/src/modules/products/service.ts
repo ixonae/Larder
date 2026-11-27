@@ -95,7 +95,7 @@ function requireBottleCategory(db: Executor, barId: string, categoryId: string):
 }
 
 export function createProduct(ctx: Ctx, input: CreateProduct): Product {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     requireBottleCategory(tx, ctx.barId, input.category_id);
     // Fields left out take the column defaults: null, including the status.
     const id = onUniqueViolation(
@@ -107,7 +107,7 @@ export function createProduct(ctx: Ctx, input: CreateProduct): Product {
 }
 
 export function updateProduct(ctx: Ctx, id: string | undefined, patch: UpdateProduct): Product {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const existing = requireProduct(tx, ctx, id);
     if (patch.category_id && patch.category_id !== existing.category_id) {
       requireBottleCategory(tx, ctx.barId, patch.category_id);
@@ -158,11 +158,11 @@ export async function deleteProduct(ctx: Ctx, id: string | undefined): Promise<v
 }
 
 function changeFavourite(
-  { db, barId, userId }: Ctx,
+  { write: transact, barId, userId }: Ctx,
   id: string | undefined,
   write: typeof insertFavourite,
 ): void {
-  db.transaction((tx): void => {
+  transact((tx): void => {
     const product = requireProductRef(tx, barId, id);
     write(tx, barId, userId, "product_id", product.id);
   });

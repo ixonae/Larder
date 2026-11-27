@@ -14,8 +14,16 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { hashToken } from "../../auth/token.ts";
 import { migrateStarterCatalogues } from "../../db/catalogue/starter.ts";
-import { barInvitations, barMembers, cocktails, users } from "../../db/schema/index.ts";
-import { ALICE, BOB, cookieFor, createTestApp, jsonRequest, type TestApp } from "../../test/app.ts";
+import { barInvitations, barMembers, cocktails, sessions, users } from "../../db/schema/index.ts";
+import {
+  ALICE,
+  BOB,
+  cookieFor,
+  createTestApp,
+  duringJsonRead,
+  jsonRequest,
+  type TestApp,
+} from "../../test/app.ts";
 
 const origin = "https://bar.example.test";
 const password = "a long new account password";
@@ -251,4 +259,14 @@ describe("bars and invitations", () => {
     expect(responses.map((res) => res.status).sort()).toEqual([201, 404]);
     expect(t.db.select().from(users).all()).toHaveLength(3);
   });
+});
+
+it("preserves the invitation when the accepting session is revoked during validation", async () => {
+  const t = setup();
+  const { token } = await t.createInvite("editor");
+  const request = duringJsonRead("/api/invitations/accept", "POST", { token }, t.bobCookie, () => {
+    t.db.delete(sessions).where(eq(sessions.user_id, t.bob.userId)).run();
+  });
+  expect((await t.rawRequest(request)).status).toBe(401);
+  expect((await t.post("accept", { token }, cookieFor(t.db, t.bob.userId))).status).toBe(200);
 });

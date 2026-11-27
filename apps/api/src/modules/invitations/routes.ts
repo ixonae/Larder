@@ -23,5 +23,6 @@ export const publicInvitationRoutes = new Hono<AppEnv>()
 export const invitationRoutes = new Hono<AppEnv>().post(
   "/accept",
   validate("json", acceptInvitationSchema),
-  (c) => c.json(acceptInvitation(c.var.db, c.req.valid("json").token, c.var.user.id)),
+  (c) =>
+    c.json(acceptInvitation(c.var.sessionTransaction, c.req.valid("json").token, c.var.user.id)),
 );

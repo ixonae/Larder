@@ -93,7 +93,7 @@ export function findBarName(db: Tx, barId: string): string | undefined {
 }
 
 export function updateBar(
-  db: Db,
+  db: Tx,
   barId: string,
   changes: { name?: string; currency?: CurrencyCode },
 ): void {

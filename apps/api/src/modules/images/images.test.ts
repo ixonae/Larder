@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { barMembers, categories, images, products } from "../../db/schema/index.ts";
 import {
+  cookieFor,
   createTestApp,
   errorOf,
   readJson as json,
@@ -214,6 +215,41 @@ describe("PUT /:entity/:id/image", () => {
     expect(res.status).toBe(404);
     expect(t.files()).toEqual([]);
     expect(t.imageCount()).toBe(0);
+  });
+
+  it("discards a staged replacement if the uploading editor loses access", async () => {
+    const t = setup();
+    const bottle = await t.product();
+    const path = `/products/${bottle.id}`;
+    const original = await json<Image>(await t.upload(path, await png(40, 40)));
+    const ownedFiles = t.files();
+    t.db
+      .insert(barMembers)
+      .values({ bar_id: t.alice.barId, user_id: t.bob.userId, role: "editor" })
+      .run();
+    const put = t.storage.put;
+    t.storage.put = async (key: string, data: Uint8Array): Promise<void> => {
+      await put(key, data);
+      t.db
+        .delete(barMembers)
+        .where(and(eq(barMembers.bar_id, t.alice.barId), eq(barMembers.user_id, t.bob.userId)))
+        .run();
+    };
+    const form = new FormData();
+    form.append(
+      "file",
+      new File([new Uint8Array(await png(30, 30))], "replacement", { type: "image/png" }),
+    );
+    const res = await t.app.request(`${t.bar}${path}/image`, {
+      method: "PUT",
+      headers: { Cookie: cookieFor(t.db, t.bob.userId) },
+      body: form,
+    });
+    expect(res.status).toBe(403);
+    expect(t.files()).toEqual(ownedFiles);
+    expect(t.imageCount()).toBe(1);
+    const saved = await json<Product>(await t.app.request(`${t.bar}${path}`));
+    expect(saved.image_id).toBe(original.id);
   });
 
   it("removes the file already written when the other one cannot be stored", async () => {

@@ -59,7 +59,7 @@ export function recordLogin(db: Tx, userId: string): void {
   db.update(users).set({ last_login_at: nowIso() }).where(eq(users.id, userId)).run();
 }
 
-export function getSessionUser(db: Db, digest: string): User | undefined {
+export function getSessionUser(db: Executor, digest: string): User | undefined {
   return db
     .select(userColumns)
     .from(sessions)

@@ -273,10 +273,10 @@ function replaceRecipeLists(
 }
 
 export function createCocktail(
-  { db, barId, userId }: Ctx,
+  { write: transact, barId, userId }: Ctx,
   { ingredients, steps, tool_ids, tags, ...input }: CreateCocktail,
 ): CocktailDetail {
-  return db.transaction((tx) => {
+  return transact((tx) => {
     validateReferences(tx, barId, input);
     const cocktail = onUniqueViolation(
       () => repo.insertCocktail(tx, { ...input, bar_id: barId, created_by: userId }),
@@ -288,11 +288,11 @@ export function createCocktail(
 }
 
 export function updateCocktail(
-  { db, barId, userId }: Ctx,
+  { write: transact, barId, userId }: Ctx,
   id: string | undefined,
   { ingredients, steps, tool_ids, tags, ...patch }: UpdateCocktail,
 ): CocktailDetail {
-  return db.transaction((tx) => {
+  return transact((tx) => {
     const existing = requireCocktail(tx, barId, id);
     validateReferences(tx, barId, patch, existing.id);
     const cocktail = onUniqueViolation(

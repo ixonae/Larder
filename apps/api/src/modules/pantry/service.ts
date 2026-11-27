@@ -69,7 +69,7 @@ function requirePantryCategory(db: Executor, barId: string, categoryId: string):
 }
 
 export function createPantryIngredient(ctx: Ctx, input: CreatePantryIngredient): PantryIngredient {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     requirePantryCategory(tx, ctx.barId, input.category_id);
     // Flags left out take the column defaults (false).
     const id = onUniqueViolation(
@@ -86,7 +86,7 @@ export function updatePantryIngredient(
   id: string | undefined,
   patch: UpdatePantryIngredient,
 ): PantryIngredient {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const existing = requireIngredient(tx, ctx.barId, id);
     if (patch.category_id && patch.category_id !== existing.category_id) {
       requirePantryCategory(tx, ctx.barId, patch.category_id);

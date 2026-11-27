@@ -2,10 +2,10 @@ import { SESSION_REQUEST_HEADER } from "@larder/shared";
 import type { Context, TypedResponse } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
-import { AppError, forbidden } from "../errors.ts";
+import { forbidden } from "../errors.ts";
 import type { AppEnv } from "../types.ts";
 import { peerKey } from "./rate-limit.ts";
-import { SESSION_TTL_SECONDS, sessionUser } from "./service.ts";
+import { requireSessionUser, SESSION_TTL_SECONDS } from "./service.ts";
 
 export const SESSION_COOKIE = "larder_session";
 
@@ -40,9 +40,18 @@ export const limitCredentials = createMiddleware<AppEnv>((c, next) =>
 );
 
 export const currentUser = createMiddleware<AppEnv>(async (c, next) => {
-  const user = sessionUser(c.var.db, sessionCookie(c));
-  if (!user) throw new AppError("UNAUTHORIZED", "Sign in to continue");
-  c.set("user", user);
+  const { db } = c.var;
+  const token = sessionCookie(c);
+  c.set("user", requireSessionUser(db, token));
+  c.set("sessionTransaction", (work) =>
+    db.transaction(
+      (tx) => {
+        requireSessionUser(tx, token);
+        return work(tx);
+      },
+      { behavior: "immediate" },
+    ),
+  );
   await next();
 });
 

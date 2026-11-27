@@ -19,5 +19,7 @@ export function openDb(path: string): Db {
 
 /** A transaction handle, as passed to the `db.transaction()` callback. */
 export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+/** Runs a synchronous mutation with its authorization checks under one SQLite write lock. */
+export type WriteTransaction = <T>(work: (tx: Tx) => T) => T;
 /** Repo functions accept either the database or a transaction. */
 export type Executor = Db | Tx;
