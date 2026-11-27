@@ -63,8 +63,10 @@ export const cocktailSchema = fields.extend(ratingSummarySchema.shape).extend({
 export type Cocktail = z.infer<typeof cocktailSchema>;
 export const cocktailPageSchema = pageSchema(cocktailSchema);
 
-const stepInputSchema = z.object({ text: z.string().trim().min(1).max(DESCRIPTION_MAX) });
-const stepSchema = stepInputSchema.extend({
+export const cocktailStepInputSchema = z.object({
+  text: z.string().trim().min(1).max(DESCRIPTION_MAX),
+});
+const stepSchema = cocktailStepInputSchema.extend({
   id: idSchema,
   position: z.number().int().nonnegative(),
 });
@@ -88,12 +90,14 @@ export const cocktailDetailSchema = cocktailSchema.extend({
 });
 export type CocktailDetail = z.infer<typeof cocktailDetailSchema>;
 
+export const RECIPE_LIMITS = { ingredients: 64, steps: 256, tools: 32, tags: 32 } as const;
+
 const recipeLists = z
   .object({
-    ingredients: cocktailIngredientInputSchema.array(),
-    steps: stepInputSchema.array(),
-    tool_ids: idSchema.array(),
-    tags: nameSchema.array(),
+    ingredients: cocktailIngredientInputSchema.array().max(RECIPE_LIMITS.ingredients),
+    steps: cocktailStepInputSchema.array().max(RECIPE_LIMITS.steps),
+    tool_ids: idSchema.array().max(RECIPE_LIMITS.tools),
+    tags: nameSchema.array().max(RECIPE_LIMITS.tags),
   })
   .partial();
 export type CocktailRecipeLists = z.infer<typeof recipeLists>;

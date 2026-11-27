@@ -1,4 +1,10 @@
-import { cocktailDetailSchema, tagPageSchema, type Utensil } from "@larder/shared";
+import {
+  cocktailDetailSchema,
+  MAX_INGREDIENT_ALTERNATIVES,
+  RECIPE_LIMITS,
+  tagPageSchema,
+  type Utensil,
+} from "@larder/shared";
 import { expect, test } from "vitest";
 import type { Db } from "../../db/client.ts";
 import { tags, utensils } from "../../db/schema/index.ts";
@@ -173,4 +179,30 @@ test("deleting or changing the kind of a tool in use is refused until its cockta
   }
   expect((await app.request(recipeUrl, jsonRequest("DELETE"))).status).toBe(204);
   expect((await app.request(toolUrl, jsonRequest("DELETE"))).status).toBe(204);
+});
+
+test("oversized recipe edits are refused before replacing saved data", async () => {
+  const { app, cocktails, create } = setup();
+  const recipe = cocktailDetailSchema.parse(
+    await (await create("Small recipe", { tags: ["Original"] })).json(),
+  );
+  const source = { product_id: recipe.id };
+  const ingredient = { ...source, unit: "ml", amount: 1 };
+  for (const patch of [
+    { ingredients: Array(RECIPE_LIMITS.ingredients + 1).fill(ingredient) },
+    {
+      ingredients: [
+        { ...ingredient, alternatives: Array(MAX_INGREDIENT_ALTERNATIVES + 1).fill(source) },
+      ],
+    },
+    { steps: Array(RECIPE_LIMITS.steps + 1).fill({ text: "Stir" }) },
+    { tool_ids: Array(RECIPE_LIMITS.tools + 1).fill(recipe.id) },
+    { tags: Array(RECIPE_LIMITS.tags + 1).fill("Original") },
+  ]) {
+    const url = `${cocktails}/${recipe.id}`;
+    const response = await app.request(url, jsonRequest("PATCH", { name: "Changed", ...patch }));
+    expect(response.status).toBe(400);
+    expect((await errorOf(response)).details).toMatchObject([{ code: "too_big" }]);
+    expect(await (await app.request(url)).json()).toEqual(recipe);
+  }
 });

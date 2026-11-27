@@ -1,7 +1,8 @@
 import {
   type CocktailDetail,
   type CocktailIngredient,
-  cocktailIngredientInputSchema,
+  cocktailIngredientDraftSchema,
+  cocktailStepInputSchema,
   createCocktailSchema,
   type IngredientSource,
   idSchema,
@@ -42,29 +43,25 @@ const ingredient = z
     alternatives: preparation.array(),
   })
   .transform(
-    ({ source, ...line }): z.input<typeof cocktailIngredientInputSchema> => ({
+    ({ source, ...line }): z.input<typeof cocktailIngredientDraftSchema> => ({
       ...source,
       ...line,
     }),
   )
-  .pipe(cocktailIngredientInputSchema);
+  .pipe(cocktailIngredientDraftSchema);
 
-export const cocktailEditorSchema = createCocktailSchema
-  .required({
-    ingredients: true,
-    steps: true,
-    tool_ids: true,
-    tags: true,
-  })
-  .extend({
-    glass_id: idSchema.or(z.literal("")).transform((value) => value || null),
-    variant_of_id: idSchema.or(z.literal("")).transform((value) => value || null),
-    ingredients: ingredient.array(),
-    tags: z
-      .object({ name: listTagsQuerySchema.shape.q.unwrap() })
-      .array()
-      .transform((tags) => tags.map(({ name }) => name)),
-  });
+/** Normalize all stored fields for comparison; the save validates the lists actually being replaced. */
+export const cocktailEditorSchema = createCocktailSchema.extend({
+  glass_id: idSchema.or(z.literal("")).transform((value) => value || null),
+  variant_of_id: idSchema.or(z.literal("")).transform((value) => value || null),
+  ingredients: ingredient.array(),
+  steps: cocktailStepInputSchema.array(),
+  tool_ids: idSchema.array(),
+  tags: z
+    .object({ name: listTagsQuerySchema.shape.q.unwrap() })
+    .array()
+    .transform((tags) => tags.map(({ name }) => name)),
+});
 
 export type CocktailEditorInput = z.input<typeof cocktailEditorSchema>;
 type EditorOutput = z.output<typeof cocktailEditorSchema>;

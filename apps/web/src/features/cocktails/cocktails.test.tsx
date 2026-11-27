@@ -1,4 +1,12 @@
-import type { CocktailDetail, CocktailIngredient, CreateCocktail, Utensil } from "@larder/shared";
+import {
+  type CocktailDetail,
+  type CocktailIngredient,
+  type CreateCocktail,
+  MAX_INGREDIENT_ALTERNATIVES,
+  RECIPE_LIMITS,
+  type UpdateCocktail,
+  type Utensil,
+} from "@larder/shared";
 import {
   act,
   type BoundFunctions,
@@ -840,6 +848,50 @@ it("preserves newer steps when only the cocktail name changes", async () => {
   await user.type(title, " No. 2");
   await user.click(screen.getByRole("button", { name: "Save cocktail" }));
   expect(await screen.findByText("Updated in another tab")).toBeInTheDocument();
+});
+
+it("edits legacy recipes without resubmitting unchanged oversized lists and validates replacements", async () => {
+  editorCatalogue();
+  const tags = Array.from({ length: RECIPE_LIMITS.tags + 2 }, (_, index) => ({
+    id: id(100 + index),
+    name: `Style ${index + 1}`,
+  }));
+  const alternatives = Array.from({ length: MAX_INGREDIENT_ALTERNATIVES + 1 }, (_, index) => ({
+    ...ingredient,
+    id: id(200 + index),
+    position: index,
+  }));
+  let current: CocktailDetail = { ...recipe, tags, ingredients: [{ ...ingredient, alternatives }] };
+  const patches: UpdateCocktail[] = [];
+  server.use(
+    http.get(detail, () => HttpResponse.json(current)),
+    http.patch(detail, async ({ request }) => {
+      const patch = (await request.json()) as UpdateCocktail;
+      patches.push(patch);
+      current = {
+        ...current,
+        name: patch.name ?? current.name,
+        tags: current.tags.filter((tag) => !patch.tags || patch.tags.includes(tag.name)),
+      };
+      return HttpResponse.json(current);
+    }),
+  );
+  const { user } = renderWithProviders(`/cocktails/${recipe.id}/edit`);
+  await user.type(await screen.findByLabelText("Name"), " No. 2");
+  const save = (): HTMLElement => screen.getByRole("button", { name: "Save cocktail" });
+  await user.click(save());
+  expect(await screen.findByRole("heading", { name: "Gimlet No. 2" })).toBeInTheDocument();
+  expect(patches).toEqual([{ name: "Gimlet No. 2" }]);
+
+  await user.click(screen.getByRole("link", { name: "Edit cocktail" }));
+  await user.click(await screen.findByRole("button", { name: "Remove tag Style 1" }));
+  await user.click(save());
+  expect(await screen.findByText("Could not save the cocktail")).toBeInTheDocument();
+  expect(patches).toHaveLength(1);
+  await user.click(screen.getByRole("button", { name: "Remove tag Style 2" }));
+  await user.click(save());
+  expect(await screen.findByRole("heading", { name: "Gimlet No. 2" })).toBeInTheDocument();
+  expect(patches[1]).toEqual({ tags: tags.slice(2).map(({ name }) => name) });
 });
 
 it("saves image-only edits without a recipe PATCH", async () => {

@@ -1,11 +1,13 @@
-import type {
-  Cocktail,
-  CocktailDetail,
-  CreateCocktail,
-  ListCocktailsQuery,
-  Page,
-  Tag,
-  UpdateCocktail,
+import {
+  type Cocktail,
+  type CocktailDetail,
+  type CreateCocktail,
+  createCocktailSchema,
+  type ListCocktailsQuery,
+  type Page,
+  type Tag,
+  type UpdateCocktail,
+  updateCocktailSchema,
 } from "@larder/shared";
 import {
   hashKey,
@@ -17,7 +19,8 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { api, unwrap } from "./client.ts";
+import { z } from "zod";
+import { ApiError, api, unwrap } from "./client.ts";
 import { collectPages } from "./pagination.ts";
 import type { ApiInfiniteQueryOptions, ApiQueryOptions } from "./query-options.ts";
 
@@ -95,10 +98,15 @@ export function useSaveCocktail(
   const client = useQueryClient();
   const endpoint = bar.cocktails;
   return useMutation({
-    mutationFn: async ({ id, json }: SaveCocktail) =>
-      id !== undefined
+    mutationFn: async ({ id, json }: SaveCocktail) => {
+      const schema = id === undefined ? createCocktailSchema : updateCocktailSchema;
+      const result = schema.safeParse(json);
+      if (!result.success)
+        throw new ApiError(400, "VALIDATION", z.prettifyError(result.error), result.error.issues);
+      return id !== undefined
         ? unwrap(await endpoint[":id"].$patch({ param: { barId, id }, json }))
-        : unwrap(await endpoint.$post({ param: { barId }, json })),
+        : unwrap(await endpoint.$post({ param: { barId }, json }));
+    },
     onSuccess: async (recipe: CocktailDetail) => {
       const { queryKey } = cocktailQuery(barId, recipe.id);
       await client.cancelQueries({ queryKey, exact: true });
