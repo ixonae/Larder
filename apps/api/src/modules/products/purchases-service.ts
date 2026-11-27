@@ -68,7 +68,7 @@ export function createPurchases(
   productId: string | undefined,
   { count, price_minor, currency, ...input }: CreatePurchase,
 ): PurchaseList {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const product = requireProductRef(tx, ctx.barId, productId);
     const row = {
       ...input,
@@ -93,7 +93,7 @@ export function updatePurchase(
   id: string | undefined,
   patch: UpdatePurchase,
 ): Purchase {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const product = requireProductRef(tx, ctx.barId, productId);
     const existing = requirePurchase(tx, ctx.barId, product.id, id);
     const { price_minor, currency, ...rest } = patch;
@@ -123,7 +123,7 @@ export function deletePurchase(
   productId: string | undefined,
   id: string | undefined,
 ): void {
-  ctx.db.transaction((tx) => {
+  ctx.write((tx) => {
     const product = requireProductRef(tx, ctx.barId, productId);
     const existing = requirePurchase(tx, ctx.barId, product.id, id);
     repo.deletePurchase(tx, ctx.barId, existing.id);
@@ -140,7 +140,7 @@ export function finishProduct(
   productId: string | undefined,
   { finished_on = todayIso() }: FinishProduct,
 ): Product {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const product = requireProductRef(tx, ctx.barId, productId);
     const oldest = repo.findOldestOpenPurchase(tx, ctx.barId, product.id);
     if (oldest) {

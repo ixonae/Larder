@@ -44,8 +44,8 @@ export const barRoutes = new Hono<AppEnv>()
     c.json(updateBar(c.var.ctx, c.var.bar, c.req.valid("json"))),
   )
   .delete("/", requireRole("owner"), validate("json", deleteBarSchema), async (c) => {
-    const { db, storage, barId } = c.var.ctx;
-    await removeBar(db, storage, barId, c.req.valid("json").name);
+    const { write, storage, barId } = c.var.ctx;
+    await removeBar(write, storage, barId, c.req.valid("json").name);
     return c.body(null, 204);
   })
   .get("/members", (c) => c.json(barMembers(c.var.db, c.var.ctx.barId)))

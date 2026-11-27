@@ -114,7 +114,7 @@ export function createTasting(
   productId: string | undefined,
   input: CreateTasting,
 ): Tasting {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const product = requireProductRef(tx, ctx.barId, productId);
     const id = repo.insertTasting(tx, {
       ...input,
@@ -127,7 +127,7 @@ export function createTasting(
 }
 
 export function updateTasting(ctx: Ctx, id: string | undefined, patch: UpdateTasting): Tasting {
-  return ctx.db.transaction((tx) => {
+  return ctx.write((tx) => {
     const existing = requireOwnTasting(ctx, tx, id);
     repo.updateTasting(tx, ctx.barId, existing.id, patch);
     return toTasting(ctx, requireTasting(tx, ctx, existing.id));
@@ -135,7 +135,7 @@ export function updateTasting(ctx: Ctx, id: string | undefined, patch: UpdateTas
 }
 
 export function deleteTasting(ctx: Ctx, id: string | undefined): void {
-  ctx.db.transaction((tx) => {
+  ctx.write((tx) => {
     const existing = requireDeletableTasting(ctx, tx, id);
     repo.deleteTasting(tx, ctx.barId, existing.id);
   });

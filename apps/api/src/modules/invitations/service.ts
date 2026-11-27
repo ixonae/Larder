@@ -14,7 +14,7 @@ import {
   startSession,
 } from "../../auth/service.ts";
 import { hashToken, newToken } from "../../auth/token.ts";
-import type { Db, Executor, Tx } from "../../db/client.ts";
+import type { Db, Executor, Tx, WriteTransaction } from "../../db/client.ts";
 import { conflict, notFound, parseId } from "../../errors.ts";
 import type { Ctx } from "../../types.ts";
 import { resolveBarAccess } from "../bars/service.ts";
@@ -23,12 +23,12 @@ import * as repo from "./repo.ts";
 const INVITATION_TTL = 7 * 24 * 60 * 60 * 1000;
 
 export function invite(
-  { db, barId, userId }: Ctx,
+  { write: transact, barId, userId }: Ctx,
   role: repo.InvitationRow["role"],
 ): PendingInvitation & { token: string } {
   const token = newToken();
   const expires_at = nowIso(new Date(Date.now() + INVITATION_TTL));
-  const id = db.transaction((tx) =>
+  const id = transact((tx) =>
     repo.insertInvitation(tx, {
       token_hash: hashToken(token),
       bar_id: barId,
@@ -63,10 +63,12 @@ function join(
   return resolveBarAccess(tx, invitation.bar_id, userId);
 }
 
-export function acceptInvitation(db: Db, token: string, userId: string): BarSummary {
-  return db.transaction((tx) => join(tx, requireInvitation(tx, token), userId), {
-    behavior: "immediate",
-  });
+export function acceptInvitation(
+  write: WriteTransaction,
+  token: string,
+  userId: string,
+): BarSummary {
+  return write((tx) => join(tx, requireInvitation(tx, token), userId));
 }
 
 export async function registerByInvitation(
@@ -93,6 +95,6 @@ export const pendingInvitations = ({ db, barId }: Ctx): { invitations: PendingIn
   invitations: repo.listPendingInvitations(db, barId),
 });
 
-export function revokeInvitation({ db, barId }: Ctx, id: string): void {
-  repo.deleteInvitation(db, barId, parseId(id, "Invitation"));
+export function revokeInvitation({ write, barId }: Ctx, id: string): void {
+  write((tx) => repo.deleteInvitation(tx, barId, parseId(id, "Invitation")));
 }

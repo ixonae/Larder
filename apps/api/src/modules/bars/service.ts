@@ -10,7 +10,7 @@ import {
   type UpdateBarMember,
 } from "@larder/shared";
 import { addStarterCatalogue, skipStarterCatalogue } from "../../db/catalogue/starter.ts";
-import type { Db, Executor, Tx } from "../../db/client.ts";
+import type { Db, Executor, Tx, WriteTransaction } from "../../db/client.ts";
 import { conflict, forbidden, notFound, parseId } from "../../errors.ts";
 import type { ImageStorage } from "../../storage/storage.ts";
 import type { Ctx } from "../../types.ts";
@@ -83,42 +83,34 @@ function requireEditableMember(db: Tx, barId: string, id: string): string {
   return userId;
 }
 
-export function updateBarMember({ db, barId }: Ctx, id: string, changes: UpdateBarMember): void {
-  db.transaction(
-    (tx) => repo.updateMember(tx, barId, requireEditableMember(tx, barId, id), changes),
-    { behavior: "immediate" },
-  );
+export function updateBarMember({ write, barId }: Ctx, id: string, changes: UpdateBarMember): void {
+  write((tx) => repo.updateMember(tx, barId, requireEditableMember(tx, barId, id), changes));
 }
 
-export function removeBarMember({ db, barId }: Ctx, id: string): void {
-  db.transaction((tx) => repo.deleteMember(tx, barId, requireEditableMember(tx, barId, id)), {
-    behavior: "immediate",
-  });
+export function removeBarMember({ write, barId }: Ctx, id: string): void {
+  write((tx) => repo.deleteMember(tx, barId, requireEditableMember(tx, barId, id)));
 }
 
 /** The owner's changes to the bar's name and/or currency; the rest of the bar stays as it was. */
-export function updateBar({ db, barId }: Ctx, bar: BarSummary, patch: UpdateBar): BarSummary {
-  repo.updateBar(db, barId, patch);
+export function updateBar({ write, barId }: Ctx, bar: BarSummary, patch: UpdateBar): BarSummary {
+  write((tx) => repo.updateBar(tx, barId, patch));
   return { ...bar, ...patch };
 }
 
 export async function removeBar(
-  db: Db,
+  write: WriteTransaction,
   storage: ImageStorage,
   id: string,
   confirmedName: string,
 ): Promise<void> {
   const barId = parseId(id, "Bar");
-  const files = db.transaction(
-    (tx) => {
-      const name = repo.findBarName(tx, barId);
-      if (name === undefined) throw notFound("Bar");
-      if (name !== confirmedName) throw conflict("Type the current bar name exactly to delete it.");
-      const images = repo.listBarImageFiles(tx, barId);
-      repo.deleteBar(tx, barId);
-      return images;
-    },
-    { behavior: "immediate" },
-  );
+  const files = write((tx) => {
+    const name = repo.findBarName(tx, barId);
+    if (name === undefined) throw notFound("Bar");
+    if (name !== confirmedName) throw conflict("Type the current bar name exactly to delete it.");
+    const images = repo.listBarImageFiles(tx, barId);
+    repo.deleteBar(tx, barId);
+    return images;
+  });
   await Promise.all(files.map((image) => removeImageFiles(storage, image)));
 }

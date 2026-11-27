@@ -95,8 +95,10 @@ export async function signIn(
   );
 }
 
-export function sessionUser(db: Db, token: string): User | undefined {
-  return repo.getSessionUser(db, hashToken(token));
+export function requireSessionUser(db: Executor, token: string): User {
+  const user = repo.getSessionUser(db, hashToken(token));
+  if (!user) throw new AppError("UNAUTHORIZED", "Sign in to continue");
+  return user;
 }
 
 export function revokeSession(db: Executor, token: string): void {

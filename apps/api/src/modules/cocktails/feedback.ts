@@ -43,18 +43,21 @@ export function personalSummaries(
 }
 
 export function putRating(
-  { db, barId, userId }: Ctx,
+  { write: transact, barId, userId }: Ctx,
   id: string | undefined,
   input: RatingInput,
 ): Rating {
-  return db.transaction((tx): Rating => {
+  return transact((tx): Rating => {
     const cocktailId: string = requireCocktail(tx, barId, id).id;
     return feedback.upsertRating(tx, barId, userId, cocktailId, input);
   });
 }
 
-export function removeRating({ db, barId, userId }: Ctx, id: string | undefined): void {
-  db.transaction((tx): void => {
+export function removeRating(
+  { write: transact, barId, userId }: Ctx,
+  id: string | undefined,
+): void {
+  transact((tx): void => {
     feedback.deleteRating(tx, barId, userId, requireCocktail(tx, barId, id).id);
   });
 }
@@ -95,11 +98,11 @@ export function listComments(
 }
 
 export function addComment(
-  { db, barId, userId }: Ctx,
+  { write: transact, barId, userId }: Ctx,
   id: string | undefined,
   input: NewComment,
 ): Comment {
-  return db.transaction((tx): Comment => {
+  return transact((tx): Comment => {
     const cocktailId: string = requireCocktail(tx, barId, id).id;
     const commentId: string = feedback.insertComment(tx, barId, userId, cocktailId, input);
     return toComment(requireComment(tx, barId, cocktailId, userId, commentId));
@@ -138,12 +141,12 @@ function requireAuthoredComment(
 }
 
 export function editComment(
-  { db, barId, userId }: Ctx,
+  { write: transact, barId, userId }: Ctx,
   id: string | undefined,
   commentId: string | undefined,
   patch: UpdateComment,
 ): Comment {
-  return db.transaction((tx): Comment => {
+  return transact((tx): Comment => {
     const cocktailId: string = requireCocktail(tx, barId, id).id;
     const existing: feedback.CommentRow = requireAuthoredComment(
       tx,
@@ -163,11 +166,11 @@ export function editComment(
 }
 
 export function removeComment(
-  { db, barId, userId }: Ctx,
+  { write: transact, barId, userId }: Ctx,
   id: string | undefined,
   commentId: string | undefined,
 ): void {
-  db.transaction((tx): void => {
+  transact((tx): void => {
     const cocktailId: string = requireCocktail(tx, barId, id).id;
     const existing: feedback.CommentRow = requireAuthoredComment(
       tx,
@@ -181,11 +184,11 @@ export function removeComment(
 }
 
 function changeFavourite(
-  { db, barId, userId }: Ctx,
+  { write: transact, barId, userId }: Ctx,
   id: string | undefined,
   write: typeof insertFavourite,
 ): void {
-  db.transaction((tx): void => {
+  transact((tx): void => {
     const cocktailId: string = requireCocktail(tx, barId, id).id;
     write(tx, barId, userId, "cocktail_id", cocktailId);
   });

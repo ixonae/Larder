@@ -1,8 +1,16 @@
-import type { BarSummary, Me } from "@larder/shared";
-import { eq } from "drizzle-orm";
+import type { BarSummary, Cocktail, Me } from "@larder/shared";
+import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { barMembers, bars } from "../db/schema/index.ts";
-import { BOB, createTestApp, type TestApp } from "../test/app.ts";
+import { barMembers, bars, ratings, utensils } from "../db/schema/index.ts";
+import {
+  BOB,
+  cookieFor,
+  createTestApp,
+  duringJsonRead,
+  jsonRequest,
+  readJson,
+  type TestApp,
+} from "../test/app.ts";
 import { requireRole } from "./context.ts";
 
 describe("GET /api/me", () => {
@@ -107,5 +115,58 @@ describe("requireRole", () => {
   it.each(["editor", "owner"] as const)("allows an %s", async (role) => {
     const { app, url } = setup(role);
     expect((await app.request(url, { method: "POST" })).status).toBe(200);
+  });
+});
+
+describe("bar write authorization", () => {
+  it("rejects an editor demoted while an item is validated", async () => {
+    const t = createTestApp();
+    const { barId } = t.alice;
+    const { userId } = t.bob;
+    t.db.insert(barMembers).values({ bar_id: barId, user_id: userId, role: "editor" }).run();
+    const request = duringJsonRead(
+      `/api/bars/${barId}/utensils`,
+      "POST",
+      { name: "Measuring cup", kind: "tool" },
+      cookieFor(t.db, userId),
+      () => {
+        t.db
+          .update(barMembers)
+          .set({ role: "viewer" })
+          .where(and(eq(barMembers.bar_id, barId), eq(barMembers.user_id, userId)))
+          .run();
+      },
+    );
+    const res = await t.rawRequest(request);
+    expect(res.status).toBe(403);
+    expect(t.db.select().from(utensils).where(eq(utensils.bar_id, barId)).all()).toEqual([]);
+  });
+
+  it("refuses personal feedback if its author loses membership during validation", async () => {
+    const t = createTestApp();
+    const { barId } = t.alice;
+    const { userId } = t.bob;
+    t.db.insert(barMembers).values({ bar_id: barId, user_id: userId, role: "viewer" }).run();
+    const recipe = await readJson<Cocktail>(
+      await t.app.request(
+        `/api/bars/${barId}/cocktails`,
+        jsonRequest("POST", { name: "Martini", method: "stirred" }),
+      ),
+    );
+    const request = duringJsonRead(
+      `/api/bars/${barId}/cocktails/${recipe.id}/rating`,
+      "PUT",
+      { score: 4 },
+      cookieFor(t.db, userId),
+      () => {
+        t.db
+          .delete(barMembers)
+          .where(and(eq(barMembers.bar_id, barId), eq(barMembers.user_id, userId)))
+          .run();
+      },
+    );
+    const res = await t.rawRequest(request);
+    expect(res.status).toBe(403);
+    expect(t.db.select().from(ratings).all()).toEqual([]);
   });
 });

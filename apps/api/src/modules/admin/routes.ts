@@ -47,6 +47,11 @@ export const adminRoutes = new Hono<AppEnv>()
   })
   .get("/bars", (c) => c.json(barDirectory(c.var.db)))
   .delete("/bars/:id", validate("json", deleteBarSchema), async (c) => {
-    await removeBar(c.var.db, c.var.storage, c.req.param("id"), c.req.valid("json").name);
+    await removeBar(
+      c.var.sessionTransaction,
+      c.var.storage,
+      c.req.param("id"),
+      c.req.valid("json").name,
+    );
     return c.body(null, 204);
   });

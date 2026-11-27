@@ -2,6 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ErrorBody, SESSION_REQUEST_HEADER } from "@larder/shared";
+import { vi } from "vitest";
 import { type AppType, createApp } from "../app.ts";
 import { SESSION_COOKIE } from "../auth/middleware.ts";
 import { createSession } from "../auth/service.ts";
@@ -103,3 +104,31 @@ export const jsonRequest = (method: string, body?: unknown, cookie?: string): Re
   },
   ...(body !== undefined && { body: JSON.stringify(body) }),
 });
+
+/** Simulates a session or membership change while a real route is waiting on JSON validation. */
+export function duringJsonRead(
+  path: string,
+  method: string,
+  data: unknown,
+  cookie: string,
+  change: () => void,
+): Request {
+  const body = JSON.stringify(data);
+  const request = new Request(new URL(path, "http://localhost"), {
+    method,
+    headers: {
+      Cookie: cookie,
+      [SESSION_REQUEST_HEADER]: "1",
+      "content-type": "application/json",
+      "content-length": String(Buffer.byteLength(body)),
+    },
+    body,
+  });
+  const read = request.text.bind(request);
+  vi.spyOn(request, "text").mockImplementationOnce(async (): Promise<string> => {
+    const text = await read();
+    change();
+    return text;
+  });
+  return request;
+}
