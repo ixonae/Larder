@@ -21,7 +21,7 @@ it("validates and saves a new email with the current password", async () => {
       return new HttpResponse(null, { status: 204 });
     }),
   );
-  const { user } = renderWithProviders("/settings");
+  const { user, queryClient } = renderWithProviders("/settings");
   const input = await screen.findByLabelText("Email");
   expect(input).toHaveValue(meFixture.user.email);
   const [current] = screen.getAllByLabelText("Current password") as HTMLInputElement[];
@@ -41,6 +41,7 @@ it("validates and saves a new email with the current password", async () => {
   expect(await screen.findByText("Email updated.")).toBeVisible();
   expect(input).toHaveValue("new@example.com");
   expect(current).toHaveValue("");
+  expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
 });
 
 it("requires a matching confirmation and clears passwords after saving", async () => {
@@ -57,7 +58,7 @@ it("requires a matching confirmation and clears passwords after saving", async (
       return new HttpResponse(null, { status: 204 });
     }),
   );
-  const { user } = renderWithProviders("/settings");
+  const { user, queryClient } = renderWithProviders("/settings");
   const input = await screen.findByLabelText("New password", { exact: true });
   const confirm = screen.getByLabelText("Confirm new password");
   const current = screen.getAllByLabelText("Current password")[1] as HTMLInputElement;
@@ -77,4 +78,5 @@ it("requires a matching confirmation and clears passwords after saving", async (
   ).toBeVisible();
   await waitFor(() => expect(input).toHaveValue(""));
   expect(current).toHaveValue("");
+  expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
 });

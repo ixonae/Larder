@@ -1,7 +1,8 @@
 import { buildTree, type Category, type Product, type Tasting, type User } from "@larder/shared";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
+import { meQuery } from "@/api/queries.ts";
 import { localToday } from "@/lib/dates.ts";
 import { failure, fixtureId, page, timestamps } from "@/test/fixtures.ts";
 import { BAR_ID, meFixture, server } from "@/test/msw.ts";
@@ -166,6 +167,33 @@ const asViewer = (): void =>
   );
 
 describe("Tastings page", () => {
+  it("discards a previous member's private notes before rendering the next member of the same bar", async () => {
+    tastings = [
+      tasting(bottle(10, "Talisker"), {
+        is_private: true,
+        notes: "Only the first member sees this",
+      }),
+    ];
+    const { queryClient } = renderWithProviders("/tastings");
+    expect(await screen.findByText("Only the first member sees this")).toBeVisible();
+    const pending = Promise.withResolvers<void>();
+    const started = Promise.withResolvers<void>();
+    server.use(
+      http.get("/api/me", () => HttpResponse.json({ ...meFixture, user: { ...ME, ...OTHER } })),
+      http.get(`${base}/tastings`, async () => {
+        started.resolve();
+        await pending.promise;
+        return page([]);
+      }),
+    );
+    await act(() => queryClient.invalidateQueries({ queryKey: meQuery.queryKey }));
+    await started.promise;
+    expect(screen.queryByText("Only the first member sees this")).not.toBeInTheDocument();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    pending.resolve();
+    expect(await screen.findByText("No tastings yet")).toBeVisible();
+  });
+
   it("shows the journal by month, newest first, with only my entries editable", async () => {
     const [talisker, yoichi] = products as [Product, Product];
     tastings = [

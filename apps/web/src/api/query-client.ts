@@ -30,22 +30,24 @@ declare module "@tanstack/react-query" {
 }
 
 /** Back to the sign-in screen: `me` becomes null and every other cached query is dropped. */
-export async function showSignIn(client: QueryClient): Promise<void> {
-  await client.cancelQueries();
-  client.setQueryData(meQuery.queryKey, null);
+export function showSignIn(client: QueryClient): void {
+  void client.cancelQueries({ queryKey: meQuery.queryKey });
+  client.getMutationCache().clear();
   client.removeQueries({ predicate: (query: Query) => query.queryKey[0] !== meQuery.queryKey[0] });
+  client.setQueryData(meQuery.queryKey, null);
 }
 
 /** A session that expired or was revoked mid-use sends the user to sign in, wherever it surfaced. */
-function onUnauthorized(client: QueryClient, error: unknown): void {
+export function onUnauthorized(client: QueryClient, error: unknown): void {
   if (!(error instanceof ApiError) || error.code !== "UNAUTHORIZED") return;
   if (client.getQueryData(meQuery.queryKey) === null) return; // already signed out (a failed sign-in)
-  void showSignIn(client);
+  showSignIn(client);
 }
 
 export function createQueryClient(): QueryClient {
   const client: QueryClient = new QueryClient({
-    defaultOptions: { queries: { retry: shouldRetry } },
+    // Writes require a live connection. Never queue an offline write for a later session.
+    defaultOptions: { queries: { retry: shouldRetry }, mutations: { networkMode: "always" } },
     queryCache: new QueryCache({ onError: (error: Error) => onUnauthorized(client, error) }),
     mutationCache: new MutationCache({
       onError: (error: Error) => onUnauthorized(client, error),

@@ -15,6 +15,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet.tsx";
+import { useCredentialSubmit } from "@/features/account/credential-submit.ts";
 import { FormError, PasswordField, useZodForm } from "@/lib/form.tsx";
 
 export const adminUsersKey = ["administration", "users"];
@@ -147,13 +148,12 @@ function ResetPasswordSheet({
   onClose,
 }: Readonly<{ account: AdminUser; onClose: () => void }>): JSX.Element {
   const form = useZodForm(resetUserPasswordSchema);
-  const reset = useMutation({
-    mutationFn: async (json: ResetUserPassword) =>
-      unwrap(await api.api.admin.users[":id"].password.$patch({ param: { id: account.id }, json })),
-    onSuccess: () => {
-      toast(`Password reset for ${account.display_name}`);
-      onClose();
-    },
+  const reset = useCredentialSubmit(async (json: ResetUserPassword) => {
+    await unwrap(
+      await api.api.admin.users[":id"].password.$patch({ param: { id: account.id }, json }),
+    );
+    toast(`Password reset for ${account.display_name}`);
+    onClose();
   });
   return (
     <Sheet open onOpenChange={onClose}>
@@ -167,7 +167,7 @@ function ResetPasswordSheet({
         <form
           className="grid gap-4 px-6 pb-6"
           noValidate
-          onSubmit={form.handleSubmit((data) => reset.mutate(data))}
+          onSubmit={form.handleSubmit(reset.submit)}
         >
           <PasswordField
             form={form}

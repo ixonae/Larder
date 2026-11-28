@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { JSX } from "react";
 import { api, unwrap } from "@/api/client.ts";
-import { meQuery, signupSettingsQuery, useMe } from "@/api/queries.ts";
+import { signupSettingsQuery, useMe } from "@/api/queries.ts";
+import { signedIn } from "@/api/session.ts";
 import { ErrorState, LoadingState } from "@/components/states.tsx";
 import { NewAccountForm } from "./new-account-form.tsx";
 
@@ -38,7 +39,7 @@ export function SignUpPage(): JSX.Element {
           label="Create account"
           submit={async (json: NewAccount): Promise<void> => {
             await unwrap(await api.api.auth["sign-up"].$post({ json }));
-            await client.invalidateQueries({ queryKey: meQuery.queryKey });
+            await signedIn(client);
             await navigate({ to: "/bars" });
           }}
         />

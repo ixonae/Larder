@@ -228,7 +228,7 @@ it("validates and resets a user's password from their action menu", async () => 
       return new HttpResponse(null, { status: 204 });
     }),
   );
-  const { user } = renderWithProviders("/admin");
+  const { user, queryClient } = renderWithProviders("/admin");
   await user.click(await screen.findByRole("button", { name: "Manage Alex" }));
   await user.click(await screen.findByRole("menuitem", { name: "Reset password" }));
   const sheet = within(await screen.findByRole("dialog", { name: "Reset password for Alex" }));
@@ -245,4 +245,5 @@ it("validates and resets a user's password from their action menu", async () => 
   await user.click(confirm);
   expect(await screen.findByText("Password reset for Alex")).toBeVisible();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
 });
