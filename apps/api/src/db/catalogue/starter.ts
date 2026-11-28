@@ -233,7 +233,7 @@ async function backfillArtworkKeys(
     }
   }
   // Start each read when the async consumer reaches that candidate.
-  function* scanArtwork(): Generator<Promise<Match | null>> {
+  async function* scanArtwork(): AsyncGenerator<Match | null> {
     for (const image of legacyArtworkCandidates(db, barId, bundledArtworkSizes())) {
       yield matchArtwork(image);
     }
