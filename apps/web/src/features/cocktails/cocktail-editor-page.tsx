@@ -257,6 +257,7 @@ function CocktailFormView({
               />
               <ImageUpload
                 imageId={recipe?.image_id ?? null}
+                artworkKey={recipe?.image_artwork_key}
                 value={picture.change}
                 onChange={picture.setChange}
               />

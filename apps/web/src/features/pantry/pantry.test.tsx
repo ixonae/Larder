@@ -142,7 +142,7 @@ describe("PantryPage", () => {
     const { user } = await open();
     const garnishList = screen.getByRole("list", { name: "Garnish" });
     const thumbnail = garnishList.querySelector("img");
-    expect(thumbnail).toHaveAttribute("src", imageUrl(imageId, "thumb"));
+    expect(thumbnail).toHaveAttribute("src", imageUrl(imageId, "small"));
     expect(thumbnail).toHaveAttribute("loading", "lazy");
 
     await user.click(screen.getByRole("button", { name: "Edit Lemon" }));

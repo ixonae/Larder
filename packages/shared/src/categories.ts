@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "./id.ts";
-import { paginationQuerySchema } from "./pagination.ts";
+import { artworkKeySchema } from "./images.ts";
+import { booleanQuerySchema, paginationQuerySchema } from "./pagination.ts";
 import { optionalText } from "./text.ts";
 import { ancestry, type TreeNode } from "./tree.ts";
 
@@ -91,6 +92,7 @@ export const categorySchema = z.object({
   description: z.string().nullable(),
   /** The picture (`imageUrl(image_id)`), set through `PUT /:id/image`. */
   image_id: idSchema.nullable(),
+  image_artwork_key: artworkKeySchema.nullish(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -104,6 +106,7 @@ export const categoryTreeNodeSchema: z.ZodType<CategoryTreeNode> = categorySchem
 });
 
 /** `GET /categories/tree` */
+export const categoryTreeQuerySchema = z.object({ artwork: booleanQuerySchema.optional() });
 export const categoryTreeSchema = z.object({ items: z.array(categoryTreeNodeSchema) });
 export type CategoryTree = z.infer<typeof categoryTreeSchema>;
 

@@ -1,15 +1,19 @@
-import { imageUrl } from "@larder/shared";
 import { cn } from "cn";
 import { ImageOff, type LucideIcon } from "lucide-react";
 import type { JSX } from "react";
+import { ItemImage } from "./item-image.tsx";
 
 /** A square thumbnail of the item's picture, or a quiet placeholder when it has none. */
 export function Thumbnail({
   imageId,
+  artworkKey,
+  size = "small",
   className,
   icon: Icon = ImageOff,
 }: Readonly<{
   imageId: string | null;
+  artworkKey?: string | null;
+  size?: "small" | "thumb";
   className?: string;
   /** Shown on the placeholder; pick one that hints at what the item is. */
   icon?: LucideIcon;
@@ -30,6 +34,14 @@ export function Thumbnail({
   }
   // Decorative next to the item's name; lazy so long lists only load what is on screen.
   return (
-    <img src={imageUrl(imageId, "thumb")} alt="" loading="lazy" decoding="async" className={box} />
+    <ItemImage
+      imageId={imageId}
+      size={size}
+      artworkKey={artworkKey}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      className={box}
+    />
   );
 }

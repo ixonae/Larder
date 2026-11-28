@@ -206,6 +206,8 @@ it("filters and pages cocktail cards, and restores filters after viewing a recip
 });
 
 it("shows the recipe, shares quantities across alternatives, and scales servings", async () => {
+  const artworkKey = "a".repeat(64);
+  const illustratedRecipe = { ...recipe, image_artwork_key: artworkKey };
   server.use(
     http.get(detail, ({ request }) => {
       const count = new URL(request.url).searchParams.get("servings");
@@ -213,7 +215,7 @@ it("shows the recipe, shares quantities across alternatives, and scales servings
       return HttpResponse.json(
         count === "2"
           ? {
-              ...recipe,
+              ...illustratedRecipe,
               servings: 2,
               computed: { ...recipe.computed, volume_ml: 60 },
               ingredients: recipe.ingredients.map((line) => ({
@@ -221,14 +223,17 @@ it("shows the recipe, shares quantities across alternatives, and scales servings
                 amount: (line.amount as number) * 2,
               })),
             }
-          : recipe,
+          : illustratedRecipe,
       );
     }),
     http.get(`${base}/utensils/${glass.id}`, () => HttpResponse.json(glass)),
   );
   const { user } = renderWithProviders(`/cocktails/${recipe.id}`);
   expect(await screen.findByRole("heading", { name: "Gimlet" })).toBeInTheDocument();
-  expect(screen.getByAltText("Gimlet")).toHaveAttribute("src", `/api/images/${recipe.image_id}`);
+  const artwork = screen.getByAltText("Gimlet");
+  expect(artwork).toHaveAttribute("src", `/artwork/v1/${artworkKey}/display.webp`);
+  fireEvent.error(artwork);
+  expect(artwork).toHaveAttribute("src", `/api/images/${recipe.image_id}/display`);
   for (const text of [
     "Bright and tart.",
     "Shake with ice",
@@ -428,7 +433,7 @@ it("creates a recipe with reordered ingredients, alternatives, steps, tools, tag
   expect(await screen.findByRole("heading", { name: "House Gimlet" })).toBeInTheDocument();
   expect(await screen.findByAltText("House Gimlet")).toHaveAttribute(
     "src",
-    `/api/images/${recipe.image_id}`,
+    `/api/images/${recipe.image_id}/display`,
   );
   expect(body).toMatchObject({
     name: "House Gimlet",

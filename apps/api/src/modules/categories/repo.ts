@@ -3,8 +3,9 @@ import { and, eq, type SQL, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { categories } from "../../db/schema/index.ts";
+import { selectArtworkKey } from "../images/repo.ts";
 
-const columns: Pick<
+const baseColumns: Pick<
   typeof categories,
   | "id"
   | "name"
@@ -27,6 +28,10 @@ const columns: Pick<
   image_id: categories.image_id,
   created_at: categories.created_at,
   updated_at: categories.updated_at,
+};
+const columns: typeof baseColumns & { image_artwork_key: SQL<string | null> } = {
+  ...baseColumns,
+  image_artwork_key: selectArtworkKey(categories),
 };
 
 const nameKey: SQL<string> = sql<string>`larder_name_key(${categories.name})`;
@@ -71,9 +76,13 @@ export function listCategories(
 }
 
 /** Every category of the bar, sorted by name. */
-export function listAllCategories(db: Executor, barId: string): Category[] {
+export function listAllCategories(
+  db: Executor,
+  barId: string,
+  includeArtwork: boolean = false,
+): Category[] {
   return db
-    .select(columns)
+    .select(includeArtwork ? columns : baseColumns)
     .from(categories)
     .where(eq(categories.bar_id, barId))
     .orderBy(...byName(nameKey, categories.id))

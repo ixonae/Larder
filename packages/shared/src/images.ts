@@ -24,6 +24,12 @@ export type ImageEntity = (typeof IMAGE_ENTITIES)[number];
 export const IMAGE_MAX_SIDE = 1600;
 export const THUMB_MAX_SIDE = 256;
 export const COCKTAIL_THUMB_MAX_SIDE = 400;
+/** Change the version when the generated variants change. */
+export const IMAGE_VARIANT_VERSION = "v1";
+
+export const imageSizeSchema = z.enum(["full", "display", "thumb", "small"]);
+export type ImageSize = z.infer<typeof imageSizeSchema>;
+export const artworkKeySchema = z.string().regex(/^[a-f0-9]{64}$/);
 
 /** A stored picture. Its file never changes: a replacement is a new image with a new id. */
 export const imageSchema = z.object({
@@ -45,6 +51,12 @@ export const uploadImageSchema = z.object({
     }),
 });
 
-/** Where the browser loads an image from (`GET /api/images/:id[/thumb]`). */
-export const imageUrl = (id: string, size: "full" | "thumb" = "full"): string =>
-  size === "thumb" ? `/api/images/${id}/thumb` : `/api/images/${id}`;
+/** Bundled art is served under content-hashed URLs. Other pictures require authorization. */
+export const imageUrl = (
+  id: string,
+  size: ImageSize = "full",
+  artworkKey?: string | null,
+): string => {
+  if (artworkKey) return `/artwork/${IMAGE_VARIANT_VERSION}/${artworkKey}/${size}.webp`;
+  return size === "full" ? `/api/images/${id}` : `/api/images/${id}/${size}`;
+};

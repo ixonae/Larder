@@ -11,7 +11,7 @@ import { admitAuthenticatedBodies, admitPublicBodies } from "./middleware/body.t
 import { handleError, handleNotFound } from "./middleware/errors.ts";
 import { adminRoutes } from "./modules/admin/routes.ts";
 import { barDirectoryRoutes, barRoutes } from "./modules/bars/routes.ts";
-import { imageRoutes } from "./modules/images/routes.ts";
+import { artworkRoutes, imageRoutes } from "./modules/images/routes.ts";
 import { invitationRoutes, publicInvitationRoutes } from "./modules/invitations/routes.ts";
 import { meRoutes } from "./modules/me/routes.ts";
 import { webApp } from "./static.ts";
@@ -115,6 +115,7 @@ export function createApp({
     .route("/api/invitations", invitationRoutes)
     .route("/api/images", imageRoutes);
 
+  app.route("/artwork", artworkRoutes);
   if (webDir) app.get("*", webApp(webDir));
 
   return routes;

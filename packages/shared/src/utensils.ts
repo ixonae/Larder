@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DESCRIPTION_MAX } from "./categories.ts";
 import { idSchema } from "./id.ts";
+import { artworkKeySchema } from "./images.ts";
 import { paginationQuerySchema } from "./pagination.ts";
 import { optionalText } from "./text.ts";
 
@@ -25,6 +26,7 @@ export const utensilSchema = z.object({
   description: z.string().nullable(),
   /** The picture (`imageUrl(image_id)`), set through `PUT /:id/image`. */
   image_id: idSchema.nullable(),
+  image_artwork_key: artworkKeySchema.nullish(),
   created_at: z.string(),
   updated_at: z.string(),
 });

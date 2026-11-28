@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 type RequestInfo = Pick<Request, "url" | "method" | "mode">;
 type NavigationEvent = {
   request: RequestInfo;
+  preloadResponse?: Promise<Response | undefined>;
   respondWith: (response: Promise<Response>) => void;
 };
 type WorkerListeners = {
@@ -18,7 +19,11 @@ const origin: string = "https://larder.example";
 const workerPath: string = resolve(import.meta.dirname, "../../public/service-worker.js");
 const source: string = readFileSync(workerPath, "utf8");
 
-function loadWorker(fetch: () => Promise<Response>, claim: () => Promise<void>): WorkerListeners {
+function loadWorker(
+  fetch: () => Promise<Response>,
+  claim: () => Promise<void>,
+  navigationPreload?: { enable: () => Promise<void> },
+): WorkerListeners {
   const listeners: WorkerListeners = {};
   runInNewContext(
     source,
@@ -29,6 +34,7 @@ function loadWorker(fetch: () => Promise<Response>, claim: () => Promise<void>):
       self: {
         location: { origin },
         clients: { claim },
+        registration: { navigationPreload },
         addEventListener: <Type extends keyof WorkerListeners>(
           type: Type,
           listener: WorkerListeners[Type],
@@ -45,13 +51,14 @@ function loadWorker(fetch: () => Promise<Response>, claim: () => Promise<void>):
 
 function dispatch(
   request: RequestInfo,
-  fetch: () => Promise<Response>,
+  listeners: WorkerListeners,
+  preloadResponse?: Promise<Response | undefined>,
 ): Promise<Response> | undefined {
-  const listeners = loadWorker(fetch, vi.fn());
   let response: Promise<Response> | undefined;
   if (!listeners.fetch) throw new Error("Missing service worker fetch listener");
   listeners.fetch({
     request,
+    preloadResponse,
     respondWith: (result: Promise<Response>): void => {
       response = result;
     },
@@ -66,29 +73,81 @@ describe("Larder's service worker", () => {
     mode: "navigate",
   };
 
-  it("waits for the worker to claim clients on activation", () => {
-    const claimed = Promise.resolve();
-    const claim = vi.fn().mockReturnValue(claimed);
-    const waitUntil = vi.fn();
-    loadWorker(vi.fn(), claim).activate?.({ waitUntil });
+  it("enables navigation preload and waits for the worker to claim clients on activation", async () => {
+    const claim = vi.fn().mockResolvedValue(undefined);
+    const enable = vi.fn().mockResolvedValue(undefined);
+    const waitUntil = vi.fn<(claim: Promise<void>) => void>();
+    loadWorker(vi.fn(), claim, { enable }).activate?.({ waitUntil });
     expect(claim).toHaveBeenCalledOnce();
-    expect(waitUntil).toHaveBeenCalledWith(claimed);
+    expect(enable).toHaveBeenCalledOnce();
+    expect(waitUntil).toHaveBeenCalledOnce();
+    await expect(waitUntil.mock.calls[0]?.[0]).resolves.toEqual([undefined, undefined]);
+  });
+
+  it.each([undefined, { enable: (): Promise<void> => Promise.reject(new Error("Unavailable")) }])(
+    "claims clients when navigation preload cannot be enabled (%o)",
+    async (navigationPreload) => {
+      const claim = vi.fn().mockResolvedValue(undefined);
+      const waitUntil = vi.fn<(claim: Promise<void>) => void>();
+      loadWorker(vi.fn(), claim, navigationPreload).activate?.({ waitUntil });
+      await expect(waitUntil.mock.calls[0]?.[0]).resolves.toEqual([undefined, undefined]);
+      expect(claim).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("uses the preloaded response without making a second fetch", async () => {
+    const network = vi.fn();
+    const response = new Response("Ready");
+    expect(
+      await dispatch(navigation, loadWorker(network, vi.fn()), Promise.resolve(response)),
+    ).toBe(response);
+    expect(network).not.toHaveBeenCalled();
+  });
+
+  it("reuses private image navigation preload without making a second request", async () => {
+    const request = { ...navigation, url: `${origin}/api/images/image-id` };
+    const network = vi.fn();
+    const response = new Response("Image", { headers: { "Content-Type": "image/webp" } });
+    const worker = loadWorker(network, vi.fn());
+    expect(await dispatch(request, worker, Promise.resolve(response))).toBe(response);
+    expect(network).not.toHaveBeenCalled();
+  });
+
+  it("preserves API errors instead of showing the app's offline page", async () => {
+    const request = { ...navigation, url: `${origin}/api` };
+    const response = new Response("Unauthorized", { status: 401 });
+    const network = vi.fn().mockResolvedValue(response);
+    const worker = loadWorker(network, vi.fn());
+    expect(await dispatch(request, worker, Promise.resolve(undefined))).toBe(response);
+    expect(network).toHaveBeenCalledExactlyOnceWith(request);
+    const offline = new TypeError("Failed to fetch");
+    await expect(dispatch(request, worker, Promise.reject(offline))).rejects.toBe(offline);
+    expect(network).toHaveBeenCalledOnce();
   });
 
   it("preserves an HTTP response from the server", async () => {
     const response: Response = new Response("Page not found", { status: 404 });
     const network = vi.fn().mockResolvedValue(response);
-    expect(await dispatch(navigation, network)).toBe(response);
+    expect(await dispatch(navigation, loadWorker(network, vi.fn()))).toBe(response);
     expect(network).toHaveBeenCalledWith(navigation);
   });
 
-  it("returns the offline page when a navigation cannot reach the server", async () => {
-    const network = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
-    const response = await dispatch(navigation, network);
-    expect(response?.status).toBe(503);
-    expect(response?.headers.get("Cache-Control")).toBe("no-store");
-    expect(await response?.text()).toContain("Larder is offline");
-  });
+  it.each([false, true])(
+    "returns the offline page when a navigation cannot reach the server (preload=%s)",
+    async (preload) => {
+      const error = new TypeError("Failed to fetch");
+      const network = vi.fn().mockRejectedValue(error);
+      const response = await dispatch(
+        navigation,
+        loadWorker(network, vi.fn()),
+        preload ? Promise.reject(error) : undefined,
+      );
+      expect(network).toHaveBeenCalledTimes(preload ? 0 : 1);
+      expect(response?.status).toBe(503);
+      expect(response?.headers.get("Cache-Control")).toBe("no-store");
+      expect(await response?.text()).toContain("Larder is offline");
+    },
+  );
 
   it.each([
     { url: `${origin}/api` },
@@ -96,9 +155,13 @@ describe("Larder's service worker", () => {
     { url: "https://another.example/" },
     { method: "POST" },
     { mode: "cors", url: `${origin}/assets/app-123.js` },
-  ] satisfies Partial<RequestInfo>[])("leaves %o to the browser", (overrides) => {
+  ] satisfies Partial<RequestInfo>[])("leaves %o to the browser", async (overrides) => {
     const network = vi.fn();
-    expect(dispatch({ ...navigation, ...overrides }, network)).toBeUndefined();
+    const worker = loadWorker(network, vi.fn());
+    expect(dispatch({ ...navigation, ...overrides }, worker)).toBeUndefined();
     expect(network).not.toHaveBeenCalled();
+    const page = new Response("Ready");
+    network.mockResolvedValue(page);
+    expect(await dispatch(navigation, worker)).toBe(page);
   });
 });

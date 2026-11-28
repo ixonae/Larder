@@ -198,6 +198,7 @@ function CategoryForm({
 
       <ImageUpload
         imageId={editing?.image_id ?? null}
+        artworkKey={editing?.image_artwork_key}
         value={picture.change}
         onChange={picture.setChange}
       />

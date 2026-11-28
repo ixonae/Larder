@@ -1,8 +1,9 @@
-import { IMAGE_MIME_TYPES, type ImageEntity, imageUrl } from "@larder/shared";
+import { IMAGE_MIME_TYPES, type ImageEntity } from "@larder/shared";
 import { Camera, Trash2 } from "lucide-react";
 import type { ChangeEvent, Dispatch, JSX, SetStateAction } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { type ImageChange, KEEP_IMAGE, useSaveImage } from "@/api/images.ts";
+import { ItemImage } from "@/components/item-image.tsx";
 import { toast } from "@/components/toaster.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -29,30 +30,48 @@ function usePreview(file: File | null): string | null {
  */
 export function ImageUpload({
   imageId,
+  artworkKey,
   value,
   onChange,
 }: Readonly<{
   /** The saved picture, if any. */
   imageId: string | null;
+  artworkKey?: string | null;
   value: ImageChange;
   onChange: (change: ImageChange) => void;
 }>): JSX.Element {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const preview = usePreview(value.kind === "replace" ? value.file : null);
-  const shown = preview ?? (value.kind === "keep" && imageId ? imageUrl(imageId, "thumb") : null);
+  const saved = value.kind === "keep" ? imageId : null;
+  const shown = preview ?? saved;
+  const imageClass = "size-20 rounded-md object-cover";
+  let picture: JSX.Element;
+  if (preview) {
+    picture = <img src={preview} alt="Preview" className={imageClass} />;
+  } else if (saved) {
+    picture = (
+      <ItemImage
+        imageId={saved}
+        size="thumb"
+        artworkKey={artworkKey}
+        alt="Preview"
+        className={imageClass}
+      />
+    );
+  } else {
+    picture = (
+      <span className="flex size-20 items-center justify-center rounded-md border border-dashed text-muted-foreground text-xs">
+        None
+      </span>
+    );
+  }
 
   return (
     <div className="grid gap-1.5">
       <Label htmlFor={id}>Picture</Label>
       <div className="flex items-center gap-3">
-        {shown ? (
-          <img src={shown} alt="Preview" className="size-20 rounded-md object-cover" />
-        ) : (
-          <span className="flex size-20 items-center justify-center rounded-md border border-dashed text-muted-foreground text-xs">
-            None
-          </span>
-        )}
+        {picture}
         <div className="flex flex-col gap-2">
           <Button
             type="button"

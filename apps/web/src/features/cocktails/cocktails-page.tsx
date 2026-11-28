@@ -234,7 +234,12 @@ function CocktailList({
 function CocktailRow({ cocktail }: Readonly<{ cocktail: Cocktail }>): JSX.Element {
   return (
     <>
-      <Thumbnail imageId={cocktail.image_id} icon={Martini} className="size-11" />
+      <Thumbnail
+        imageId={cocktail.image_id}
+        artworkKey={cocktail.image_artwork_key}
+        icon={Martini}
+        className="size-11"
+      />
       <div className="grid min-w-0 flex-1 gap-0.5">
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="truncate font-medium">{cocktail.name}</span>
@@ -258,6 +263,8 @@ function CocktailCard({ cocktail }: Readonly<{ cocktail: Cocktail }>): JSX.Eleme
     <>
       <Thumbnail
         imageId={cocktail.image_id}
+        artworkKey={cocktail.image_artwork_key}
+        size="thumb"
         icon={Martini}
         className="aspect-[5/2] h-auto w-full rounded-none object-contain"
       />

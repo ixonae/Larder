@@ -46,7 +46,7 @@ function CategoriesView({
   barId,
   canEdit,
 }: Readonly<{ barId: string; canEdit: boolean }>): JSX.Element {
-  const tree = useQuery(categoryTreeQuery(barId));
+  const tree = useQuery(categoryTreeQuery(barId, true));
   const { remove } = useCategoryMutations(barId);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [target, setTarget] = useState<SheetTarget | null>(null);
@@ -179,7 +179,7 @@ function TreeRow({
         ) : (
           <span className="size-9 shrink-0" />
         )}
-        <Thumbnail imageId={node.image_id} className="size-7" />
+        <Thumbnail imageId={node.image_id} artworkKey={node.image_artwork_key} className="size-7" />
         <div className="min-w-0 flex-1">
           <div className="truncate">{node.name}</div>
           {node.always_available && (

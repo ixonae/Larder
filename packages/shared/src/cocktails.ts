@@ -3,6 +3,7 @@ import { DESCRIPTION_MAX } from "./categories.ts";
 import { cocktailIngredientInputSchema, cocktailIngredientSchema } from "./cocktail-ingredients.ts";
 import { otherRatingSchema, ratingSummarySchema } from "./feedback.ts";
 import { idSchema } from "./id.ts";
+import { artworkKeySchema } from "./images.ts";
 import { missingIngredientSchema } from "./makeability.ts";
 import { booleanQuerySchema, listOf, pageSchema, paginationQuerySchema } from "./pagination.ts";
 import { optionalText } from "./text.ts";
@@ -52,6 +53,7 @@ const fields = z.object({
 export const cocktailSchema = fields.extend(ratingSummarySchema.shape).extend({
   id: idSchema,
   image_id: idSchema.nullable(),
+  image_artwork_key: artworkKeySchema.nullish(),
   created_at: z.string(),
   updated_at: z.string(),
   computed: computedCocktailSchema,

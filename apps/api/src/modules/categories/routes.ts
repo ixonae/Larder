@@ -1,4 +1,5 @@
 import {
+  categoryTreeQuerySchema,
   createCategorySchema,
   listCategoriesQuerySchema,
   updateCategorySchema,
@@ -22,7 +23,9 @@ export const categoryRoutes = new Hono<AppEnv>()
     c.json(listCategories(c.var.ctx, c.req.valid("query"))),
   )
   // Before `/:id`, so "tree" is not read as an id.
-  .get("/tree", (c) => c.json({ items: getCategoryTree(c.var.ctx) }))
+  .get("/tree", validate("query", categoryTreeQuerySchema), (c) =>
+    c.json({ items: getCategoryTree(c.var.ctx, c.req.valid("query").artwork) }),
+  )
   .get("/:id", (c) => c.json(getCategory(c.var.ctx, c.req.param("id"))))
   .post("/", requireRole("editor"), validate("json", createCategorySchema), (c) =>
     c.json(createCategory(c.var.ctx, c.req.valid("json")), 201),
