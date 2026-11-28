@@ -4,6 +4,7 @@ import { AppError } from "../errors.ts";
 export function concurrencyLimit(
   max: number,
   maxWaiting: number,
+  busyMessage: string = "Password verification is busy. Try again shortly.",
 ): <T>(task: () => Promise<T>) => Promise<T> {
   let active = 0;
   const waiting: (() => void)[] = [];
@@ -11,12 +12,7 @@ export function concurrencyLimit(
     if (active < max) active++;
     else {
       if (waiting.length >= maxWaiting)
-        throw new AppError(
-          "UNAVAILABLE",
-          "Password verification is busy. Try again shortly.",
-          undefined,
-          { "Retry-After": "1" },
-        );
+        throw new AppError("UNAVAILABLE", busyMessage, undefined, { "Retry-After": "1" });
       await new Promise<void>((resolve) => waiting.push(resolve));
     }
     try {

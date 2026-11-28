@@ -39,12 +39,11 @@ export const limitCredentials = createMiddleware<AppEnv>((c, next) =>
   c.var.credentialCheck(peerKey(c), next),
 );
 
-export const currentUser = createMiddleware<AppEnv>(async (c, next) => {
+export function requireCurrentUser(c: Context<AppEnv>): void {
   const user = sessionUser(c.var.db, sessionCookie(c));
   if (!user) throw new AppError("UNAUTHORIZED", "Sign in to continue");
   c.set("user", user);
-  await next();
-});
+}
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 

@@ -156,7 +156,9 @@ describe("session authentication", () => {
   it("returns a retryable error when the verification queue fills", async () => {
     const { signIn } = setup();
     const responses = await Promise.all(
-      Array.from({ length: 7 }, () => signIn(ALICE.email, "wrong")),
+      Array.from({ length: 7 }, (_, index) =>
+        signIn(ALICE.email, "wrong", "", `192.0.2.${index + 1}`),
+      ),
     );
     const busy = responses.find((res) => res.status === 503);
     expect(busy?.headers.get("Retry-After")).toBe("1");
