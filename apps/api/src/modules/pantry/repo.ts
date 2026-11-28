@@ -4,6 +4,7 @@ import type { SelectedFields } from "drizzle-orm/sqlite-core";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { categories, pantryIngredients } from "../../db/schema/index.ts";
+import { selectArtworkKey } from "../images/repo.ts";
 
 const columns: Pick<
   typeof pantryIngredients,
@@ -15,7 +16,7 @@ const columns: Pick<
   | "image_id"
   | "created_at"
   | "updated_at"
-> & { category_name: typeof categories.name } = {
+> & { category_name: typeof categories.name; image_artwork_key: SQL<string | null> } = {
   id: pantryIngredients.id,
   name: pantryIngredients.name,
   category_id: pantryIngredients.category_id,
@@ -23,6 +24,7 @@ const columns: Pick<
   in_stock: pantryIngredients.in_stock,
   always_available: pantryIngredients.always_available,
   image_id: pantryIngredients.image_id,
+  image_artwork_key: selectArtworkKey(pantryIngredients),
   created_at: pantryIngredients.created_at,
   updated_at: pantryIngredients.updated_at,
 };

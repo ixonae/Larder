@@ -3,17 +3,19 @@ import { and, eq, type SQL, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { utensils } from "../../db/schema/index.ts";
+import { selectArtworkKey } from "../images/repo.ts";
 
 const columns: Pick<
   typeof utensils,
   "id" | "name" | "kind" | "capacity_ml" | "description" | "image_id" | "created_at" | "updated_at"
-> = {
+> & { image_artwork_key: SQL<string | null> } = {
   id: utensils.id,
   name: utensils.name,
   kind: utensils.kind,
   capacity_ml: utensils.capacity_ml,
   description: utensils.description,
   image_id: utensils.image_id,
+  image_artwork_key: selectArtworkKey(utensils),
   created_at: utensils.created_at,
   updated_at: utensils.updated_at,
 };

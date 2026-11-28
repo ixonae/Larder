@@ -4,27 +4,27 @@ import {
   createRootRouteWithContext,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   type RouterHistory,
   redirect,
 } from "@tanstack/react-router";
 import { z } from "zod";
 import { AppShell } from "@/components/app-shell.tsx";
 import { NotFoundPage } from "@/components/section-page.tsx";
-import { SettingsPage } from "@/features/account/settings-page.tsx";
 import { SignUpPage } from "@/features/account/sign-up.tsx";
-import { AdminPage } from "@/features/admin/admin-page.tsx";
-import { BarsPage } from "@/features/bars/bars-page.tsx";
-import { InvitePage } from "@/features/bars/invite-page.tsx";
 import { BottleDetailPage, bottleSearchSchema } from "@/features/bottles/bottle-detail-page.tsx";
 import { BottlesPage, bottlesSearchSchema } from "@/features/bottles/bottles-page.tsx";
 import { CategoriesPage } from "@/features/categories/categories-page.tsx";
 import { CocktailDetailPage } from "@/features/cocktails/cocktail-detail-page.tsx";
-import { EditCocktailPage, NewCocktailPage } from "@/features/cocktails/cocktail-editor-page.tsx";
 import { CocktailsPage } from "@/features/cocktails/cocktails-page.tsx";
 import { PantryPage } from "@/features/pantry/pantry-page.tsx";
 import { TastingsPage, tastingsSearchSchema } from "@/features/tastings/tastings-page.tsx";
 import { UtensilsPage } from "@/features/utensils/utensils-page.tsx";
 import { trueOnlyFlag } from "@/lib/search-params.ts";
+
+const loadCocktailEditor = (): Promise<
+  typeof import("@/features/cocktails/cocktail-editor-page.tsx")
+> => import("@/features/cocktails/cocktail-editor-page.tsx");
 
 declare module "@tanstack/react-router" {
   interface StaticDataRouteOption {
@@ -83,13 +83,28 @@ export const routeTree = rootRoute.addChildren([
     component: SignUpPage,
     staticData: { public: true },
   }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/settings", component: SettingsPage }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: AdminPage }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/bars", component: BarsPage }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/settings",
+    component: lazyRouteComponent(
+      () => import("@/features/account/settings-page.tsx"),
+      "SettingsPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/admin",
+    component: lazyRouteComponent(() => import("@/features/admin/admin-page.tsx"), "AdminPage"),
+  }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/bars",
+    component: lazyRouteComponent(() => import("@/features/bars/bars-page.tsx"), "BarsPage"),
+  }),
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/invite",
-    component: InvitePage,
+    component: lazyRouteComponent(() => import("@/features/bars/invite-page.tsx"), "InvitePage"),
     staticData: { public: true },
   }),
   createRoute({
@@ -110,13 +125,13 @@ export const routeTree = rootRoute.addChildren([
     validateSearch: cocktailsSearchSchema.extend({
       variantOf: idSchema.optional().catch(undefined),
     }),
-    component: NewCocktailPage,
+    component: lazyRouteComponent(loadCocktailEditor, "NewCocktailPage"),
   }),
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/cocktails/$cocktailId/edit",
     validateSearch: cocktailsSearchSchema,
-    component: EditCocktailPage,
+    component: lazyRouteComponent(loadCocktailEditor, "EditCocktailPage"),
   }),
   createRoute({
     getParentRoute: () => rootRoute,

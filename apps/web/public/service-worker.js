@@ -43,34 +43,40 @@ const offlinePage = `<!doctype html>
 </html>`;
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      self.registration.navigationPreload?.enable().catch(() => {}),
+    ]),
+  );
 });
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.mode !== "navigate" || request.method !== "GET") return;
+  const url = request.mode === "navigate" && request.method === "GET" ? new URL(request.url) : null;
+  if (url === null || url.origin !== self.location.origin) return;
+  // Preload starts before this handler, including for direct API navigations.
+  const api = url.pathname === "/api" || url.pathname.startsWith("/api/");
+  if (api && event.preloadResponse === undefined) return;
 
-  const url = new URL(request.url);
-  if (
-    url.origin !== self.location.origin ||
-    url.pathname === "/api" ||
-    url.pathname.startsWith("/api/")
-  ) {
-    return;
-  }
+  const response = Promise.resolve(event.preloadResponse).then(
+    (preloaded) => preloaded ?? fetch(request),
+  );
 
   event.respondWith(
-    fetch(request).catch(
-      () =>
-        new Response(offlinePage, {
-          status: 503,
-          headers: {
-            "Cache-Control": "no-store",
-            "Content-Type": "text/html; charset=utf-8",
-            "Content-Security-Policy":
-              "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
-          },
-        }),
-    ),
+    api
+      ? response
+      : response.catch(
+          () =>
+            new Response(offlinePage, {
+              status: 503,
+              headers: {
+                "Cache-Control": "no-store",
+                "Content-Type": "text/html; charset=utf-8",
+                "Content-Security-Policy":
+                  "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+              },
+            }),
+        ),
   );
 });

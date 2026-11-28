@@ -57,6 +57,13 @@
       "when": 1795265601317,
       "tag": "0007_category_always_available",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1795849694279,
+      "tag": "0008_kind_mercury",
+      "breakpoints": true
     }
   ]
 }

@@ -39,8 +39,8 @@ export function listCategories(ctx: Ctx, query: ListCategoriesQuery): Page<Categ
 }
 
 /** `GET /categories/tree`: every category, nested, siblings sorted by name. */
-export function getCategoryTree(ctx: Ctx): CategoryTreeNode[] {
-  return buildTree(repo.listAllCategories(ctx.db, ctx.barId));
+export function getCategoryTree(ctx: Ctx, includeArtwork: boolean | undefined): CategoryTreeNode[] {
+  return buildTree(repo.listAllCategories(ctx.db, ctx.barId, includeArtwork));
 }
 
 function requireCategory(db: Executor, barId: string, id: string | undefined): Category {

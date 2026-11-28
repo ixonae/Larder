@@ -5,13 +5,20 @@ import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
 import { cocktails, cocktailTags } from "../../db/schema/index.ts";
 import { invalid } from "../../errors.ts";
 import { isFavourite } from "../favourites/repo.ts";
+import { selectArtworkKey } from "../images/repo.ts";
 import { avgRatingSort } from "./feedback-repo.ts";
 import { usesCategories } from "./ingredients-repo.ts";
 
-const { bar_id: _barId, created_by: _createdBy, ...columns } = getTableColumns(cocktails);
+const { bar_id: _barId, created_by: _createdBy, ...fields } = getTableColumns(cocktails);
+const columns: typeof fields & { image_artwork_key: SQL<string | null> } = {
+  ...fields,
+  image_artwork_key: selectArtworkKey(cocktails),
+};
 /** The cocktail sort key, shared by every list of cocktails. */
 export const nameKey: SQL<string> = sql<string>`larder_name_key(${cocktails.name})`;
-type CocktailRow = Omit<typeof cocktails.$inferSelect, "bar_id" | "created_by">;
+type CocktailRow = Omit<typeof cocktails.$inferSelect, "bar_id" | "created_by"> & {
+  image_artwork_key: string | null;
+};
 
 export type NewCocktail = typeof cocktails.$inferInsert;
 

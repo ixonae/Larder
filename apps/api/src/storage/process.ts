@@ -1,4 +1,4 @@
-import { IMAGE_MAX_SIDE, THUMB_MAX_SIDE } from "@larder/shared";
+import { IMAGE_MAX_SIDE, type ImageSize, THUMB_MAX_SIDE } from "@larder/shared";
 import type { OutputInfo } from "sharp";
 import sharp from "sharp";
 import { type AppError, invalid } from "../errors.ts";
@@ -11,6 +11,20 @@ export interface ProcessedImage {
   thumb: Buffer;
   width: number;
   height: number;
+  artworkKey?: string;
+}
+
+/** Derive the compact list and detail variants from the existing stored WebPs. */
+export async function resizeImage(source: Buffer, size: ImageSize): Promise<Buffer> {
+  if (size === "full" || size === "thumb") return source;
+  const side = size === "small" ? 144 : 800;
+  const picture = sharp(source);
+  const { width, height } = await picture.metadata();
+  if (Math.max(width, height) <= side) return source;
+  return picture
+    .resize({ width: side, height: side, fit: "inside" })
+    .webp({ quality: size === "small" ? 75 : 82 })
+    .toBuffer();
 }
 
 export interface ImageOptions {

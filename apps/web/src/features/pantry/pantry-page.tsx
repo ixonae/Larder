@@ -174,7 +174,11 @@ function IngredientRow({
 }>): JSX.Element {
   return (
     <li className="flex items-center gap-2 p-3">
-      <Thumbnail imageId={ingredient.image_id} icon={Apple} />
+      <Thumbnail
+        imageId={ingredient.image_id}
+        artworkKey={ingredient.image_artwork_key}
+        icon={Apple}
+      />
       <p className="min-w-0 flex-1 truncate font-medium">{ingredient.name}</p>
       <StockToggle barId={barId} ingredient={ingredient} canEdit={canEdit} />
       {canEdit && (

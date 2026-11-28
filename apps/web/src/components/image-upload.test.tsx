@@ -90,18 +90,18 @@ async function openSheet(
 }
 
 describe("pictures in lists and pages", () => {
-  it("shows thumbnails, a placeholder without a picture, and the full picture on the detail page", async () => {
+  it("shows compact thumbnails, a placeholder without a picture, and a larger picture on the detail page", async () => {
     const { user } = renderWithProviders("/bottles");
     const list = await screen.findByRole("list", { name: "Bottles" });
     const thumbs = list.querySelectorAll("img");
     expect([...thumbs].map((img) => img.getAttribute("src"))).toEqual([
-      `/api/images/${IMAGE}/thumb`,
+      `/api/images/${IMAGE}/small`,
     ]);
     expect(thumbs[0]).toHaveAttribute("loading", "lazy");
     await user.click(screen.getByRole("link", { name: "Hendrick's" }));
     expect(await screen.findByRole("img", { name: "Hendrick's" })).toHaveAttribute(
       "src",
-      `/api/images/${IMAGE}`,
+      `/api/images/${IMAGE}/display`,
     );
   });
 });

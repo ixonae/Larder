@@ -1,10 +1,18 @@
 import { readFileSync } from "node:fs";
 import { type CategoryKind, createUtensilSchema, nameKey, type UtensilKind } from "@larder/shared";
+import { createLogger, type Logger } from "../../logger.ts";
+import { legacyArtworkCandidates, setArtworkKey } from "../../modules/images/repo.ts";
 import type { ProcessedImage } from "../../storage/process.ts";
 import type { ImageStorage } from "../../storage/storage.ts";
 import type { Ctx } from "../../types.ts";
 import type { Db, Executor, Tx } from "../client.ts";
 import { barDataMigrations, bars } from "../schema/index.ts";
+import {
+  artworkKey,
+  availableArtworkKey,
+  bundledArtworkSizes,
+  registerArtwork,
+} from "./artwork.ts";
 import { starterCategoryPictures } from "./category-art.ts";
 import {
   applyCatalogue,
@@ -51,12 +59,12 @@ const rootCategories: ReadonlyArray<readonly [string, CategoryKind]> = [
 ];
 
 function readIcon(directory: string, slug: string, side: number = 512): ProcessedImage {
-  return {
+  return registerArtwork({
     full: readFileSync(new URL(`./${directory}/${slug}.webp`, import.meta.url)),
     thumb: readFileSync(new URL(`./${directory}/thumbnails/${slug}.webp`, import.meta.url)),
     width: side,
     height: side,
-  };
+  });
 }
 
 const rootCategoryPictures = new Map(
@@ -90,7 +98,7 @@ function readCompactIcon(path: string): ProcessedImage {
   const cached = compactIcons.get(path);
   if (cached) return cached;
   const bytes = readFileSync(new URL(`./${path}.webp`, import.meta.url));
-  const image = { full: bytes, thumb: bytes, width: 160, height: 160 };
+  const image = registerArtwork({ full: bytes, thumb: bytes, width: 160, height: 160 });
   compactIcons.set(path, image);
   return image;
 }
@@ -166,6 +174,7 @@ const catalogue: Catalogue = {
   pictures: cataloguePictures,
 };
 const optedOut = `${catalogue.id}-opt-out`;
+const artworkMigration = "starter-artwork-keys-v1";
 const newBarPictures = new Map([...cataloguePictures, ...rootCategoryPictures]);
 
 /** Stage the icons, then create the bar and its full starter catalogue in one transaction. */
@@ -179,11 +188,53 @@ export async function addStarterCatalogue(
       initializeBar(tx);
       const used = applyCatalogue(tx, barId, userId, catalogue, staged);
       tx.insert(barDataMigrations)
-        .values({ bar_id: barId, migration: rootCategoryCatalogue.id })
+        .values([
+          { bar_id: barId, migration: rootCategoryCatalogue.id },
+          { bar_id: barId, migration: artworkMigration },
+        ])
         .run();
       return used;
     }),
   );
+}
+
+/** Recognize legacy copies by both file contents. A private upload's name or size is insufficient. */
+async function backfillArtworkKeys(
+  db: Db,
+  storage: ImageStorage,
+  barId: string,
+  logger: Pick<Logger, "warn">,
+): Promise<void> {
+  if (db.select().from(barDataMigrations).where(catalogueRecord(barId, artworkMigration)).get())
+    return;
+  const matches: { id: string; key: string }[] = [];
+  let failed = false;
+  for (const image of legacyArtworkCandidates(db, barId, bundledArtworkSizes())) {
+    try {
+      const [full, thumb] = await Promise.all([
+        storage.get(image.storage_key),
+        storage.get(image.thumb_key),
+      ]);
+      if (!full || !thumb) continue;
+      const key = availableArtworkKey(artworkKey(full, thumb));
+      if (key) matches.push({ id: image.id, key });
+    } catch (error) {
+      failed = true;
+      logger.warn("Could not identify legacy artwork", {
+        barId,
+        imageId: image.id,
+        error: String(error),
+      });
+    }
+  }
+  db.transaction((tx) => {
+    for (const { id, key } of matches) setArtworkKey(tx, barId, id, key);
+    if (failed) return; // Retry unreadable candidates on a later startup.
+    tx.insert(barDataMigrations)
+      .values({ bar_id: barId, migration: artworkMigration })
+      .onConflictDoNothing()
+      .run();
+  });
 }
 
 export function skipStarterCatalogue(db: Executor, barId: string): void {
@@ -205,10 +256,15 @@ export async function seedStarterCatalogue(
 }
 
 /** Backfill existing bars and seed the default bar once it has been created. */
-export async function migrateStarterCatalogues(db: Db, storage: ImageStorage): Promise<void> {
+export async function migrateStarterCatalogues(
+  db: Db,
+  storage: ImageStorage,
+  logger: Pick<Logger, "warn"> = createLogger("warn"),
+): Promise<void> {
   const allBars = db.select({ id: bars.id }).from(bars).all();
   // Backfill one bar at a time to keep catalogue staging bounded during startup.
   for (const { id } of allBars) {
     await seedStarterCatalogue(db, storage, id); // NOSONAR
+    await backfillArtworkKeys(db, storage, id, logger); // NOSONAR
   }
 }

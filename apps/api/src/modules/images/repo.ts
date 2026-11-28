@@ -1,5 +1,6 @@
 import type { ImageEntity } from "@larder/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, getTableName, inArray, isNull, type SQL, sql } from "drizzle-orm";
+import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { Executor } from "../../db/client.ts";
 import {
   categories,
@@ -21,6 +22,35 @@ const owners = {
 
 export type StoredImage = typeof images.$inferSelect;
 export type NewImage = typeof images.$inferInsert;
+
+/** Select the public key for the owning row, when the current release still ships the picture. */
+export function selectArtworkKey(table: SQLiteTable): SQL<string | null> {
+  // Explicit qualifiers also work in SQLite RETURNING and single-table Drizzle SELECTs.
+  const owner = sql.identifier(getTableName(table));
+  return sql<string | null>`(select larder_artwork_key(images.artwork_key) from images
+    where images.id = ${owner}.image_id and images.bar_id = ${owner}.bar_id)`;
+}
+
+export function legacyArtworkCandidates(
+  db: Executor,
+  barId: string,
+  sizes: number[],
+): StoredImage[] {
+  return db
+    .select()
+    .from(images)
+    .where(
+      and(eq(images.bar_id, barId), isNull(images.artwork_key), inArray(images.size_bytes, sizes)),
+    )
+    .all();
+}
+
+export function setArtworkKey(db: Executor, barId: string, id: string, key: string): void {
+  db.update(images)
+    .set({ artwork_key: key })
+    .where(and(eq(images.bar_id, barId), eq(images.id, id), isNull(images.artwork_key)))
+    .run();
+}
 
 /** The item's current `image_id`, or undefined when the item is not in the bar. */
 export function findOwnerImage(

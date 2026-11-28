@@ -1,4 +1,10 @@
-import { COCKTAIL_THUMB_MAX_SIDE, type Image, type ImageEntity, newId } from "@larder/shared";
+import {
+  COCKTAIL_THUMB_MAX_SIDE,
+  type Image,
+  type ImageEntity,
+  type ImageSize,
+  newId,
+} from "@larder/shared";
 import type { Db, Executor } from "../../db/client.ts";
 import { notFound, parseId } from "../../errors.ts";
 import { type ImageOptions, type ProcessedImage, processImage } from "../../storage/process.ts";
@@ -96,6 +102,7 @@ export async function stagePreparedImage(
     bar_id: barId,
     created_by: userId,
     ...files,
+    artwork_key: processed.artworkKey ?? null,
     mime: "image/webp",
     width: processed.width,
     height: processed.height,
@@ -171,11 +178,13 @@ export async function readImage(
   storage: ImageStorage,
   userId: string,
   id: string | undefined,
-  size: "full" | "thumb",
+  size: ImageSize,
 ): Promise<{ data: Buffer; mime: string }> {
   const image = repo.findImageInAnyBar(db, parseId(id, "Image"));
   if (!image || !findBarForMember(db, image.bar_id, userId)?.role) throw notFound("Image");
-  const data = await storage.get(size === "full" ? image.storage_key : image.thumb_key);
+  const data = await storage.get(
+    size === "thumb" || size === "small" ? image.thumb_key : image.storage_key,
+  );
   if (!data) throw notFound("Image");
   return { data, mime: image.mime };
 }

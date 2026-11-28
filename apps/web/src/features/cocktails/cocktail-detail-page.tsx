@@ -4,7 +4,6 @@ import {
   type DisplayUnit,
   formatAmount,
   hasRole,
-  imageUrl,
 } from "@larder/shared";
 import { type UseMutationResult, useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
@@ -18,6 +17,7 @@ import { badge } from "@/components/badge.ts";
 import { BarGate } from "@/components/bar-gate.tsx";
 import { Combobox } from "@/components/combobox.tsx";
 import { FavouriteButton } from "@/components/favourite-button.tsx";
+import { ItemImage } from "@/components/item-image.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { CocktailComments } from "./cocktail-comments.tsx";
@@ -131,8 +131,10 @@ function CocktailRecipe({
       )}
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-[auto] lg:gap-6 lg:has-[>img]:grid-rows-[auto_1fr]">
         {recipe.image_id && (
-          <img
-            src={imageUrl(recipe.image_id)}
+          <ItemImage
+            imageId={recipe.image_id}
+            size="display"
+            artworkKey={recipe.image_artwork_key}
             alt={recipe.name}
             className="mx-auto h-auto max-h-96 w-auto max-w-full rounded-xl shadow-sm lg:col-start-1 lg:row-start-1"
           />

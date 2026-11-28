@@ -22,11 +22,18 @@ export const categoriesKey = (barId: string) => ["bars", barId, "categories"] as
  * The whole category tree of a bar. Hono's RPC types cannot express the recursive `children`, so the
  * body is typed (and checked) with the shared schema.
  */
-export const categoryTreeQuery = (barId: string): ApiQueryOptions<CategoryTreeNode[], string[]> =>
+export const categoryTreeQuery = (
+  barId: string,
+  includeArtwork: boolean = false,
+): ApiQueryOptions<CategoryTreeNode[], string[]> =>
   queryOptions({
-    queryKey: [...categoriesKey(barId), "tree"],
+    queryKey: [...categoriesKey(barId), "tree", ...(includeArtwork ? ["artwork"] : [])],
+    staleTime: 60_000,
     queryFn: async () => {
-      const res = await bar.categories.tree.$get({ param: { barId } });
+      const res = await bar.categories.tree.$get({
+        param: { barId },
+        query: { artwork: includeArtwork ? "true" : undefined },
+      });
       return categoryTreeSchema.parse(await unwrap<unknown>(res)).items;
     },
   });

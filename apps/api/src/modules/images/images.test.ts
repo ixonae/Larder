@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { barMembers, categories, images, products } from "../../db/schema/index.ts";
 import {
+  cookieFor,
   createTestApp,
   errorOf,
   readJson as json,
@@ -72,7 +73,8 @@ describe("PUT /:entity/:id/image", () => {
     const full = await t.app.request(`/api/images/${image.id}`);
     expect(full.status).toBe(200);
     expect(full.headers.get("content-type")).toBe("image/webp");
-    expect(full.headers.get("cache-control")).toBe("private, no-store");
+    expect(full.headers.get("cache-control")).toBe("private, no-cache");
+    expect(full.headers.get("Vary")).toBe("Cookie");
     const bytes = Buffer.from(await full.arrayBuffer());
     expect(bytes.byteLength).toBe(image.size_bytes);
     const thumb = await t.app.request(`/api/images/${image.id}/thumb`);
@@ -80,6 +82,17 @@ describe("PUT /:entity/:id/image", () => {
       width: 256,
       height: 128,
     });
+    const small = await t.app.request(`/api/images/${image.id}/small`);
+    expect(await sharp(Buffer.from(await small.arrayBuffer())).metadata()).toMatchObject({
+      width: 144,
+      height: 72,
+    });
+    const display = await t.app.request(`/api/images/${image.id}/display`);
+    expect(await sharp(Buffer.from(await display.arrayBuffer())).metadata()).toMatchObject({
+      width: 800,
+      height: 400,
+    });
+    expect(display.headers.get("ETag")).not.toBe(full.headers.get("ETag"));
   });
 
   it("keeps a larger thumbnail for cocktail cards", async () => {
@@ -282,6 +295,53 @@ describe("deleting an item", () => {
 });
 
 describe("GET /api/images/:id", () => {
+  it("revalidates a private image only while the reader still has a session and bar access", async () => {
+    const t = setup();
+    const bottle = await t.product();
+    const image = await json<Image>(await t.upload(`/products/${bottle.id}`, await png(40, 40)));
+    const path = `/api/images/${image.id}/small`;
+    const original = await t.app.request(path);
+    const tag = original.headers.get("ETag") ?? "";
+    expect(tag).toMatch(/^W\/"[a-f0-9]{64}"$/);
+    const thumb = await t.app.request(`/api/images/${image.id}/thumb`);
+    expect(await original.arrayBuffer()).toEqual(await thumb.arrayBuffer());
+    const full = await t.app.request(`/api/images/${image.id}`);
+    const display = await t.app.request(`/api/images/${image.id}/display`);
+    expect(await display.arrayBuffer()).toEqual(await full.arrayBuffer());
+
+    for (const value of [`"wrong", ${tag.slice(2)}`, "*"]) {
+      const response = await t.app.request(path, { headers: { "If-None-Match": value } });
+      expect(response.status).toBe(304);
+      expect(response.headers.get("ETag")).toBe(tag);
+      expect(response.headers.get("Cache-Control")).toBe("private, no-cache");
+      expect(response.headers.get("Vary")).toBe("Cookie");
+      expect(await response.text()).toBe("");
+    }
+    for (const value of ['"wrong"', "malformed"]) {
+      const different = await t.app.request(path, { headers: { "If-None-Match": value } });
+      expect(different.status).toBe(200);
+      await different.arrayBuffer();
+    }
+
+    const bobCookie = cookieFor(t.db, t.bob.userId);
+    const conditional = { "If-None-Match": tag, Cookie: bobCookie };
+    t.db
+      .insert(barMembers)
+      .values({ bar_id: t.alice.barId, user_id: t.bob.userId, role: "viewer" })
+      .run();
+    expect((await t.app.request(path, { headers: conditional })).status).toBe(304);
+    t.db
+      .delete(barMembers)
+      .where(and(eq(barMembers.bar_id, t.alice.barId), eq(barMembers.user_id, t.bob.userId)))
+      .run();
+    const removed = await t.app.request(path, { headers: conditional });
+    expect(removed.status).toBe(404);
+    expect(removed.headers.get("Cache-Control")).toBe("private, no-store");
+    const signedOut = await t.app.request(path, { headers: { ...conditional, Cookie: "" } });
+    expect(signedOut.status).toBe(401);
+    expect(signedOut.headers.get("ETag")).toBeNull();
+  });
+
   it("answers 404 for unknown ids and for a file missing on disk", async () => {
     const t = setup();
     expect((await t.app.request(`/api/images/${UNKNOWN}`)).status).toBe(404);

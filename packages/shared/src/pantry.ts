@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idSchema } from "./id.ts";
+import { artworkKeySchema } from "./images.ts";
 import { booleanQuerySchema, paginationQuerySchema } from "./pagination.ts";
 
 export const PANTRY_INGREDIENT_NAME_MAX = 100;
@@ -15,6 +16,7 @@ export const pantryIngredientSchema = z.object({
   /** A staple that is always there (water, ice…), whatever `in_stock` says. */
   always_available: z.boolean(),
   image_id: idSchema.nullable(),
+  image_artwork_key: artworkKeySchema.nullish(),
   created_at: z.string(),
   updated_at: z.string(),
 });

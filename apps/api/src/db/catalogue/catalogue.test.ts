@@ -4,8 +4,11 @@ import {
   type Category,
   type CocktailDetail,
   categorySchema,
+  categoryTreeSchema,
   cocktailDetailSchema,
+  cocktailSchema,
   imageSchema,
+  imageUrl,
   newId,
   pageSchema,
   pantryIngredientSchema,
@@ -39,6 +42,119 @@ import {
 } from "./import.ts";
 import { migrateStarterCatalogues, seedStarterCatalogue, skipStarterCatalogue } from "./starter.ts";
 
+it("serves known artwork through immutable URLs without exposing bar image IDs", async () => {
+  const { app, alice, db } = createTestApp();
+  const response = await app.request(
+    "/api/bars",
+    jsonRequest("POST", { name: "Art", seed_data: true }),
+  );
+  const { id: barId } = barSummarySchema.parse(await response.json());
+  const list = await app.request(`/api/bars/${barId}/cocktails?limit=1`);
+  const recipe = pageSchema(cocktailSchema).parse(await list.json()).items[0];
+  if (!recipe?.image_id || !recipe.image_artwork_key) throw new Error("Expected artwork");
+
+  for (const [variant, width] of [
+    ["full", 768],
+    ["display", 768],
+    ["thumb", 384],
+    ["small", 144],
+  ] as const) {
+    const result = await app.request(imageUrl(recipe.image_id, variant, recipe.image_artwork_key), {
+      headers: { Cookie: "" },
+    });
+    expect(result.status).toBe(200);
+    expect(result.headers.get("Cache-Control")).toBe("public, max-age=31536000, immutable");
+    expect(result.headers.get("Content-Type")).toBe("image/webp");
+    expect(await sharp(Buffer.from(await result.arrayBuffer())).metadata()).toMatchObject({
+      width,
+    });
+  }
+  for (const path of [
+    `/artwork/v1/${recipe.image_artwork_key}/thumb.png`,
+    `/artwork/v1/${recipe.image_artwork_key}/other.webp`,
+    `/artwork/v1/${recipe.image_id}/thumb.webp`,
+    `/artwork/v1/${recipe.image_artwork_key}`,
+  ]) {
+    const result = await app.request(path);
+    expect(result.status).toBe(404);
+    expect(result.headers.get("Cache-Control")).toBeNull();
+  }
+
+  // A restored row referring to artwork retired from this version still has its private URL.
+  db.update(images)
+    .set({ artwork_key: "0".repeat(64) })
+    .where(eq(images.id, recipe.image_id))
+    .run();
+  const detail = await app.request(`/api/bars/${barId}/cocktails/${recipe.id}`);
+  expect(cocktailDetailSchema.parse(await detail.json()).image_artwork_key).toBeNull();
+  expect((await app.request(imageUrl(recipe.image_id, "thumb"))).status).toBe(200);
+  expect((await app.request(`/api/bars/${alice.barId}/cocktails/${recipe.id}`)).status).toBe(404);
+});
+
+it("backfills legacy artwork only when both stored files match a bundled picture", async () => {
+  const { db, storage, alice } = createTestApp();
+  await seedStarterCatalogue(db, storage, alice.barId);
+  const [original, different, missing] = db
+    .select()
+    .from(images)
+    .where(eq(images.bar_id, alice.barId))
+    .limit(3)
+    .all();
+  if (!original || !different || !missing) throw new Error("Expected legacy artwork fixtures");
+  for (const { id } of [original, different, missing]) {
+    db.update(images).set({ artwork_key: null }).where(eq(images.id, id)).run();
+  }
+  await storage.put(different.thumb_key, new Uint8Array([0]));
+  await storage.delete(missing.thumb_key);
+  await migrateStarterCatalogues(db, storage);
+  const keyOf = (id: string): string | null | undefined =>
+    db.select({ key: images.artwork_key }).from(images).where(eq(images.id, id)).get()?.key;
+  expect(keyOf(original.id)).toBe(original.artwork_key);
+  expect(keyOf(different.id)).toBeNull();
+  expect(keyOf(missing.id)).toBeNull();
+});
+
+it("backfills readable files and retries an unreadable legacy image on the next startup", async () => {
+  const { app, db, storage, alice } = createTestApp();
+  await seedStarterCatalogue(db, storage, alice.barId);
+  const [blocked, readable] = db
+    .select()
+    .from(images)
+    .where(eq(images.bar_id, alice.barId))
+    .limit(2)
+    .all();
+  if (!blocked || !readable) throw new Error("Expected legacy artwork fixtures");
+  for (const { id } of [blocked, readable]) {
+    db.update(images).set({ artwork_key: null }).where(eq(images.id, id)).run();
+  }
+  const warn = vi.fn();
+  await migrateStarterCatalogues(
+    db,
+    {
+      ...storage,
+      async get(key: string): Promise<Buffer | null> {
+        if (key === blocked.thumb_key) throw new Error("EACCES");
+        return storage.get(key);
+      },
+    },
+    { warn },
+  );
+
+  const keyOf = (id: string): string | null | undefined =>
+    db.select({ key: images.artwork_key }).from(images).where(eq(images.id, id)).get()?.key;
+  expect(warn).toHaveBeenCalledExactlyOnceWith("Could not identify legacy artwork", {
+    barId: alice.barId,
+    imageId: blocked.id,
+    error: "Error: EACCES",
+  });
+  expect(keyOf(blocked.id)).toBeNull();
+  expect(keyOf(readable.id)).toBe(readable.artwork_key);
+  expect((await app.request(imageUrl(blocked.id))).status).toBe(200);
+
+  await migrateStarterCatalogues(db, storage, { warn });
+  expect(keyOf(blocked.id)).toBe(blocked.artwork_key);
+});
+
 it("bundles a transparent original and thumbnail for each catalogue icon", async () => {
   for (const directory of ["category-icons", "glassware-icons", "tool-icons"]) {
     const root = new URL(`./${directory}/`, import.meta.url);
@@ -71,6 +187,15 @@ it("seeds and serves compact pictures throughout the starter category tree", asy
   );
   expect(response.status).toBe(201);
   const { id } = barSummarySchema.parse(await response.json());
+  const treeUrl = `/api/bars/${id}/categories/tree`;
+  const plain = categoryTreeSchema.parse(await (await app.request(treeUrl)).json());
+  const illustratedTree = categoryTreeSchema.parse(
+    await (await app.request(`${treeUrl}?artwork=true`)).json(),
+  );
+  expect(plain.items[0]?.image_id).toBe(illustratedTree.items[0]?.image_id);
+  expect(plain.items[0]).not.toHaveProperty("image_artwork_key");
+  expect(plain.items[0]?.children[0]).not.toHaveProperty("image_artwork_key");
+  expect(illustratedTree.items[0]?.image_artwork_key).toMatch(/^[a-f0-9]{64}$/);
   const rows = db.select().from(categories).where(eq(categories.bar_id, id)).all();
   const illustrated = rows.filter(({ parent_id }) => parent_id === null);
   expect(illustrated.map(({ name }) => name).sort()).toEqual([

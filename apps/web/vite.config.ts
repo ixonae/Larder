@@ -125,8 +125,20 @@ export default defineConfig({
   resolve: {
     alias: { "@": resolve(webRoot, "src") },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [{ name: "shared", minShareCount: 2, includeDependenciesRecursively: false }],
+        },
+      },
+    },
+  },
   server: {
     fs: { strict: true, allow },
-    proxy: { "/api": process.env.LARDER_API_URL ?? "http://127.0.0.1:3000" },
+    proxy: {
+      "/api": process.env.LARDER_API_URL ?? "http://127.0.0.1:3000",
+      "/artwork": process.env.LARDER_API_URL ?? "http://127.0.0.1:3000",
+    },
   },
 });

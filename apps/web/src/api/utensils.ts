@@ -50,6 +50,7 @@ export const utensilOptionsQuery = (
 ): ApiQueryOptions<Utensil[], (string | undefined)[]> =>
   queryOptions({
     queryKey: [...utensilsKey(barId), "options", kind],
+    staleTime: 60_000,
     queryFn: ({ signal }: { signal: AbortSignal }) =>
       collectPages((query) => fetchUtensilPage(barId, { ...query, kind }, signal)),
   });

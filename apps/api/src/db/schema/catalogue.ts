@@ -23,6 +23,7 @@ export const images = sqliteTable(
       .references(() => bars.id, { onDelete: "cascade" }),
     storage_key: text("storage_key").notNull(),
     thumb_key: text("thumb_key").notNull(),
+    artwork_key: text("artwork_key"),
     mime: text("mime").notNull(),
     width: integer("width").notNull(),
     height: integer("height").notNull(),

@@ -269,7 +269,7 @@ describe("CategoriesPage", () => {
     const juice = byName("Juice");
     expect(requests.at(-1)).toEqual({ method: "PUT", id: juice.id });
     await waitFor(() =>
-      expect(tree().querySelector(`img[src="/api/images/${juice.id}/thumb"]`)).not.toBeNull(),
+      expect(tree().querySelector(`img[src="/api/images/${juice.id}/small"]`)).not.toBeNull(),
     );
   });
 

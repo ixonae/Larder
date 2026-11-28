@@ -165,7 +165,7 @@ function BottleDetails({
         <TabsContent value="details">
           {product.image_id && (
             <img
-              src={imageUrl(product.image_id)}
+              src={imageUrl(product.image_id, "display")}
               alt={product.name}
               className="max-h-80 w-full rounded-lg object-cover sm:w-auto sm:self-start"
             />

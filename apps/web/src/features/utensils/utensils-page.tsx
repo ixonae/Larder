@@ -64,7 +64,11 @@ function UtensilsView({ bar }: Readonly<{ bar: BarSummary }>): JSX.Element {
               >
                 {group.map((utensil) => (
                   <li key={utensil.id} className="flex items-center gap-2 p-3">
-                    <Thumbnail imageId={utensil.image_id} icon={UtensilsCrossed} />
+                    <Thumbnail
+                      imageId={utensil.image_id}
+                      artworkKey={utensil.image_artwork_key}
+                      icon={UtensilsCrossed}
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{utensil.name}</p>
                       {(utensil.capacity_ml !== null || utensil.description) && (

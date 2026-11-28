@@ -19,7 +19,7 @@ const db: Db = openDb(join(env.DATA_DIR, "larder.db"));
 runMigrations(db);
 requireOwnerAccount(db);
 const storage: ImageStorage = createDiskStorage(join(env.DATA_DIR, "uploads"));
-await migrateStarterCatalogues(db, storage);
+await migrateStarterCatalogues(db, storage, logger);
 
 const app: AppType = createApp({
   logger,
