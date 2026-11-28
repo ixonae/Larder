@@ -1,5 +1,6 @@
-import { IncomingMessage, ServerResponse } from "node:http";
-import { Socket } from "node:net";
+import { once } from "node:events";
+import { createServer, IncomingMessage, request, ServerResponse } from "node:http";
+import { type AddressInfo, Socket } from "node:net";
 import { getRequestListener } from "@hono/node-server";
 import { SESSION_REQUEST_HEADER } from "@larder/shared";
 import { HTTPException } from "hono/http-exception";
@@ -7,10 +8,15 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { AppType } from "./app.ts";
 import { bars, sessions } from "./db/schema/index.ts";
+import { seedUser } from "./db/seed.ts";
 import { AppError, conflict, forbidden, notFound } from "./errors.ts";
-import { MAX_PUBLIC_BODY_BYTES, PUBLIC_BODY_TIMEOUT_MS } from "./middleware/body.ts";
+import {
+  AUTHENTICATED_BODY_TIMEOUT_MS,
+  MAX_PUBLIC_BODY_BYTES,
+  PUBLIC_BODY_TIMEOUT_MS,
+} from "./middleware/body.ts";
 import { validate } from "./middleware/validate.ts";
-import { createTestApp, errorOf, jsonRequest } from "./test/app.ts";
+import { cookieFor, createTestApp, errorOf, jsonRequest } from "./test/app.ts";
 
 const setup: typeof createTestApp = createTestApp;
 
@@ -240,8 +246,64 @@ describe("body limit", () => {
     ).toBe("abcde");
   });
 
-  it("bounds simultaneous authenticated bodies across routes and releases their slots", async () => {
-    const { app, cookie } = setup();
+  it("sends a body timeout response through the Node HTTP server", async () => {
+    const { app } = setup();
+    const receiving = Promise.withResolvers<void>();
+    const listener = getRequestListener(
+      (req, env) => {
+        const response = app.fetch(req, env);
+        receiving.resolve();
+        return response;
+      },
+      { overrideGlobalObjects: false },
+    );
+    const server = createServer(listener).listen(0, "127.0.0.1");
+    try {
+      await once(server, "listening");
+      const { port } = server.address() as AddressInfo;
+      const url = `http://127.0.0.1:${port}/api/invitations/preview`;
+      const headers = { [SESSION_REQUEST_HEADER]: "1", "content-type": "application/json" };
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      const client = request(url, {
+        method: "POST",
+        headers,
+        signal: AbortSignal.timeout(3000),
+      });
+      try {
+        const response = once(client, "response").then(async (args) => {
+          const [res] = args as [IncomingMessage];
+          const chunks: Buffer[] = [];
+          for await (const chunk of res) chunks.push(chunk);
+          return { status: res.statusCode, body: JSON.parse(Buffer.concat(chunks).toString()) };
+        });
+        client.write("{");
+        await Promise.race([receiving.promise, response]);
+        await vi.advanceTimersByTimeAsync(PUBLIC_BODY_TIMEOUT_MS);
+        expect(await response).toEqual({
+          status: 400,
+          body: { error: { code: "VALIDATION", message: "Request body timed out" } },
+        });
+      } finally {
+        client.destroy();
+        vi.useRealTimers();
+      }
+      const retry = await fetch(url, { method: "POST", headers, body: "{}" });
+      expect(await errorOf(retry)).toMatchObject({ code: "VALIDATION", message: "Invalid json" });
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it("bounds simultaneous authenticated bodies per user and across routes and releases their slots", async () => {
+    const { app, db, bob, cookie } = setup();
+    const carol = seedUser(
+      db,
+      { email: "carol@larder.local", display_name: "Carol" },
+      "Carol's bar",
+    );
+    const bobCookie = cookieFor(db, bob.userId);
+    const carolCookie = cookieFor(db, carol.userId);
     let active = 0;
     const full = Promise.withResolvers<void>();
     const finish = Promise.withResolvers<void>();
@@ -252,15 +314,23 @@ describe("body limit", () => {
     });
     app.post("/api/echo", async (c) => c.text(await c.req.text()));
     app.delete("/api/empty", (c) => c.body(null, 204));
-    const holding = Array.from({ length: 4 }, () => app.request("/api/hold", post("{}")));
+    const hold = (as: string): Promise<Response> =>
+      Promise.resolve(app.request("/api/hold", { ...post("{}"), headers: { Cookie: as } }));
+    const holding = [cookie as string, cookie as string, bobCookie, bobCookie].map(hold);
     try {
       await full.promise;
-      const busy = await app.request("/api/echo", post("{}"));
+      const ownLimit = await app.request("/api/echo", post("{}"));
+      expect(ownLimit.status).toBe(429);
+      expect(ownLimit.headers.get("Retry-After")).toBe("1");
+      const busy = await app.request("/api/echo", {
+        ...post("{}"),
+        headers: { Cookie: carolCookie },
+      });
       expect(busy.status).toBe(503);
       expect(busy.headers.get("Retry-After")).toBe("1");
       expect((await errorOf(busy)).code).toBe("UNAVAILABLE");
       expect((await app.request("/api/me")).status).toBe(200);
-      const headers = { cookie: cookie as string };
+      const headers = { cookie: carolCookie };
       expect(await nodeRequest(app, "DELETE", "/api/empty", headers)).toBe(204);
       expect(
         await nodeRequest(
@@ -280,7 +350,69 @@ describe("body limit", () => {
       await Promise.all(holding);
     }
     expect((await app.request("/api/echo", post("{}"))).status).toBe(200);
+    // The production adapter's request is rebuilt with the buffered body.
+    expect(
+      await nodeRequest(
+        app,
+        "POST",
+        "/api/echo",
+        { cookie: carolCookie, "content-length": "2" },
+        "ok",
+      ),
+    ).toBe(200);
   });
+
+  it("times out authenticated bodies that stall and frees their slots", async () => {
+    const { app } = setup();
+    app.post("/api/echo", async (c) => c.text(await c.req.text()));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const reading = Promise.withResolvers<void>();
+      const pending = app.request("/api/echo", {
+        method: "POST",
+        duplex: "half",
+        body: new ReadableStream<Uint8Array>(
+          {
+            pull(): void {
+              reading.resolve();
+            },
+          },
+          { highWaterMark: 0 },
+        ),
+      });
+      await reading.promise;
+      await vi.advanceTimersByTimeAsync(AUTHENTICATED_BODY_TIMEOUT_MS);
+      expect(await errorOf(await pending)).toEqual({
+        code: "VALIDATION",
+        message: "Request body timed out",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(await (await app.request("/api/echo", post("ok"))).text()).toBe("ok");
+  });
+
+  it.each(["/api/echo", "/api/invitations/preview"])(
+    "reports a body the client abandons on %s as a bad request without logging an error",
+    async (path) => {
+      const { app, logs } = setup();
+      app.post("/api/echo", async (c) => c.text(await c.req.text()));
+      const res = await app.request(path, {
+        method: "POST",
+        duplex: "half",
+        body: new ReadableStream<Uint8Array>({
+          pull(controller: ReadableStreamDefaultController<Uint8Array>): void {
+            controller.error(new Error("aborted"));
+          },
+        }),
+      });
+      expect(await errorOf(res)).toEqual({
+        code: "VALIDATION",
+        message: "Request body was not received",
+      });
+      expect(logs().filter((line) => line.level === "error")).toEqual([]);
+    },
+  );
 
   it("defaults to 10 MB", async () => {
     const { app } = setup();

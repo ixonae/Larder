@@ -54,7 +54,9 @@ Set options in a `.env` file next to `docker-compose.yml`.
 
 Public account and invitation forms have 15 seconds to finish sending their body. The API accepts
 up to two concurrent public requests with bodies per transport peer and eight across the instance.
-Clients behind the same reverse proxy share its peer limit.
+Clients behind the same reverse proxy share its peer limit. Signed-in requests have 120 seconds to
+finish sending their body. Each account can send two bodies at a time, and the instance accepts
+four at a time.
 
 ### Resetting the owner password
 
