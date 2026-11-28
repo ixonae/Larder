@@ -25,6 +25,8 @@ export interface AppDeps {
   storage: ImageStorage;
   /** The browser-facing origin, including when TLS terminates at a reverse proxy. */
   publicUrl?: string;
+  /** Immediate reverse proxy allowed to supply the verified client IP. */
+  trustedProxy?: string;
   /** Directory of the built web app to serve (production). */
   webDir?: string;
   /** Largest request body accepted, in bytes; bigger ones get `PAYLOAD_TOO_LARGE`. */
@@ -56,6 +58,7 @@ export function createApp({
   db,
   storage,
   publicUrl,
+  trustedProxy,
   webDir,
   maxBodyBytes = DEFAULT_MAX_BODY_BYTES,
 }: AppDeps) {
@@ -63,18 +66,20 @@ export function createApp({
 
   const limitUploads: AppEnv["Variables"]["limitUploads"] = rateLimit(20);
   const limitAttempts: ReturnType<typeof rateLimit> = rateLimit(10);
+  const limitAccountChanges = rateLimit(10);
   const queue: ReturnType<typeof concurrencyLimit> = concurrencyLimit(2, 4);
-  const credentialCheck = <T>(key: string, task: () => Promise<T>): Promise<T> => {
-    limitAttempts(key);
-    return queue(task);
-  };
   app.use(requestId());
   app.use(async (c, next) => {
     c.set("logger", logger);
     c.set("db", db);
     c.set("storage", storage);
     c.set("limitUploads", limitUploads);
-    c.set("credentialCheck", credentialCheck);
+    c.set("trustedProxy", trustedProxy);
+    c.set("credentialCheck", (peer, task) => {
+      if (c.var.user) limitAccountChanges(c.var.user.id);
+      else limitAttempts(peer);
+      return queue(task);
+    });
     c.set("publicUrl", publicUrl);
     const start = performance.now();
     await next();

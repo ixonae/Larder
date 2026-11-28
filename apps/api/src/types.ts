@@ -21,6 +21,7 @@ export type AppEnv = {
   Variables: RequestIdVariables & {
     logger: Logger;
     publicUrl: string | undefined;
+    trustedProxy: string | undefined;
     credentialCheck: <T>(key: string, task: () => Promise<T>) => Promise<T>;
     limitUploads: (userId: string) => void;
     db: Db;

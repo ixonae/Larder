@@ -2,7 +2,6 @@ import type { Context, MiddlewareHandler } from "hono";
 import { createMiddleware } from "hono/factory";
 import { concurrencyLimit } from "../auth/limit.ts";
 import { requireCurrentUser } from "../auth/middleware.ts";
-import { peerKey } from "../auth/rate-limit.ts";
 import { AppError, invalid, rateLimited } from "../errors.ts";
 import type { AppEnv } from "../types.ts";
 
@@ -118,9 +117,9 @@ export function admitPublicBodies(configuredLimit: number): MiddlewareHandler<Ap
   return createMiddleware<AppEnv>((c, next) => {
     const body = requestBody(c);
     if (!body) return next();
-    const key = peerKey(c);
+    const peer = c.env?.incoming.socket.remoteAddress ?? "local";
     return run(() =>
-      perPeer(key, async () => {
+      perPeer(peer, async () => {
         await bufferBody(c, body, maxSize, PUBLIC_BODY_TIMEOUT_MS);
         await next();
       }),

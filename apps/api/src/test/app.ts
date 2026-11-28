@@ -37,11 +37,13 @@ export interface TestApp {
 export function createTestApp({
   as = ALICE.email,
   publicUrl,
+  trustedProxy,
   webDir,
   maxBodyBytes,
 }: {
   as?: string;
   publicUrl?: string;
+  trustedProxy?: string;
   webDir?: string;
   maxBodyBytes?: number;
 } = {}): TestApp {
@@ -59,6 +61,7 @@ export function createTestApp({
     db,
     storage,
     publicUrl,
+    trustedProxy,
     webDir,
     ...(maxBodyBytes !== undefined && { maxBodyBytes }),
   });

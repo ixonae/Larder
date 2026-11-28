@@ -13,6 +13,7 @@ services:
       - "${LARDER_BIND:-127.0.0.1}:${LARDER_PORT:-3000}:3000"
     environment:
       LARDER_PUBLIC_URL: ${LARDER_PUBLIC_URL:-}
+      LARDER_TRUSTED_PROXY: ${LARDER_TRUSTED_PROXY:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-10}
     volumes:

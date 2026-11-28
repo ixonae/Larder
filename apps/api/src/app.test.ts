@@ -176,30 +176,40 @@ describe("body limit", () => {
     },
   );
 
-  it("releases public capacity after a read deadline and keeps other peers and empty sign-outs available", async () => {
-    const { app, cookie } = setup();
+  it("shares public body capacity across clients of a trusted proxy and releases it on timeout", async () => {
+    const peer = { incoming: { socket: { remoteAddress: "192.0.2.1" } } };
+    const { app, cookie } = setup({ trustedProxy: "192.0.2.1" });
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
       const reading = Promise.withResolvers<void>();
       const cancelled = vi.fn();
       let started = 0;
-      const pending = Array.from({ length: 2 }, () =>
-        app.request("/api/invitations/preview", {
-          method: "POST",
-          duplex: "half",
-          body: new ReadableStream<Uint8Array>(
-            {
-              pull(): void {
-                if (++started === 2) reading.resolve();
+      const pending = ["198.51.100.1", "198.51.100.2"].map((client) =>
+        app.request(
+          "/api/invitations/preview",
+          {
+            method: "POST",
+            headers: { "X-Real-IP": client },
+            duplex: "half",
+            body: new ReadableStream<Uint8Array>(
+              {
+                pull(): void {
+                  if (++started === 2) reading.resolve();
+                },
+                cancel: cancelled,
               },
-              cancel: cancelled,
-            },
-            { highWaterMark: 0 },
-          ),
-        }),
+              { highWaterMark: 0 },
+            ),
+          },
+          peer,
+        ),
       );
       await reading.promise;
-      const busy = await app.request("/api/auth/sign-in", post("{}"));
+      const retry = {
+        ...post("{}"),
+        headers: { "Content-Type": "application/json", "X-Real-IP": "198.51.100.3" },
+      };
+      const busy = await app.request("/api/auth/sign-in", retry, peer);
       expect(busy.status).toBe(429);
       expect(busy.headers.get("Retry-After")).toBe("1");
       const other = await app.request("/api/invitations/preview", post("{}"), {
@@ -221,7 +231,7 @@ describe("body limit", () => {
         });
       }
       expect(cancelled).toHaveBeenCalledTimes(2);
-      expect((await app.request("/api/invitations/preview", post("{}"))).status).toBe(400);
+      expect((await app.request("/api/invitations/preview", retry, peer)).status).toBe(400);
     } finally {
       vi.useRealTimers();
     }
