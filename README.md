@@ -50,7 +50,7 @@ Set options in a `.env` file next to `docker-compose.yml`.
 | `LARDER_BIND` | `127.0.0.1` | Host address to bind to |
 | `LARDER_DATA_DIR` | `./data` | Data directory on the host |
 | `LARDER_UID` / `LARDER_GID` | `1000` | User and group IDs of the owner of the data directory |
-| `MAX_UPLOAD_MB` | `10` | Largest request body the API accepts |
+| `MAX_UPLOAD_MB` | `10` | Largest authenticated request body. Public account and invitation forms also have a 16 KiB limit |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` or `silent` |
 
 For per-client sign-in limits behind a reverse proxy, set `LARDER_TRUSTED_PROXY` and configure that
@@ -60,6 +60,12 @@ IPv4 clients share an allowance per address, including IPv4-mapped IPv6 connecti
 share an allowance per /64 subnet. Larder ignores zone identifiers when grouping connections and
 accepts forwarded addresses only from an exact, unscoped proxy match. Missing peer addresses share
 a local allowance. Authenticated password operations have a separate allowance per acting account.
+
+Public account and invitation forms have 15 seconds to finish sending their body. The API accepts
+up to two concurrent public requests with bodies per transport peer and eight across the instance.
+Clients behind the same reverse proxy share its peer limit. Signed-in requests have 120 seconds to
+finish sending their body. Each account can send two bodies at a time, and the instance accepts
+four at a time.
 
 ### Resetting the owner password
 
@@ -116,7 +122,10 @@ pnpm dev
 
 Open <http://localhost:5173> and sign in as `owner@larder.local` with the password you set. The dev
 server forwards API requests to `127.0.0.1:3000`. Local data lives in `./data` by default. Set
-`DATA_DIR` to use another directory. Relative paths are resolved from the repository root.
+`DATA_DIR` to use another directory. Relative paths are resolved from the repository root. Keep this directory outside
+the frontend source, public assets, dependencies and build output (`apps/web/dist` by default).
+Vite checks public asset symlink targets when it starts, and the dev server refuses public
+requests that resolve into this directory.
 
 Run these checks before opening a pull request.
 

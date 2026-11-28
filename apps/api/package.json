@@ -10,12 +10,12 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@hono/node-server": "2.1.9",
+    "@hono/node-server": "2.1.11",
     "@hono/zod-validator": "0.9.1",
     "@larder/shared": "workspace:*",
     "better-sqlite3": "13.2.0",
     "drizzle-orm": "0.45.4",
-    "hono": "4.13.19",
+    "hono": "4.13.21",
     "sharp": "0.35.5",
     "zod": "4.6.7"
   },
