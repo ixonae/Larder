@@ -1,4 +1,4 @@
-import type { ListTagsQuery } from "@larder/shared";
+import { type ListTagsQuery, nameKey as normalizeTag } from "@larder/shared";
 import { and, eq, type SQL, sql } from "drizzle-orm";
 import type { Executor } from "../../db/client.ts";
 import { afterName, byName, type NameCursor } from "../../db/cursor.ts";
@@ -59,12 +59,15 @@ export function replaceTags(db: Executor, owner: RecipeOwner, names: string[]): 
       and(eq(cocktailTags.bar_id, owner.bar_id), eq(cocktailTags.cocktail_id, owner.cocktail_id)),
     )
     .run();
-  const tagIds = new Set<string>();
+  const seen = new Set<string>();
   for (const name of names) {
+    const key = normalizeTag(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
     const existing = db
       .select(tagColumns)
       .from(tags)
-      .where(and(eq(tags.bar_id, owner.bar_id), eq(tagKey, sql`larder_name_key(${name})`)))
+      .where(and(eq(tags.bar_id, owner.bar_id), eq(tagKey, key)))
       .get();
     const tag =
       existing ??
@@ -73,12 +76,10 @@ export function replaceTags(db: Executor, owner: RecipeOwner, names: string[]): 
         .values({ name, bar_id: owner.bar_id, created_by: owner.created_by })
         .returning(tagColumns)
         .get();
-    tagIds.add(tag.id);
-  }
-  for (const tag_id of tagIds)
     db.insert(cocktailTags)
-      .values({ ...owner, tag_id })
+      .values({ ...owner, tag_id: tag.id })
       .run();
+  }
 }
 
 export function listSteps(

@@ -264,7 +264,10 @@ function replaceRecipeLists(
   if (ingredients !== undefined) replaceIngredients(db, barId, userId, id, ingredients);
   if (steps !== undefined) recipeRepo.replaceSteps(db, owner, steps);
   if (tool_ids !== undefined) {
+    const checked = new Set<string>();
     for (const [index, toolId] of tool_ids.entries()) {
+      if (checked.has(toolId)) continue;
+      checked.add(toolId);
       requireUtensilKind(db, barId, toolId, "tool", ["tool_ids", index]);
     }
     recipeRepo.replaceTools(db, owner, tool_ids);

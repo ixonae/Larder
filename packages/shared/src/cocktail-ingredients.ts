@@ -40,15 +40,23 @@ const quantity = z.object({
   preparation_only: z.boolean().default(false),
 });
 
+export const MAX_INGREDIENT_ALTERNATIVES = 8;
+
 const alternativeInput = ingredientSourceSchema.and(preparation);
-export const cocktailIngredientInputSchema = ingredientSourceSchema
-  .and(
-    quantity.extend({ note: note.optional(), alternatives: alternativeInput.array().default([]) }),
-  )
+const ingredient = ingredientSourceSchema
+  .and(quantity.extend({ note: note.optional() }))
   .refine((line) => line.amount != null || !unitNeedsAmount(line.unit), {
     path: ["amount"],
     message: "Enter an amount for this unit",
   });
+const alternatives = alternativeInput.array();
+/** The editor can load a previously saved ingredient with more alternatives than a new write allows. */
+export const cocktailIngredientDraftSchema = ingredient.and(
+  z.object({ alternatives: alternatives.default([]) }),
+);
+export const cocktailIngredientInputSchema = ingredient.and(
+  z.object({ alternatives: alternatives.max(MAX_INGREDIENT_ALTERNATIVES).default([]) }),
+);
 export type CocktailIngredientInput = z.infer<typeof cocktailIngredientInputSchema>;
 
 const resolvedSource = z.object({
