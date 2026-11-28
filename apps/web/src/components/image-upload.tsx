@@ -45,26 +45,33 @@ export function ImageUpload({
   const preview = usePreview(value.kind === "replace" ? value.file : null);
   const saved = value.kind === "keep" ? imageId : null;
   const shown = preview ?? saved;
+  const imageClass = "size-20 rounded-md object-cover";
+  let picture: JSX.Element;
+  if (preview) {
+    picture = <img src={preview} alt="Preview" className={imageClass} />;
+  } else if (saved) {
+    picture = (
+      <ItemImage
+        imageId={saved}
+        size="thumb"
+        artworkKey={artworkKey}
+        alt="Preview"
+        className={imageClass}
+      />
+    );
+  } else {
+    picture = (
+      <span className="flex size-20 items-center justify-center rounded-md border border-dashed text-muted-foreground text-xs">
+        None
+      </span>
+    );
+  }
 
   return (
     <div className="grid gap-1.5">
       <Label htmlFor={id}>Picture</Label>
       <div className="flex items-center gap-3">
-        {preview ? (
-          <img src={preview} alt="Preview" className="size-20 rounded-md object-cover" />
-        ) : saved ? (
-          <ItemImage
-            imageId={saved}
-            size="thumb"
-            artworkKey={artworkKey}
-            alt="Preview"
-            className="size-20 rounded-md object-cover"
-          />
-        ) : (
-          <span className="flex size-20 items-center justify-center rounded-md border border-dashed text-muted-foreground text-xs">
-            None
-          </span>
-        )}
+        {picture}
         <div className="flex flex-col gap-2">
           <Button
             type="button"

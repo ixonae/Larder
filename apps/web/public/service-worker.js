@@ -54,7 +54,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = request.mode === "navigate" && request.method === "GET" ? new URL(request.url) : null;
-  if (url === null || url.origin !== self.location.origin) return;
+  if (url?.origin !== self.location.origin) return;
   // Preload starts before this handler, including for direct API navigations.
   const api = url.pathname === "/api" || url.pathname.startsWith("/api/");
   if (api && event.preloadResponse === undefined) return;

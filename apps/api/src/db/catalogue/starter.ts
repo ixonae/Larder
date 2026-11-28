@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { type CategoryKind, createUtensilSchema, nameKey, type UtensilKind } from "@larder/shared";
 import { createLogger, type Logger } from "../../logger.ts";
-import { legacyArtworkCandidates, setArtworkKey } from "../../modules/images/repo.ts";
+import {
+  legacyArtworkCandidates,
+  type StoredImage,
+  setArtworkKey,
+} from "../../modules/images/repo.ts";
 import type { ProcessedImage } from "../../storage/process.ts";
 import type { ImageStorage } from "../../storage/storage.ts";
 import type { Ctx } from "../../types.ts";
@@ -207,17 +211,17 @@ async function backfillArtworkKeys(
 ): Promise<void> {
   if (db.select().from(barDataMigrations).where(catalogueRecord(barId, artworkMigration)).get())
     return;
-  const matches: { id: string; key: string }[] = [];
+  type Match = { id: string; key: string };
   let failed = false;
-  for (const image of legacyArtworkCandidates(db, barId, bundledArtworkSizes())) {
+  async function matchArtwork(image: StoredImage): Promise<Match | null> {
     try {
       const [full, thumb] = await Promise.all([
         storage.get(image.storage_key),
         storage.get(image.thumb_key),
       ]);
-      if (!full || !thumb) continue;
+      if (!full || !thumb) return null;
       const key = availableArtworkKey(artworkKey(full, thumb));
-      if (key) matches.push({ id: image.id, key });
+      return key ? { id: image.id, key } : null;
     } catch (error) {
       failed = true;
       logger.warn("Could not identify legacy artwork", {
@@ -225,7 +229,18 @@ async function backfillArtworkKeys(
         imageId: image.id,
         error: String(error),
       });
+      return null;
     }
+  }
+  // Start each read when the async consumer reaches that candidate.
+  function* scanArtwork(): Generator<Promise<Match | null>> {
+    for (const image of legacyArtworkCandidates(db, barId, bundledArtworkSizes())) {
+      yield matchArtwork(image);
+    }
+  }
+  const matches: Match[] = [];
+  for await (const match of scanArtwork()) {
+    if (match) matches.push(match);
   }
   db.transaction((tx) => {
     for (const { id, key } of matches) setArtworkKey(tx, barId, id, key);
